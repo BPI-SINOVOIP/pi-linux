@@ -118,6 +118,16 @@
 	cpu-supply = <&reg_dcdc2>;
 };
 
+&codec {
+	allwinner,audio-routing =
+		"Headphone", "HP",
+		"Headphone", "HPCOM",
+		"MIC1", "Mic",
+		"Mic", "MBIAS";
+	allwinner,codec-analog-controls = <&codec_analog>;
+	status = "okay";
+};
+
 &de {
 	status = "okay";
 };
@@ -168,6 +178,10 @@
 };
 
 #include "axp22x.dtsi"
+
+&i2s2 {
+	status = "okay";
+};
 
 &ir0 {
 	status = "okay";
@@ -302,6 +316,10 @@
 	regulator-min-microvolt = <1200000>;
 	regulator-max-microvolt = <1200000>;
 	regulator-name = "vdd1v2-sata";
+};
+
+&sound_hdmi {
+	status = "okay";
 };
 
 &tcon_tv0 {

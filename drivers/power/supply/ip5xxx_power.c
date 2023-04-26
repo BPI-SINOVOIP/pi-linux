@@ -44,6 +44,9 @@
 #define IP5XXX_GPIO_CTL2		0x53
 #define IP5XXX_GPIO_CTL2A		0x54
 #define IP5XXX_GPIO_CTL3		0x55
+#define IP5XXX_STATUS			0x70
+#define IP5XXX_STATUS_BOOST_ON			BIT(2)
+#define IP5XXX_STATUS_VIN_PRESENT		BIT(4)
 #define IP5XXX_READ0			0x71
 #define IP5XXX_READ0_CHG_STAT			GENMASK(7, 5)
 #define IP5XXX_READ0_CHG_STAT_IDLE		(0x0 << 5)
@@ -76,6 +79,8 @@
 
 struct ip5xxx {
 	struct regmap *regmap;
+	struct power_supply_battery_info *bat;
+	int r_int;
 	bool initialized;
 };
 
@@ -120,18 +125,28 @@ static int ip5xxx_initialize(struct power_supply *psy)
 		return 0;
 
 	/*
+	 * Disable flashlight feature.
+	 */
+	ret = ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL0,
+				 IP5XXX_SYS_CTL0_WLED_DET_EN |
+				 IP5XXX_SYS_CTL0_WLED_EN,
+				 0);
+	if (ret)
+		return ret;
+
+	/*
 	 * Disable shutdown under light load.
 	 * Enable power on when under load.
 	 */
 	ret = ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL1,
 				 IP5XXX_SYS_CTL1_LIGHT_SHDN_EN |
 				 IP5XXX_SYS_CTL1_LOAD_PWRUP_EN,
-				 IP5XXX_SYS_CTL1_LOAD_PWRUP_EN);
+				 0);
 	if (ret)
 		return ret;
 
 	/*
-	 * Enable shutdown after a long button press (as configured below).
+	 * Enable shutdown after a double press (as configured below).
 	 */
 	ret = ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL3,
 				 IP5XXX_SYS_CTL3_BTN_SHDN_EN,
@@ -140,7 +155,7 @@ static int ip5xxx_initialize(struct power_supply *psy)
 		return ret;
 
 	/*
-	 * Power on automatically when VIN is removed.
+	 * Don't power on automatically when VIN is removed.
 	 */
 	ret = ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL4,
 				 IP5XXX_SYS_CTL4_VIN_PULLOUT_BOOST_EN,
@@ -150,14 +165,12 @@ static int ip5xxx_initialize(struct power_supply *psy)
 
 	/*
 	 * Enable the NTC.
-	 * Configure the button for two presses => LED, long press => shutdown.
+	 * Configure the button for two presses => shutdown, long press => LED.
 	 */
 	ret = ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL5,
 				 IP5XXX_SYS_CTL5_NTC_DIS |
 				 IP5XXX_SYS_CTL5_WLED_MODE_SEL |
-				 IP5XXX_SYS_CTL5_BTN_SHDN_SEL,
-				 IP5XXX_SYS_CTL5_WLED_MODE_SEL |
-				 IP5XXX_SYS_CTL5_BTN_SHDN_SEL);
+				 IP5XXX_SYS_CTL5_BTN_SHDN_SEL, 0);
 	if (ret)
 		return ret;
 
@@ -170,7 +183,10 @@ static int ip5xxx_initialize(struct power_supply *psy)
 static const enum power_supply_property ip5xxx_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
 	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CALIBRATE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
@@ -179,6 +195,8 @@ static const enum power_supply_property ip5xxx_battery_properties[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
 };
 
 static int ip5xxx_battery_get_status(struct ip5xxx *ip5xxx, int *val)
@@ -316,6 +334,7 @@ static int ip5xxx_battery_get_property(struct power_supply *psy,
 	struct ip5xxx *ip5xxx = power_supply_get_drvdata(psy);
 	int raw, ret, vmax;
 	unsigned int rval;
+	union power_supply_propval cur, vol;
 
 	ret = ip5xxx_initialize(psy);
 	if (ret)
@@ -325,11 +344,40 @@ static int ip5xxx_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 		return ip5xxx_battery_get_status(ip5xxx, &val->intval);
 
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		ret = ip5xxx_read(ip5xxx, IP5XXX_SYS_CTL0, &rval);
+		if (ret)
+			return ret;
+
+		if (rval & IP5XXX_SYS_CTL0_CHARGER_EN)
+			val->intval = POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
+		else
+			val->intval = POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE;
+
+		return 0;
+
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		return ip5xxx_battery_get_charge_type(ip5xxx, &val->intval);
 
 	case POWER_SUPPLY_PROP_HEALTH:
 		return ip5xxx_battery_get_health(ip5xxx, &val->intval);
+
+	case POWER_SUPPLY_PROP_CAPACITY:
+		ret = ip5xxx_battery_get_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &vol);
+		if (ret)
+			return ret;
+
+		ret = ip5xxx_battery_get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &cur);
+		if (ret)
+			return ret;
+
+		ret = power_supply_batinfo_ocv2cap(ip5xxx->bat,
+			   vol.intval - cur.intval * ip5xxx->r_int / 1000, 20);
+		if (ret < 0)
+			return ret;
+
+		val->intval = ret;
+		return 0;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		return ip5xxx_battery_get_voltage_max(ip5xxx, &val->intval);
@@ -353,6 +401,14 @@ static int ip5xxx_battery_get_property(struct power_supply *psy,
 					      IP5XXX_BATIADC_DAT1, &raw);
 
 		val->intval = DIV_ROUND_CLOSEST(raw * 149197, 200);
+		return 0;
+
+	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
+		val->intval = ip5xxx->bat->energy_full_design_uwh;
+		return 0;
+
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
+		val->intval = 0;
 		return 0;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
@@ -387,6 +443,10 @@ static int ip5xxx_battery_get_property(struct power_supply *psy,
 			return ret;
 
 		val->intval = vmax + 14000 * 3;
+		return 0;
+
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		val->intval = ip5xxx->r_int;
 		return 0;
 
 	default:
@@ -455,6 +515,21 @@ static int ip5xxx_battery_set_property(struct power_supply *psy,
 		return ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL0,
 					  IP5XXX_SYS_CTL0_CHARGER_EN, rval);
 
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		switch (val->intval) {
+		case POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO:
+			rval = IP5XXX_SYS_CTL0_CHARGER_EN;
+			break;
+		case POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE:
+			rval = 0;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		return ip5xxx_update_bits(ip5xxx, IP5XXX_SYS_CTL0,
+					  IP5XXX_SYS_CTL0_CHARGER_EN, rval);
+
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		return ip5xxx_battery_set_voltage_max(ip5xxx, val->intval);
 
@@ -472,6 +547,12 @@ static int ip5xxx_battery_set_property(struct power_supply *psy,
 		return ip5xxx_update_bits(ip5xxx, IP5XXX_CHG_CTL2,
 					  IP5XXX_CHG_CTL2_CONST_VOLT_SEL, rval);
 
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		if (val->intval < 0 || val->intval > 1000)
+			return -EINVAL;
+		ip5xxx->r_int = val->intval;
+		return 0;
+
 	default:
 		return -EINVAL;
 	}
@@ -482,6 +563,8 @@ static int ip5xxx_battery_property_is_writeable(struct power_supply *psy,
 {
 	return psp == POWER_SUPPLY_PROP_STATUS ||
 	       psp == POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN ||
+	       psp == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR ||
+	       psp == POWER_SUPPLY_PROP_CALIBRATE ||
 	       psp == POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT ||
 	       psp == POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE;
 }
@@ -498,6 +581,7 @@ static const struct power_supply_desc ip5xxx_battery_desc = {
 
 static const enum power_supply_property ip5xxx_boost_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 };
 
@@ -520,6 +604,14 @@ static int ip5xxx_boost_get_property(struct power_supply *psy,
 			return ret;
 
 		val->intval = !!(rval & IP5XXX_SYS_CTL0_BOOST_EN);
+		return 0;
+
+	case POWER_SUPPLY_PROP_PRESENT:
+		ret = ip5xxx_read(ip5xxx, IP5XXX_STATUS, &rval);
+		if (ret)
+			return ret;
+
+		val->intval = !!(rval & IP5XXX_STATUS_BOOST_ON);
 		return 0;
 
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
@@ -567,7 +659,7 @@ static int ip5xxx_boost_set_property(struct power_supply *psy,
 static int ip5xxx_boost_property_is_writeable(struct power_supply *psy,
 					      enum power_supply_property psp)
 {
-	return true;
+	return psp != POWER_SUPPLY_PROP_PRESENT;
 }
 
 static const struct power_supply_desc ip5xxx_boost_desc = {
@@ -577,6 +669,45 @@ static const struct power_supply_desc ip5xxx_boost_desc = {
 	.num_properties		= ARRAY_SIZE(ip5xxx_boost_properties),
 	.get_property		= ip5xxx_boost_get_property,
 	.set_property		= ip5xxx_boost_set_property,
+	.property_is_writeable	= ip5xxx_boost_property_is_writeable,
+};
+
+static const enum power_supply_property ip5xxx_usb_properties[] = {
+	POWER_SUPPLY_PROP_PRESENT,
+};
+
+static int ip5xxx_usb_get_property(struct power_supply *psy,
+				     enum power_supply_property psp,
+				     union power_supply_propval *val)
+{
+	struct ip5xxx *ip5xxx = power_supply_get_drvdata(psy);
+	unsigned int rval;
+	int ret;
+
+	ret = ip5xxx_initialize(psy);
+	if (ret)
+		return ret;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+		ret = ip5xxx_read(ip5xxx, IP5XXX_STATUS, &rval);
+		if (ret)
+			return ret;
+
+		val->intval = !!(rval & IP5XXX_STATUS_VIN_PRESENT);
+		return 0;
+
+	default:
+		return -EINVAL;
+	}
+}
+
+static const struct power_supply_desc ip5xxx_usb_desc = {
+	.name			= "ip5xxx-usb",
+	.type			= POWER_SUPPLY_TYPE_USB,
+	.properties		= ip5xxx_usb_properties,
+	.num_properties		= ARRAY_SIZE(ip5xxx_usb_properties),
+	.get_property		= ip5xxx_usb_get_property,
 	.property_is_writeable	= ip5xxx_boost_property_is_writeable,
 };
 
@@ -592,6 +723,7 @@ static int ip5xxx_power_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct power_supply *psy;
 	struct ip5xxx *ip5xxx;
+	int ret;
 
 	ip5xxx = devm_kzalloc(dev, sizeof(*ip5xxx), GFP_KERNEL);
 	if (!ip5xxx)
@@ -611,6 +743,19 @@ static int ip5xxx_power_probe(struct i2c_client *client)
 	psy = devm_power_supply_register(dev, &ip5xxx_boost_desc, &psy_cfg);
 	if (IS_ERR(psy))
 		return PTR_ERR(psy);
+
+	psy = devm_power_supply_register(dev, &ip5xxx_usb_desc, &psy_cfg);
+	if (IS_ERR(psy))
+		return PTR_ERR(psy);
+
+	ret = power_supply_get_battery_info(psy, &ip5xxx->bat);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to get battery info\n");
+
+	if (ip5xxx->bat->factory_internal_resistance_uohm >= 0)
+		ip5xxx->r_int = ip5xxx->bat->factory_internal_resistance_uohm / 1000;
+	else
+		ip5xxx->r_int = 120;
 
 	return 0;
 }

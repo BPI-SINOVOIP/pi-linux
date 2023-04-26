@@ -265,6 +265,7 @@ struct dw_mipi_dsi {
 	struct dw_mipi_dsi *master; /* dual-dsi master ptr */
 	struct dw_mipi_dsi *slave; /* dual-dsi slave ptr */
 
+	struct drm_display_mode mode;
 	const struct dw_mipi_dsi_plat_data *plat_data;
 };
 
@@ -571,6 +572,8 @@ static void dw_mipi_dsi_set_mode(struct dw_mipi_dsi *dsi,
 {
 	u32 val;
 
+	dev_info(dsi->dev, "mode %d\n", (int)mode_flags);
+
 	dsi_write(dsi, DSI_PWR_UP, RESET);
 
 	if (mode_flags & MIPI_DSI_MODE_VIDEO) {
@@ -845,11 +848,21 @@ static void dw_mipi_dsi_clear_err(struct dw_mipi_dsi *dsi)
 	dsi_write(dsi, DSI_INT_MSK1, 0);
 }
 
-static void dw_mipi_dsi_bridge_post_atomic_disable(struct drm_bridge *bridge,
+static void dw_mipi_dsi_bridge_atomic_disable(struct drm_bridge *bridge,
+					      struct drm_bridge_state *old_bridge_state)
+{
+	struct dw_mipi_dsi *dsi = bridge_to_dsi(bridge);
+
+	dev_info(dsi->dev, "disable\n");
+}
+
+static void dw_mipi_dsi_bridge_atomic_post_disable(struct drm_bridge *bridge,
 						   struct drm_bridge_state *old_bridge_state)
 {
 	struct dw_mipi_dsi *dsi = bridge_to_dsi(bridge);
 	const struct dw_mipi_dsi_phy_ops *phy_ops = dsi->plat_data->phy_ops;
+
+	dev_info(dsi->dev, "post disable\n");
 
 	/*
 	 * Switch to command mode before panel-bridge post_disable &
@@ -858,15 +871,6 @@ static void dw_mipi_dsi_bridge_post_atomic_disable(struct drm_bridge *bridge,
 	 * before by the drm framework.
 	 */
 	dw_mipi_dsi_set_mode(dsi, 0);
-
-	/*
-	 * TODO Only way found to call panel-bridge post_disable &
-	 * panel unprepare before the dsi "final" disable...
-	 * This needs to be fixed in the drm_bridge framework and the API
-	 * needs to be updated to manage our own call chains...
-	 */
-	if (dsi->panel_bridge->funcs->post_disable)
-		dsi->panel_bridge->funcs->post_disable(dsi->panel_bridge);
 
 	if (phy_ops->power_off)
 		phy_ops->power_off(dsi->plat_data->priv_data);
@@ -896,7 +900,7 @@ static unsigned int dw_mipi_dsi_get_lanes(struct dw_mipi_dsi *dsi)
 	return dsi->lanes;
 }
 
-static void dw_mipi_dsi_mode_set(struct dw_mipi_dsi *dsi,
+static void dw_mipi_dsi_enable(struct dw_mipi_dsi *dsi,
 				 const struct drm_display_mode *adjusted_mode)
 {
 	const struct dw_mipi_dsi_phy_ops *phy_ops = dsi->plat_data->phy_ops;
@@ -948,9 +952,23 @@ static void dw_mipi_dsi_bridge_mode_set(struct drm_bridge *bridge,
 {
 	struct dw_mipi_dsi *dsi = bridge_to_dsi(bridge);
 
-	dw_mipi_dsi_mode_set(dsi, adjusted_mode);
+	dev_info(dsi->dev, "mode set\n");
+
+	/* Store the display mode for plugin/DKMS poweron events */
+	memcpy(&dsi->mode, mode, sizeof(dsi->mode));
+}
+
+static void dw_mipi_dsi_bridge_atomic_pre_enable(struct drm_bridge *bridge,
+						 struct drm_bridge_state *old_bridge_state)
+{
+	struct dw_mipi_dsi *dsi = bridge_to_dsi(bridge);
+
+	dev_info(dsi->dev, "pre enable\n");
+
+	/* power up the dsi ctl into a command mode */
+	dw_mipi_dsi_enable(dsi, &dsi->mode);
 	if (dsi->slave)
-		dw_mipi_dsi_mode_set(dsi->slave, adjusted_mode);
+		dw_mipi_dsi_enable(dsi->slave, &dsi->mode);
 }
 
 static void dw_mipi_dsi_bridge_atomic_enable(struct drm_bridge *bridge,
@@ -958,7 +976,8 @@ static void dw_mipi_dsi_bridge_atomic_enable(struct drm_bridge *bridge,
 {
 	struct dw_mipi_dsi *dsi = bridge_to_dsi(bridge);
 
-	/* Switch to video mode for panel-bridge enable & panel enable */
+	dev_info(dsi->dev, "enable\n");
+
 	dw_mipi_dsi_set_mode(dsi, MIPI_DSI_MODE_VIDEO);
 	if (dsi->slave)
 		dw_mipi_dsi_set_mode(dsi->slave, MIPI_DSI_MODE_VIDEO);
@@ -1004,8 +1023,10 @@ static const struct drm_bridge_funcs dw_mipi_dsi_bridge_funcs = {
 	.atomic_duplicate_state	= drm_atomic_helper_bridge_duplicate_state,
 	.atomic_destroy_state	= drm_atomic_helper_bridge_destroy_state,
 	.atomic_reset		= drm_atomic_helper_bridge_reset,
+	.atomic_pre_enable	= dw_mipi_dsi_bridge_atomic_pre_enable,
 	.atomic_enable		= dw_mipi_dsi_bridge_atomic_enable,
-	.atomic_post_disable	= dw_mipi_dsi_bridge_post_atomic_disable,
+	.atomic_disable		= dw_mipi_dsi_bridge_atomic_disable,
+	.atomic_post_disable	= dw_mipi_dsi_bridge_atomic_post_disable,
 	.mode_set		= dw_mipi_dsi_bridge_mode_set,
 	.mode_valid		= dw_mipi_dsi_bridge_mode_valid,
 	.attach			= dw_mipi_dsi_bridge_attach,

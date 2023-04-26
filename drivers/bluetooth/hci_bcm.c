@@ -1564,8 +1564,13 @@ static struct bcm_device_data cyw55572_device_data = {
 	.max_autobaud_speed = 921600,
 };
 
+static struct bcm_device_data bcm20702a1_device_data = {
+	.drive_rts_on_open = true,
+	.no_early_set_baudrate = true,
+};
+
 static const struct of_device_id bcm_bluetooth_of_match[] = {
-	{ .compatible = "brcm,bcm20702a1" },
+	{ .compatible = "brcm,bcm20702a1", .data = &bcm20702a1_device_data },
 	{ .compatible = "brcm,bcm4329-bt" },
 	{ .compatible = "brcm,bcm4330-bt" },
 	{ .compatible = "brcm,bcm4334-bt" },

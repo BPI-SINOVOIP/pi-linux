@@ -34,6 +34,7 @@
 
 #define AXP20X_PWR_STATUS_BAT_CHARGING	BIT(2)
 
+#define AXP20X_PWR_OP_BATT_CHARGING	BIT(6)
 #define AXP20X_PWR_OP_BATT_PRESENT	BIT(5)
 #define AXP20X_PWR_OP_BATT_ACTIVATED	BIT(3)
 
@@ -56,7 +57,14 @@
 
 #define AXP20X_V_OFF_MASK		GENMASK(2, 0)
 
+#define DRVNAME "axp20x-battery-power-supply"
+
 struct axp20x_batt_ps;
+
+struct axp_irq_data {
+	const char *name;
+	irq_handler_t handler;
+};
 
 struct axp_data {
 	int	ccc_scale;
@@ -64,6 +72,7 @@ struct axp_data {
 	bool	has_fg_valid;
 	int	(*get_max_voltage)(struct axp20x_batt_ps *batt, int *val);
 	int	(*set_max_voltage)(struct axp20x_batt_ps *batt, int val);
+	const struct axp_irq_data *irqs;
 };
 
 struct axp20x_batt_ps {
@@ -73,9 +82,11 @@ struct axp20x_batt_ps {
 	struct iio_channel *batt_chrg_i;
 	struct iio_channel *batt_dischrg_i;
 	struct iio_channel *batt_v;
+	int health;
 	/* Maximum constant charge current */
 	unsigned int max_ccc;
 	const struct axp_data	*data;
+	struct power_supply_battery_info *info;
 };
 
 static int axp20x_battery_get_max_voltage(struct axp20x_batt_ps *axp20x_batt,
@@ -181,6 +192,25 @@ static int axp20x_get_constant_charge_current(struct axp20x_batt_ps *axp,
 	return 0;
 }
 
+static int axp20x_get_ocv_voltage(struct axp20x_batt_ps *axp, int *val)
+{
+	int ret;
+	unsigned int ocvh, ocvl, ocv;
+
+	ret = regmap_read(axp->regmap, AXP288_FG_OCVH_REG, &ocvh);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(axp->regmap, AXP288_FG_OCVL_REG, &ocvl);
+	if (ret)
+		return ret;
+
+	ocv = ocvh << 4 | (ocvl & 0xf);
+
+	*val = ocv * 1100;
+	return 0;
+}
+
 static int axp20x_battery_get_prop(struct power_supply *psy,
 				   enum power_supply_property psp,
 				   union power_supply_propval *val)
@@ -199,13 +229,26 @@ static int axp20x_battery_get_prop(struct power_supply *psy,
 		val->intval = !!(reg & AXP20X_PWR_OP_BATT_PRESENT);
 		break;
 
-	case POWER_SUPPLY_PROP_STATUS:
-		ret = regmap_read(axp20x_batt->regmap, AXP20X_PWR_INPUT_STATUS,
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		ret = regmap_read(axp20x_batt->regmap, AXP20X_CHRG_CTRL1,
 				  &reg);
 		if (ret)
 			return ret;
 
-		if (reg & AXP20X_PWR_STATUS_BAT_CHARGING) {
+		if (reg & AXP20X_CHRG_CTRL1_ENABLE)
+			val->intval = POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
+		else
+			val->intval = POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE;
+
+		return 0;
+
+	case POWER_SUPPLY_PROP_STATUS:
+		ret = regmap_read(axp20x_batt->regmap, AXP20X_PWR_OP_MODE,
+				  &reg);
+		if (ret)
+			return ret;
+
+		if (reg & AXP20X_PWR_OP_BATT_CHARGING) {
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 			return 0;
 		}
@@ -245,7 +288,7 @@ static int axp20x_battery_get_prop(struct power_supply *psy,
 			return 0;
 		}
 
-		val->intval = POWER_SUPPLY_HEALTH_GOOD;
+		val->intval = axp20x_batt->health;
 		break;
 
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
@@ -277,6 +320,9 @@ static int axp20x_battery_get_prop(struct power_supply *psy,
 		/* IIO framework gives mA but Power Supply framework gives uA */
 		val->intval *= 1000;
 		break;
+
+	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
+		return axp20x_get_ocv_voltage(axp20x_batt, &val->intval);
 
 	case POWER_SUPPLY_PROP_CAPACITY:
 		/* When no battery is present, return capacity is 100% */
@@ -326,6 +372,18 @@ static int axp20x_battery_get_prop(struct power_supply *psy,
 		val->intval *= 1000;
 		break;
 
+	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
+		if (!axp20x_batt->info)
+			return -EINVAL;
+		val->intval = axp20x_batt->info->energy_full_design_uwh;
+		return 0;
+
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
+		if (!axp20x_batt->info)
+			return -EINVAL;
+		val->intval = 0;
+		return 0;
+
 	default:
 		return -EINVAL;
 	}
@@ -373,6 +431,11 @@ static int axp20x_battery_set_max_voltage(struct axp20x_batt_ps *axp20x_batt,
 
 	case 4200000:
 		val = AXP20X_CHRG_CTRL1_TGT_4_2V;
+		break;
+
+	case 4350000:
+	case 4360000:
+		val = AXP20X_CHRG_CTRL1_TGT_4_36V;
 		break;
 
 	default:
@@ -468,6 +531,21 @@ static int axp20x_battery_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		return axp20x_set_max_constant_charge_current(axp20x_batt,
 							      val->intval);
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		switch (val->intval) {
+		case POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO:
+			return regmap_update_bits(axp20x_batt->regmap,
+						  AXP20X_CHRG_CTRL1,
+						  AXP20X_CHRG_CTRL1_ENABLE,
+						  AXP20X_CHRG_CTRL1_ENABLE);
+		case POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE:
+			return regmap_update_bits(axp20x_batt->regmap,
+						  AXP20X_CHRG_CTRL1,
+						  AXP20X_CHRG_CTRL1_ENABLE, 0);
+		default:
+			return -EINVAL;
+		}
+
 	case POWER_SUPPLY_PROP_STATUS:
 		switch (val->intval) {
 		case POWER_SUPPLY_STATUS_CHARGING:
@@ -489,20 +567,25 @@ static enum power_supply_property axp20x_battery_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN,
 };
 
 static int axp20x_battery_prop_writeable(struct power_supply *psy,
 					 enum power_supply_property psp)
 {
 	return psp == POWER_SUPPLY_PROP_STATUS ||
+	       psp == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR ||
 	       psp == POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN ||
 	       psp == POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN ||
 	       psp == POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT ||
@@ -519,11 +602,84 @@ static const struct power_supply_desc axp20x_batt_ps_desc = {
 	.set_property = axp20x_battery_set_prop,
 };
 
+static irqreturn_t axp20x_battery_changed_irq(int irq, void *devid)
+{
+	struct axp20x_batt_ps *axp20x_batt = devid;
+
+	power_supply_changed(axp20x_batt->batt);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t axp20x_battery_temp_cold_irq(int irq, void *devid)
+{
+	struct axp20x_batt_ps *axp20x_batt = devid;
+
+	axp20x_batt->health = POWER_SUPPLY_HEALTH_COLD;
+
+	power_supply_changed(axp20x_batt->batt);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t axp20x_battery_temp_hot_irq(int irq, void *devid)
+{
+	struct axp20x_batt_ps *axp20x_batt = devid;
+
+	axp20x_batt->health = POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	power_supply_changed(axp20x_batt->batt);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t axp20x_battery_temp_normal_irq(int irq, void *devid)
+{
+	struct axp20x_batt_ps *axp20x_batt = devid;
+
+	axp20x_batt->health = POWER_SUPPLY_HEALTH_GOOD;
+
+	power_supply_changed(axp20x_batt->batt);
+
+	return IRQ_HANDLED;
+}
+
+static const struct axp_irq_data axp20x_irqs[] = {
+	{ "BATT_PLUGIN",		axp20x_battery_changed_irq },
+	{ "BATT_REMOVAL",		axp20x_battery_changed_irq },
+	{ "BATT_HEALTH_DEAD",		axp20x_battery_changed_irq },
+	{ "BATT_HEALTH_GOOD",		axp20x_battery_changed_irq },
+	{ "BATT_CHARGING",		axp20x_battery_changed_irq },
+	{ "BATT_CHARGING_DONE",		axp20x_battery_changed_irq },
+	{}
+};
+
+static const struct axp_irq_data axp813_irqs[] = {
+	{ "BATT_PLUGIN",		axp20x_battery_changed_irq },
+	{ "BATT_REMOVAL",		axp20x_battery_changed_irq },
+	{ "BATT_HEALTH_DEAD",		axp20x_battery_changed_irq },
+	{ "BATT_HEALTH_GOOD",		axp20x_battery_changed_irq },
+	{ "BATT_CHARGING",		axp20x_battery_changed_irq },
+	{ "BATT_CHARGING_DONE",		axp20x_battery_changed_irq },
+	{ "BATT_LOW_PWR_LVL1",		axp20x_battery_changed_irq },
+	{ "BATT_LOW_PWR_LVL2",		axp20x_battery_changed_irq },
+	{ "BATT_CHG_TEMP_HIGH",		axp20x_battery_temp_hot_irq },
+	{ "BATT_CHG_TEMP_HIGH_END",	axp20x_battery_temp_normal_irq },
+	{ "BATT_CHG_TEMP_LOW",		axp20x_battery_temp_cold_irq },
+	{ "BATT_CHG_TEMP_LOW_END",	axp20x_battery_temp_normal_irq },
+	{ "BATT_ACT_TEMP_HIGH",		axp20x_battery_temp_hot_irq },
+	{ "BATT_ACT_TEMP_HIGH_END",	axp20x_battery_temp_normal_irq },
+	{ "BATT_ACT_TEMP_LOW",		axp20x_battery_temp_cold_irq },
+	{ "BATT_ACT_TEMP_LOW_END",	axp20x_battery_temp_normal_irq },
+	{}
+};
+
 static const struct axp_data axp209_data = {
 	.ccc_scale = 100000,
 	.ccc_offset = 300000,
 	.get_max_voltage = axp20x_battery_get_max_voltage,
 	.set_max_voltage = axp20x_battery_set_max_voltage,
+	.irqs = axp20x_irqs,
 };
 
 static const struct axp_data axp221_data = {
@@ -532,6 +688,7 @@ static const struct axp_data axp221_data = {
 	.has_fg_valid = true,
 	.get_max_voltage = axp22x_battery_get_max_voltage,
 	.set_max_voltage = axp22x_battery_set_max_voltage,
+	.irqs = axp20x_irqs,
 };
 
 static const struct axp_data axp813_data = {
@@ -540,6 +697,7 @@ static const struct axp_data axp813_data = {
 	.has_fg_valid = true,
 	.get_max_voltage = axp813_battery_get_max_voltage,
 	.set_max_voltage = axp20x_battery_set_max_voltage,
+	.irqs = axp813_irqs,
 };
 
 static const struct of_device_id axp20x_battery_ps_id[] = {
@@ -558,10 +716,12 @@ MODULE_DEVICE_TABLE(of, axp20x_battery_ps_id);
 
 static int axp20x_power_probe(struct platform_device *pdev)
 {
+	struct axp20x_dev *axp20x = dev_get_drvdata(pdev->dev.parent);
 	struct axp20x_batt_ps *axp20x_batt;
 	struct power_supply_config psy_cfg = {};
-	struct power_supply_battery_info *info;
 	struct device *dev = &pdev->dev;
+	const struct axp_irq_data *irq_data;
+	int irq, ret;
 
 	if (!of_device_is_available(pdev->dev.of_node))
 		return -ENODEV;
@@ -613,9 +773,11 @@ static int axp20x_power_probe(struct platform_device *pdev)
 		return PTR_ERR(axp20x_batt->batt);
 	}
 
-	if (!power_supply_get_battery_info(axp20x_batt->batt, &info)) {
-		int vmin = info->voltage_min_design_uv;
-		int ccc = info->constant_charge_current_max_ua;
+	axp20x_batt->health = POWER_SUPPLY_HEALTH_GOOD;
+
+	if (!power_supply_get_battery_info(axp20x_batt->batt, &axp20x_batt->info)) {
+		int vmin = axp20x_batt->info->voltage_min_design_uv;
+		int ccc = axp20x_batt->info->constant_charge_current_max_ua;
 
 		if (vmin > 0 && axp20x_set_voltage_min_design(axp20x_batt,
 							      vmin))
@@ -635,6 +797,25 @@ static int axp20x_power_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Request irqs after registering, as irqs may trigger immediately */
+	for (irq_data = axp20x_batt->data->irqs; irq_data->name; irq_data++) {
+		irq = platform_get_irq_byname(pdev, irq_data->name);
+		if (irq < 0) {
+			dev_err(&pdev->dev, "No IRQ for %s: %d\n",
+				irq_data->name, irq);
+			return irq;
+		}
+		irq = regmap_irq_get_virq(axp20x->regmap_irqc, irq);
+		ret = devm_request_any_context_irq(&pdev->dev, irq,
+						   irq_data->handler, 0,
+						   DRVNAME, axp20x_batt);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Error requesting %s IRQ: %d\n",
+				irq_data->name, ret);
+			return ret;
+		}
+	}
+
 	/*
 	 * Update max CCC to a valid value if battery info is present or set it
 	 * to current register value by default.
@@ -642,13 +823,71 @@ static int axp20x_power_probe(struct platform_device *pdev)
 	axp20x_get_constant_charge_current(axp20x_batt,
 					   &axp20x_batt->max_ccc);
 
+	if (of_machine_is_compatible("pine64,pinephone-1.2") > 0 ||
+		of_machine_is_compatible("pine64,pinephone-1.1") > 0 ||
+		of_machine_is_compatible("pine64,pinephone-1.0") > 0) {
+		// 3kOhm NTC inside PinePhone batery
+		// ---------------------------------
+		//
+		// Charging:
+		//  0 - 15 °C: Max 0.2C CC to 4.35V : 9750 Ohm - 4710 Ohm
+		// 15 - 50 °C: Max 0.5C CC to 4.35V : 4710 Ohm - 1080 Ohm
+		//
+		// Discharging:
+		// -10 °C : 16500 Ohm
+		//  55 °C : 896 Ohm
+		// enable TS pin input to ADC
+
+		dev_info(dev, "Configuring battery thermal regulation for Pinephone\n");
+
+		ret = regmap_update_bits(axp20x_batt->regmap, 0x82, BIT(0), BIT(0));
+		if (ret)
+			goto warn_bat;
+
+		// safety thresholds:
+
+		// voltage = reg_val * 12800 uV (range is 0 - 3.264V)
+		ret = regmap_write(axp20x_batt->regmap, 0x38,  9750 * 80 / 12800); // V_LTF-charge
+		if (ret)
+			goto warn_bat;
+
+		ret = regmap_write(axp20x_batt->regmap, 0x39,  1080 * 80 / 12800); // V_HTF-charge
+		if (ret)
+			goto warn_bat;
+
+		ret = regmap_write(axp20x_batt->regmap, 0x3c, 16500 * 80 / 12800); // V_LTF-work
+		if (ret)
+			goto warn_bat;
+
+		ret = regmap_write(axp20x_batt->regmap, 0x3d,   896 * 80 / 12800); // V_HTF-work
+		if (ret)
+			goto warn_bat;
+
+		// There is a hysteresis of 460.8 mV(refer to TS pin voltage) for UTP
+		// threshold, and there is a hysteresis of 57.6 mV for OTP threshold.
+
+		// use TS pin only when charging, make it affect the charger, I = 80uA
+		ret = regmap_update_bits(axp20x_batt->regmap, 0x84, 0x37, 0x31);
+		if (ret)
+			goto warn_bat;
+
+		// enable poweron by RTC
+		ret = regmap_update_bits(axp20x_batt->regmap, 0x8f, BIT(7), BIT(7));
+		if (ret)
+			goto warn_bat;
+	}
+
+	return 0;
+
+warn_bat:
+	dev_err(dev, "Failed to configure battery thermal regulation\n");
 	return 0;
 }
 
 static struct platform_driver axp20x_batt_driver = {
 	.probe    = axp20x_power_probe,
 	.driver   = {
-		.name  = "axp20x-battery-power-supply",
+		.name		= DRVNAME,
 		.of_match_table = axp20x_battery_ps_id,
 	},
 };

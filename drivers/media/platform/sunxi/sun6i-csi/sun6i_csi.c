@@ -32,18 +32,17 @@
 
 /* TODO add 10&12 bit YUV, RGB support */
 bool sun6i_csi_is_format_supported(struct sun6i_csi_device *csi_dev,
-				   u32 pixformat, u32 mbus_code)
+				   u32 pixformat, u32 mbus_code,
+				   struct v4l2_fwnode_endpoint *vep)
 {
-	struct sun6i_csi_v4l2 *v4l2 = &csi_dev->v4l2;
-
 	/*
 	 * Some video receivers have the ability to be compatible with
 	 * 8bit and 16bit bus width.
 	 * Identify the media bus format from device tree.
 	 */
-	if ((v4l2->v4l2_ep.bus_type == V4L2_MBUS_PARALLEL
-	     || v4l2->v4l2_ep.bus_type == V4L2_MBUS_BT656)
-	     && v4l2->v4l2_ep.bus.parallel.bus_width == 16) {
+	if ((vep->bus_type == V4L2_MBUS_PARALLEL
+	     || vep->bus_type == V4L2_MBUS_BT656)
+	     && vep->bus.parallel.bus_width == 16) {
 		switch (pixformat) {
 		case V4L2_PIX_FMT_NV12_16L16:
 		case V4L2_PIX_FMT_NV12:
@@ -108,7 +107,8 @@ bool sun6i_csi_is_format_supported(struct sun6i_csi_device *csi_dev,
 		return (mbus_code == MEDIA_BUS_FMT_UYVY8_2X8);
 	case V4L2_PIX_FMT_VYUY:
 		return (mbus_code == MEDIA_BUS_FMT_VYUY8_2X8);
-
+	case V4L2_PIX_FMT_RGB555:
+		return mbus_code == MEDIA_BUS_FMT_RGB555_2X8_PADHI_LE;
 	case V4L2_PIX_FMT_NV12_16L16:
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
@@ -315,6 +315,9 @@ static enum csi_input_seq get_csi_input_seq(struct sun6i_csi_device *csi_dev,
 		break;
 
 	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_YVYU:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_VYUY:
 		return CSI_INPUT_SEQ_YUYV;
 
 	default:
@@ -326,9 +329,9 @@ static enum csi_input_seq get_csi_input_seq(struct sun6i_csi_device *csi_dev,
 	return CSI_INPUT_SEQ_YUYV;
 }
 
-static void sun6i_csi_setup_bus(struct sun6i_csi_device *csi_dev)
+static void sun6i_csi_setup_bus(struct sun6i_csi_device *csi_dev,
+				struct v4l2_fwnode_endpoint *endpoint)
 {
-	struct v4l2_fwnode_endpoint *endpoint = &csi_dev->v4l2.v4l2_ep;
 	struct sun6i_csi_config *config = &csi_dev->config;
 	unsigned char bus_width;
 	u32 flags;
@@ -465,6 +468,8 @@ static void sun6i_csi_set_window(struct sun6i_csi_device *csi_dev)
 	case V4L2_PIX_FMT_YVYU:
 	case V4L2_PIX_FMT_UYVY:
 	case V4L2_PIX_FMT_VYUY:
+	case V4L2_PIX_FMT_RGB565:
+	case V4L2_PIX_FMT_RGB555:
 		dev_dbg(csi_dev->dev,
 			"Horizontal length should be 2 times of width for packed YUV formats!\n");
 		hor_len = width * 2;
@@ -511,8 +516,7 @@ static void sun6i_csi_set_window(struct sun6i_csi_device *csi_dev)
 		dev_dbg(csi_dev->dev,
 			"Calculating pixelformat(0x%x)'s bytesperline as a packed format\n",
 			config->pixelformat);
-		bytesperline_y = (sun6i_csi_get_bpp(config->pixelformat) *
-				  config->width) / 8;
+		bytesperline_y = csi_dev->video.format.fmt.pix.bytesperline;
 		bytesperline_c = 0;
 		planar_offset[1] = -1;
 		planar_offset[2] = -1;
@@ -525,14 +529,15 @@ static void sun6i_csi_set_window(struct sun6i_csi_device *csi_dev)
 }
 
 int sun6i_csi_update_config(struct sun6i_csi_device *csi_dev,
-			    struct sun6i_csi_config *config)
+			    struct sun6i_csi_config *config,
+			    struct v4l2_fwnode_endpoint *vep)
 {
 	if (!config)
 		return -EINVAL;
 
 	memcpy(&csi_dev->config, config, sizeof(csi_dev->config));
 
-	sun6i_csi_setup_bus(csi_dev);
+	sun6i_csi_setup_bus(csi_dev, vep);
 	sun6i_csi_set_format(csi_dev);
 	sun6i_csi_set_window(csi_dev);
 
@@ -585,7 +590,8 @@ static const struct media_device_ops sun6i_csi_media_ops = {
 
 static int sun6i_csi_link_entity(struct sun6i_csi_device *csi_dev,
 				 struct media_entity *entity,
-				 struct fwnode_handle *fwnode)
+				 struct fwnode_handle *fwnode,
+				 u32 link_flags)
 {
 	struct media_entity *sink;
 	struct media_pad *sink_pad;
@@ -608,9 +614,7 @@ static int sun6i_csi_link_entity(struct sun6i_csi_device *csi_dev,
 	dev_dbg(csi_dev->dev, "creating %s:%u -> %s:%u link\n",
 		entity->name, src_pad_index, sink->name, sink_pad->index);
 	ret = media_create_pad_link(entity, src_pad_index, sink,
-				    sink_pad->index,
-				    MEDIA_LNK_FL_ENABLED |
-				    MEDIA_LNK_FL_IMMUTABLE);
+				    sink_pad->index, link_flags);
 	if (ret < 0) {
 		dev_err(csi_dev->dev, "failed to create %s:%u -> %s:%u link\n",
 			entity->name, src_pad_index,
@@ -628,18 +632,24 @@ static int sun6i_subdev_notify_complete(struct v4l2_async_notifier *notifier)
 			     v4l2.notifier);
 	struct sun6i_csi_v4l2 *v4l2 = &csi_dev->v4l2;
 	struct v4l2_device *v4l2_dev = &v4l2->v4l2_dev;
+	u32 link_flags = MEDIA_LNK_FL_ENABLED;
 	struct v4l2_subdev *sd;
 	int ret;
 
 	dev_dbg(csi_dev->dev, "notify complete, all subdevs registered\n");
 
-	sd = list_first_entry(&v4l2_dev->subdevs, struct v4l2_subdev, list);
-	if (!sd)
+	if (list_empty(&v4l2_dev->subdevs))
 		return -EINVAL;
 
-	ret = sun6i_csi_link_entity(csi_dev, &sd->entity, sd->fwnode);
-	if (ret < 0)
-		return ret;
+	list_for_each_entry(sd, &v4l2_dev->subdevs, list) {
+		ret = sun6i_csi_link_entity(csi_dev, &sd->entity,
+					    sd->fwnode, link_flags);
+		if (ret < 0)
+			return ret;
+
+		/* only enable the first link */
+		link_flags = 0;
+	}
 
 	ret = v4l2_device_register_subdev_nodes(v4l2_dev);
 	if (ret < 0)
@@ -656,17 +666,18 @@ static int sun6i_csi_fwnode_parse(struct device *dev,
 				  struct v4l2_fwnode_endpoint *vep,
 				  struct v4l2_async_subdev *asd)
 {
-	struct sun6i_csi_device *csi_dev = dev_get_drvdata(dev);
+	struct sun6i_csi_async_subdev *casd =
+		container_of(asd, struct sun6i_csi_async_subdev, asd);
 
-	if (vep->base.port || vep->base.id) {
-		dev_warn(dev, "Only support a single port with one endpoint\n");
+	if (vep->base.port) {
+		dev_err(dev, "Only remote entities with a single port are supported\n");
 		return -ENOTCONN;
 	}
 
 	switch (vep->bus_type) {
 	case V4L2_MBUS_PARALLEL:
 	case V4L2_MBUS_BT656:
-		csi_dev->v4l2.v4l2_ep = *vep;
+		casd->vep = *vep;
 		return 0;
 	default:
 		dev_err(dev, "Unsupported media bus type\n");
@@ -722,7 +733,7 @@ static int sun6i_csi_v4l2_setup(struct sun6i_csi_device *csi_dev)
 
 	ret = v4l2_async_nf_parse_fwnode_endpoints(dev, notifier,
 						   sizeof(struct
-							  v4l2_async_subdev),
+							  sun6i_csi_async_subdev),
 						   sun6i_csi_fwnode_parse);
 	if (ret)
 		goto error_video;

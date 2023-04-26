@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+// Copyright (C) 2020 Ondrej Jirman <megous@megous.com>
+
+/dts-v1/;
+
+#include "sun50i-a64-pinephone-1.2.dts"
+
+/ {
+	model = "Pine64 PinePhone (1.2b)";
+	compatible = "pine64,pinephone-1.2b", "pine64,pinephone", "allwinner,sun50i-a64";
+};
+
+&lis3mdl {
+	status = "disabled";
+};
+
+&i2c1 {
+	/* Alternative magnetometer */
+	af8133j: magnetometer@1c {
+		compatible = "voltafield,af8133j";
+		reg = <0x1c>;
+		reset-gpios = <&pio 1 1 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&reg_dldo1>;
+		dvdd-supply = <&reg_dldo1>;
+		mount-matrix = "0", "-1", "0",
+				"-1", "0", "0",
+				"0", "0", "-1";
+	};
+};

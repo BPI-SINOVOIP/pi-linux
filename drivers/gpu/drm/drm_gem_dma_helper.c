@@ -187,7 +187,7 @@ EXPORT_SYMBOL_GPL(drm_gem_dma_create);
  * A struct drm_gem_dma_object * on success or an ERR_PTR()-encoded negative
  * error code on failure.
  */
-static struct drm_gem_dma_object *
+struct drm_gem_dma_object *
 drm_gem_dma_create_with_handle(struct drm_file *file_priv,
 			       struct drm_device *drm, size_t size,
 			       uint32_t *handle)
@@ -214,6 +214,7 @@ drm_gem_dma_create_with_handle(struct drm_file *file_priv,
 
 	return dma_obj;
 }
+EXPORT_SYMBOL_GPL(drm_gem_dma_create_with_handle);
 
 /**
  * drm_gem_dma_free - free resources associated with a DMA GEM object

@@ -631,6 +631,12 @@ F:	drivers/iio/accel/adxl372.c
 F:	drivers/iio/accel/adxl372_i2c.c
 F:	drivers/iio/accel/adxl372_spi.c
 
+AF8133J THREE-AXIS MAGNETOMETER DRIVER
+M:	Icenowy Zheng <icenowy@aosc.io>
+S:	Maintained
+F:	Documentation/devicetree/bindings/iio/magnetometer/voltafield,af8133j.yaml
+F:	drivers/iio/magnetometer/af8133j.c
+
 AF9013 MEDIA DRIVER
 M:	Antti Palosaari <crope@iki.fi>
 L:	linux-media@vger.kernel.org
@@ -9164,6 +9170,12 @@ S:	Supported
 W:	http://www.highpoint-tech.com
 F:	Documentation/scsi/hptiop.rst
 F:	drivers/scsi/hptiop.c
+
+HIMAX HM5065 SENSOR DRIVER
+M:	Ondrej Jirman <kernel@xff.cz>
+L:	linux-media@vger.kernel.org
+S:	Supported
+F:	drivers/media/i2c/hm5065.c
 
 HIPPI
 M:	Jes Sorensen <jes@trained-monkey.org>

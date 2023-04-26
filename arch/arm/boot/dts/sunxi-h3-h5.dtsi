@@ -106,6 +106,27 @@
 		status = "disabled";
 	};
 
+	scpi_protocol: scpi {
+		compatible = "arm,scpi";
+		mboxes = <&msgbox 2>, <&msgbox 3>;
+		mbox-names = "tx", "rx";
+		shmem = <&scpi_sram>;
+	};
+
+	sound_hdmi: sound_hdmi {
+		compatible = "allwinner,sun9i-a80-hdmi-audio",
+			     "allwinner,sun8i-h3-hdmi-audio";
+		status = "disabled";
+
+		codec {
+			sound-dai = <&hdmi>;
+		};
+
+		cpu {
+			sound-dai = <&i2s2>;
+		};
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -200,6 +221,7 @@
 			resets = <&ccu RST_BUS_MMC0>;
 			reset-names = "ahb";
 			interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <0x4>;
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -389,6 +411,7 @@
 			reg = <0x01c20000 0x400>;
 			clocks = <&osc24M>, <&rtc CLK_OSC32K>;
 			clock-names = "hosc", "losc";
+			protected-clocks = <CLK_BUS_MSGBOX>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
 		};
@@ -435,6 +458,16 @@
 			i2c2_pins: i2c2-pins {
 				pins = "PE12", "PE13";
 				function = "i2c2";
+			};
+
+			i2s0_pins: i2s0-pins {
+				pins = "PA18", "PA19", "PA20", "PA21";
+				function = "i2s0";
+			};
+
+			i2s1_pins: i2s1-pins {
+				pins = "PG10", "PG11", "PG12", "PG13";
+				function = "i2s1";
 			};
 
 			mmc0_pins: mmc0-pins {
@@ -814,6 +847,7 @@
 		};
 
 		hdmi: hdmi@1ee0000 {
+			#sound-dai-cells = <0>;
 			compatible = "allwinner,sun8i-h3-dw-hdmi",
 				     "allwinner,sun8i-a83t-dw-hdmi";
 			reg = <0x01ee0000 0x10000>;
@@ -883,6 +917,7 @@
 			clocks = <&osc24M>, <&rtc CLK_OSC32K>, <&rtc CLK_IOSC>,
 				 <&ccu CLK_PLL_PERIPH0>;
 			clock-names = "hosc", "losc", "iosc", "pll-periph";
+			protected-clocks = <CLK_APB0_TWD>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
 		};

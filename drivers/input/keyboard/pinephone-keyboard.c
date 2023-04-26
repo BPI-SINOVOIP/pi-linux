@@ -15,6 +15,14 @@
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
 
+static bool disable_input;
+module_param(disable_input, bool, S_IRUGO);
+MODULE_PARM_DESC(disable_input, "Disable the keyboard part of the driver");
+
+static bool disable_fn;
+module_param(disable_fn, bool, S_IRUGO);
+MODULE_PARM_DESC(disable_fn, "Disable the FN layer special handling");
+
 #define DRV_NAME			"pinephone-keyboard"
 
 #define PPKB_CRC8_POLYNOMIAL		0x07
@@ -245,6 +253,14 @@ static void ppkb_update(struct i2c_client *client)
 			if (!(changed & mask))
 				continue;
 
+			if (disable_fn) {
+				/* The FN layer is a second set of rows. */
+				code = MATRIX_SCAN_CODE(row, col, row_shift);
+				input_event(ppkb->input, EV_MSC, MSC_SCAN, code);
+				input_report_key(ppkb->input, keymap[code], value);
+				continue;
+			}
+
 			/*
 			 * Save off the FN key state when the key was pressed,
 			 * and use that to determine the code during a release.
@@ -352,9 +368,16 @@ static int ppkb_probe(struct i2c_client *client)
 	if (error)
 		return error;
 
+	mdelay(100);
+
 	ret = i2c_smbus_read_i2c_block_data(client, 0, sizeof(info), info);
 	if (ret != sizeof(info)) {
 		error = ret < 0 ? ret : -EIO;
+		if (error == -ENXIO) {
+			dev_info(dev, "Keyboard was not found on the I2C bus, maybe it's disconnected.\n");
+			return error;
+		}
+
 		dev_err(dev, "Failed to read device ID: %d\n", error);
 		return error;
 	}
@@ -405,6 +428,9 @@ static int ppkb_probe(struct i2c_client *client)
 			return error;
 		}
 	}
+
+	if (disable_input)
+		return 0;
 
 	crc8_populate_msb(ppkb->crc_table, PPKB_CRC8_POLYNOMIAL);
 

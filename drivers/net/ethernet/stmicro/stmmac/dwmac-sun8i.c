@@ -59,7 +59,9 @@ struct emac_variant {
 
 /* struct sunxi_priv_data - hold all sunxi private data
  * @ephy_clk:	reference to the optional EPHY clock for the internal PHY
- * @regulator:	reference to the optional regulator
+ * @regulator_phy: reference to the optional regulator
+ * @regulator_phy_io: reference to the optional regulator for
+ *		PHY I/O pins
  * @rst_ephy:	reference to the optional EPHY reset for the internal PHY
  * @variant:	reference to the current board variant
  * @regmap:	regmap for using the syscon
@@ -69,7 +71,8 @@ struct emac_variant {
  */
 struct sunxi_priv_data {
 	struct clk *ephy_clk;
-	struct regulator *regulator;
+	struct regulator *regulator_phy;
+	struct regulator *regulator_phy_io;
 	struct reset_control *rst_ephy;
 	const struct emac_variant *variant;
 	struct regmap_field *regmap_field;
@@ -570,12 +573,16 @@ static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
 	struct sunxi_priv_data *gmac = priv;
 	int ret;
 
-	if (gmac->regulator) {
-		ret = regulator_enable(gmac->regulator);
-		if (ret) {
-			dev_err(&pdev->dev, "Fail to enable regulator\n");
-			return ret;
-		}
+	ret = regulator_enable(gmac->regulator_phy_io);
+	if (ret) {
+		dev_err(&pdev->dev, "Fail to enable PHY I/O regulator\n");
+		return ret;
+	}
+
+	ret = regulator_enable(gmac->regulator_phy);
+	if (ret) {
+		dev_err(&pdev->dev, "Fail to enable PHY regulator\n");
+		goto err_disable_regulator_phy_io;
 	}
 
 	if (gmac->use_internal_phy) {
@@ -587,8 +594,9 @@ static int sun8i_dwmac_init(struct platform_device *pdev, void *priv)
 	return 0;
 
 err_disable_regulator:
-	if (gmac->regulator)
-		regulator_disable(gmac->regulator);
+	regulator_disable(gmac->regulator_phy);
+err_disable_regulator_phy_io:
+	regulator_disable(gmac->regulator_phy_io);
 
 	return ret;
 }
@@ -1035,8 +1043,8 @@ static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
 	if (gmac->variant->soc_has_internal_phy)
 		sun8i_dwmac_unpower_internal_phy(gmac);
 
-	if (gmac->regulator)
-		regulator_disable(gmac->regulator);
+	regulator_disable(gmac->regulator_phy);
+	regulator_disable(gmac->regulator_phy_io);
 }
 
 static void sun8i_dwmac_set_mac_loopback(void __iomem *ioaddr, bool enable)
@@ -1137,11 +1145,13 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
 	struct stmmac_resources stmmac_res;
 	struct sunxi_priv_data *gmac;
 	struct device *dev = &pdev->dev;
+	struct reg_field syscon_field;
 	phy_interface_t interface;
 	int ret;
 	struct stmmac_priv *priv;
 	struct net_device *ndev;
 	struct regmap *regmap;
+	u32 syscon_idx = 0;
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
@@ -1158,13 +1168,16 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
 	}
 
 	/* Optional regulator for PHY */
-	gmac->regulator = devm_regulator_get_optional(dev, "phy");
-	if (IS_ERR(gmac->regulator)) {
-		if (PTR_ERR(gmac->regulator) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-		dev_info(dev, "No regulator found\n");
-		gmac->regulator = NULL;
-	}
+	gmac->regulator_phy = devm_regulator_get(dev, "phy");
+	if (IS_ERR(gmac->regulator_phy))
+		return dev_err_probe(dev, PTR_ERR(gmac->regulator_phy),
+				     "Failed to get PHY regulator\n");
+
+	/* Optional regulator for PHY I/O pins */
+	gmac->regulator_phy_io = devm_regulator_get(dev, "phy-io");
+	if (IS_ERR(gmac->regulator_phy_io))
+		return dev_err_probe(dev, PTR_ERR(gmac->regulator_phy_io),
+				     "Failed to get PHY I/O regulator\n");
 
 	/* The "GMAC clock control" register might be located in the
 	 * CCU address range (on the R40), or the system control address
@@ -1193,8 +1206,12 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	gmac->regmap_field = devm_regmap_field_alloc(dev, regmap,
-						     *gmac->variant->syscon_field);
+	syscon_field = *gmac->variant->syscon_field;
+	ret = of_property_read_u32_index(pdev->dev.of_node, "syscon", 1,
+					 &syscon_idx);
+	if (!ret)
+		syscon_field.reg += syscon_idx * sizeof(u32);
+	gmac->regmap_field = devm_regmap_field_alloc(dev, regmap, syscon_field);
 	if (IS_ERR(gmac->regmap_field)) {
 		ret = PTR_ERR(gmac->regmap_field);
 		dev_err(dev, "Unable to map syscon register: %d\n", ret);
@@ -1322,6 +1339,8 @@ static const struct of_device_id sun8i_dwmac_match[] = {
 	{ .compatible = "allwinner,sun50i-a64-emac",
 		.data = &emac_variant_a64 },
 	{ .compatible = "allwinner,sun50i-h6-emac",
+		.data = &emac_variant_h6 },
+	{ .compatible = "allwinner,sun50i-h616-emac",
 		.data = &emac_variant_h6 },
 	{ }
 };

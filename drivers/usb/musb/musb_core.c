@@ -979,6 +979,16 @@ static void musb_handle_intr_disconnect(struct musb *musb, u8 devctl)
 	case OTG_STATE_B_IDLE:
 		musb_g_disconnect(musb);
 		break;
+	case OTG_STATE_A_WAIT_VRISE:
+		/*
+		 * For sunxi use case, where host side of the musb driver
+		 * is not used for host mode, we want to ignore
+		 * OTG_STATE_A_WAIT_VRISE state set in sunxi glue code
+		 * when transitioning to host mode on disconnect, in
+		 * order to not confuse the dmesg reader about possible
+		 * issues.
+		 */
+		break;
 	default:
 		WARNING("unhandled DISCONNECT transition (%s)\n",
 			usb_otg_state_string(musb->xceiv->otg->state));

@@ -653,8 +653,8 @@ static const struct snd_kcontrol_new rt5640_spk_r_mix[] = {
 };
 
 static const struct snd_kcontrol_new rt5640_out_l_mix[] = {
-	SOC_DAPM_SINGLE("SPK MIXL Switch", RT5640_OUT_L3_MIXER,
-			RT5640_M_SM_L_OM_L_SFT, 1, 1),
+	SOC_DAPM_SINGLE("BST3 Switch", RT5640_OUT_L3_MIXER,
+			RT5640_M_BST3_OM_L_SFT, 1, 1),
 	SOC_DAPM_SINGLE("BST1 Switch", RT5640_OUT_L3_MIXER,
 			RT5640_M_BST1_OM_L_SFT, 1, 1),
 	SOC_DAPM_SINGLE("INL Switch", RT5640_OUT_L3_MIXER,
@@ -670,10 +670,10 @@ static const struct snd_kcontrol_new rt5640_out_l_mix[] = {
 };
 
 static const struct snd_kcontrol_new rt5640_out_r_mix[] = {
-	SOC_DAPM_SINGLE("SPK MIXR Switch", RT5640_OUT_R3_MIXER,
-			RT5640_M_SM_L_OM_R_SFT, 1, 1),
 	SOC_DAPM_SINGLE("BST2 Switch", RT5640_OUT_R3_MIXER,
-			RT5640_M_BST4_OM_R_SFT, 1, 1),
+			RT5640_M_BST2_OM_R_SFT, 1, 1),
+	SOC_DAPM_SINGLE("BST3 Switch", RT5640_OUT_R3_MIXER,
+			RT5640_M_BST3_OM_R_SFT, 1, 1),
 	SOC_DAPM_SINGLE("BST1 Switch", RT5640_OUT_R3_MIXER,
 			RT5640_M_BST1_OM_R_SFT, 1, 1),
 	SOC_DAPM_SINGLE("INR Switch", RT5640_OUT_R3_MIXER,
@@ -997,7 +997,8 @@ static int rt5640_lout_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		hp_amp_power_on(component);
+		//hp_amp_power_on(component);
+		//XXX: ^^ breaks hpout restore
 		snd_soc_component_update_bits(component, RT5640_PWR_ANLG1,
 			RT5640_PWR_LM, RT5640_PWR_LM);
 		snd_soc_component_update_bits(component, RT5640_OUTPUT,
@@ -1605,8 +1606,8 @@ static const struct snd_soc_dapm_route rt5640_specific_dapm_routes[] = {
 	{"SPK MIXL", "DAC L2 Switch", "DAC L2"},
 	{"SPK MIXR", "DAC R2 Switch", "DAC R2"},
 
-	{"OUT MIXL", "SPK MIXL Switch", "SPK MIXL"},
-	{"OUT MIXR", "SPK MIXR Switch", "SPK MIXR"},
+	{"OUT MIXL", "BST3 Switch", "BST3"},
+	{"OUT MIXR", "BST3 Switch", "BST3"},
 
 	{"OUT MIXL", "DAC R2 Switch", "DAC R2"},
 	{"OUT MIXL", "DAC L2 Switch", "DAC L2"},
@@ -1838,6 +1839,9 @@ static int rt5640_set_dai_sysclk(struct snd_soc_dai *dai,
 	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
 	unsigned int reg_val = 0;
 	unsigned int pll_bit = 0;
+
+	if (freq == 0)
+		return 0;
 
 	switch (clk_id) {
 	case RT5640_SCLK_S_MCLK:
@@ -2716,6 +2720,10 @@ static int rt5640_probe(struct snd_soc_component *component)
 	if (device_property_read_bool(component->dev, "realtek,in3-differential"))
 		snd_soc_component_update_bits(component, RT5640_IN1_IN2,
 					      RT5640_IN_DF2, RT5640_IN_DF2);
+
+	if (device_property_read_bool(component->dev, "realtek,lout-differential"))
+		snd_soc_component_update_bits(component, RT5640_DUMMY1,
+					      RT5640_EN_LOUT_DF, RT5640_EN_LOUT_DF);
 
 	if (device_property_read_u32(component->dev, "realtek,dmic1-data-pin",
 				     &val) == 0 && val) {

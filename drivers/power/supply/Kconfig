@@ -918,4 +918,12 @@ config BATTERY_UG3105
 	  device is off or suspended, the functionality of this driver is
 	  limited to reporting capacity only.
 
+config CHARGER_RK818
+	bool "RK818 Charger driver"
+	depends on MFD_RK808
+	default n
+	help
+	  If you say yes here you will get support for the charger of RK818 PMIC.
+	  This driver can give support for Rk818 Charger Interface.
+
 endif # POWER_SUPPLY

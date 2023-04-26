@@ -115,6 +115,13 @@ static int i2s_runtime_resume(struct device *dev)
 	if (ret)
 		clk_disable_unprepare(i2s->mclk);
 
+	if (ret == 0) {
+		unsigned long rate = clk_get_rate(i2s->mclk);
+
+		clk_set_rate(i2s->mclk, rate - 1);
+		clk_set_rate(i2s->mclk, rate);
+	}
+
 	return ret;
 }
 

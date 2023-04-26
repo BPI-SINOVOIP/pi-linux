@@ -81,12 +81,47 @@ static bool rk817_is_volatile_reg(struct device *dev, unsigned int reg)
 	return false;
 }
 
+static bool rk818_is_volatile_reg(struct device *dev, unsigned int reg)
+{
+	/*
+	 * Notes:
+	 * - Technically the ROUND_30s bit makes RTC_CTRL_REG volatile, but
+	 *   we don't use that feature.  It's better to cache.
+	 * - It's unlikely we care that RK808_DEVCTRL_REG is volatile since
+	 *   bits are cleared in case when we shutoff anyway, but better safe.
+	 */
+
+	switch (reg) {
+	case RK808_SECONDS_REG ... RK808_WEEKS_REG:
+	case RK808_RTC_STATUS_REG:
+	case RK808_VB_MON_REG:
+	case RK808_THERMAL_REG:
+	case RK808_DCDC_EN_REG:
+	case RK808_LDO_EN_REG:
+	case RK808_DCDC_UV_STS_REG:
+	case RK808_LDO_UV_STS_REG:
+	case RK808_DCDC_PG_REG:
+	case RK808_LDO_PG_REG:
+	case RK808_DEVCTRL_REG:
+	case RK808_INT_STS_REG1:
+	case RK808_INT_STS_REG2:
+	case RK808_INT_STS_MSK_REG1:
+	case RK808_INT_STS_MSK_REG2:
+	case RK818_LDO8_ON_VSEL_REG: // TODO(ayufan):??
+	case RK818_LDO8_SLP_VSEL_REG: // TODO(ayufan):??
+	case RK818_SUP_STS_REG ... RK818_SAVE_DATA19:
+		return true;
+	}
+
+	return false;
+}
+
 static const struct regmap_config rk818_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.max_register = RK818_USB_CTRL_REG,
+	.max_register = RK818_SAVE_DATA19,
 	.cache_type = REGCACHE_RBTREE,
-	.volatile_reg = rk808_is_volatile_reg,
+	.volatile_reg = rk818_is_volatile_reg,
 };
 
 static const struct regmap_config rk805_regmap_config = {
@@ -185,6 +220,8 @@ static const struct mfd_cell rk817s[] = {
 static const struct mfd_cell rk818s[] = {
 	{ .name = "rk808-clkout", },
 	{ .name = "rk808-regulator", },
+	{ .name = "rk818-battery", .of_compatible = "rockchip,rk818-battery", },
+	{ .name = "rk818-charger", .of_compatible = "rockchip,rk818-charger", },
 	{
 		.name = "rk808-rtc",
 		.num_resources = ARRAY_SIZE(rtc_resources),
@@ -318,6 +355,7 @@ static const struct rk808_reg_data rk818_pre_init_reg[] = {
 	{ RK818_H5V_EN_REG,	  BIT(0),	    RK818_H5V_EN },
 	{ RK808_VB_MON_REG,	  MASK_ALL,	    VB_LO_ACT |
 						    VB_LO_SEL_3500MV },
+	{ RK808_CLK32OUT_REG, CLK32KOUT2_FUNC_MASK, CLK32KOUT2_FUNC },
 };
 
 static const struct regmap_irq rk805_irqs[] = {

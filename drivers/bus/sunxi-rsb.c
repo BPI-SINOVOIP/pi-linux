@@ -442,6 +442,9 @@ static int regmap_sunxi_rsb_reg_write(void *context, unsigned int reg,
 	struct sunxi_rsb_ctx *ctx = context;
 	struct sunxi_rsb_device *rdev = ctx->rdev;
 
+	if (reg > 0xff)
+		return -EINVAL;
+
 	return sunxi_rsb_write(rdev->rsb, rdev->rtaddr, reg, &val, ctx->size);
 }
 
@@ -741,7 +744,6 @@ static int sunxi_rsb_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct resource *r;
 	struct sunxi_rsb *rsb;
 	u32 clk_freq = 3000000;
 	int irq, ret;
@@ -761,8 +763,8 @@ static int sunxi_rsb_probe(struct platform_device *pdev)
 	rsb->dev = dev;
 	rsb->clk_freq = clk_freq;
 	platform_set_drvdata(pdev, rsb);
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	rsb->regs = devm_ioremap_resource(dev, r);
+
+	rsb->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(rsb->regs))
 		return PTR_ERR(rsb->regs);
 

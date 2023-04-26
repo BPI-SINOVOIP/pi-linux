@@ -75,11 +75,66 @@
 
 /* Orientation */
 #define REG_MIRROR_FLIP_CONTROL		0x0101
-#define REG_CONFIG_MIRROR_FLIP		0x03
-#define REG_CONFIG_FLIP_TEST_PATTERN	0x02
+#define REG_CONFIG_MIRROR_FLIP		0x00
+#define REG_CONFIG_FLIP_TEST_PATTERN	0x00
 
 /* Input clock frequency in Hz */
-#define IMX258_INPUT_CLOCK_FREQ		19200000
+#define IMX258_INPUT_CLOCK_FREQ_MIN	24000000
+#define IMX258_INPUT_CLOCK_FREQ		24000000
+#define IMX258_INPUT_CLOCK_FREQ_MAX	24000000
+
+#define IMX258_MBUS_FORMAT		MEDIA_BUS_FMT_SRGGB10_1X10
+
+/* regs */
+#define PLL_MULT_DRIV                  0x0310
+#define IVTPXCK_DIV                    0x0301
+#define IVTSYCK_DIV                    0x0303
+#define PREPLLCK_VT_DIV                0x0305
+#define IOPPXCK_DIV                    0x0309
+#define IOPSYCK_DIV                    0x030b
+#define PREPLLCK_OP_DIV                0x030d
+#define PHASE_PIX_OUTEN                0x3030
+#define PDPIX_DATA_RATE                0x3032
+#define SCALE_MODE                     0x0401
+#define SCALE_MODE_EXT                 0x3038
+#define AF_WINDOW_MODE                 0x7bcd
+#define FRM_LENGTH_CTL                 0x0350
+#define CSI_LANE_MODE                  0x0114
+#define X_EVN_INC                      0x0381
+#define X_ODD_INC                      0x0383
+#define Y_EVN_INC                      0x0385
+#define Y_ODD_INC                      0x0387
+#define BINNING_MODE                   0x0900
+#define BINNING_TYPE_V                 0x0901
+#define FORCE_FD_SUM                   0x300d
+#define HDR_MODE                       0x0220
+#define MODE_SEL                       0x0100
+#define DIG_CROP_X_OFFSET              0x0408
+#define DIG_CROP_Y_OFFSET              0x040a
+#define DIG_CROP_IMAGE_WIDTH           0x040c
+#define DIG_CROP_IMAGE_HEIGHT          0x040e
+#define SCALE_M                        0x0404
+#define X_OUT_SIZE                     0x034c
+#define Y_OUT_SIZE                     0x034e
+#define X_ADD_STA                      0x0344
+#define Y_ADD_STA                      0x0346
+#define X_ADD_END                      0x0348
+#define Y_ADD_END                      0x034a
+#define EXCK_FREQ                      0x0136
+#define CSI_DT_FMT                     0x0112
+#define LINE_LENGTH_PCK                0x0342
+#define FRM_LENGTH_LINES               0x0340
+#define SCALE_M_EXT                    0x303a
+#define COARSE_INTEG_TIME              0x0202
+#define FINE_INTEG_TIME                0x0200
+#define ANA_GAIN_GLOBAL                0x0204
+#define PLL_IVT_MPY                    0x0306
+#define PLL_IOP_MPY                    0x030e
+#define REQ_LINK_BIT_RATE_MBPS_H       0x0820
+#define REQ_LINK_BIT_RATE_MBPS_L       0x0822
+
+#define REG8(a, v) { a, v }
+#define REG16(a, v) { a, ((v) >> 8) & 0xff }, { (a) + 1, (v) & 0xff }
 
 struct imx258_reg {
 	u16 address;
@@ -116,398 +171,395 @@ struct imx258_mode {
 	struct imx258_reg_list reg_list;
 };
 
-/* 4208x3118 needs 1267Mbps/lane, 4 lanes */
-static const struct imx258_reg mipi_data_rate_1267mbps[] = {
-	{ 0x0301, 0x05 },
-	{ 0x0303, 0x02 },
-	{ 0x0305, 0x03 },
-	{ 0x0306, 0x00 },
-	{ 0x0307, 0xC6 },
-	{ 0x0309, 0x0A },
-	{ 0x030B, 0x01 },
-	{ 0x030D, 0x02 },
-	{ 0x030E, 0x00 },
-	{ 0x030F, 0xD8 },
-	{ 0x0310, 0x00 },
-	{ 0x0820, 0x13 },
-	{ 0x0821, 0x4C },
-	{ 0x0822, 0xCC },
-	{ 0x0823, 0xCC },
+static const struct imx258_reg common_regs[] = {
+	REG8(EXCK_FREQ, 24),
+	REG8(EXCK_FREQ+1, 0),
+
+	REG8(0x3051, 0x00),
+
+	REG8(0x3052, 0x00), // extra in mainline
+	REG8(0x4e21, 0x14), // extra in mainline
+
+	REG8(0x6b11, 0xcf),
+	REG8(0x7ff0, 0x08),
+	REG8(0x7ff1, 0x0f),
+	REG8(0x7ff2, 0x08),
+	REG8(0x7ff3, 0x1b),
+	REG8(0x7ff4, 0x23),
+	REG8(0x7ff5, 0x60),
+	REG8(0x7ff6, 0x00),
+	REG8(0x7ff7, 0x01),
+	REG8(0x7ff8, 0x00),
+	REG8(0x7ff9, 0x78),
+	REG8(0x7ffa, 0x01), // 1 in rk, 0 in mainline
+	REG8(0x7ffb, 0x00),
+	REG8(0x7ffc, 0x00),
+	REG8(0x7ffd, 0x00),
+	REG8(0x7ffe, 0x00),
+	REG8(0x7fff, 0x03),
+	REG8(0x7f76, 0x03),
+	REG8(0x7f77, 0xfe),
+	REG8(0x7fa8, 0x03),
+	REG8(0x7fa9, 0xfe),
+	REG8(0x7b24, 0x81),
+	REG8(0x7b25, 0x01), // 1 in rk, 0 in mainline
+	REG8(0x6564, 0x07),
+	REG8(0x6b0d, 0x41),
+	REG8(0x653d, 0x04),
+	REG8(0x6b05, 0x8c),
+	REG8(0x6b06, 0xf9),
+	REG8(0x6b08, 0x65),
+	REG8(0x6b09, 0xfc),
+	REG8(0x6b0a, 0xcf),
+	REG8(0x6b0b, 0xd2),
+	REG8(0x6700, 0x0e),
+	REG8(0x6707, 0x0e), // extra in mainline
+	REG8(0x9104, 0x00), // extra in mainline
+	REG8(0x4648, 0x7f), // extra in mainline
+	REG8(0x7420, 0x00), // extra in mainline
+	REG8(0x7421, 0x1c), // extra in mainline
+	REG8(0x7422, 0x00), // extra in mainline
+	REG8(0x7423, 0xd7), // extra in mainline
+	REG8(0x5f04, 0x00),
+	REG8(0x5f05, 0xed),
+
+	// extra in rk bsp driver (pixel defect correction)
+	{0x94c7, 0xff},
+	{0x94c8, 0xff},
+	{0x94c9, 0xff},
+	{0x95c7, 0xff},
+	{0x95c8, 0xff},
+	{0x95c9, 0xff},
+	{0x94c4, 0x3f},
+	{0x94c5, 0x3f},
+	{0x94c6, 0x3f},
+	{0x95c4, 0x3f},
+	{0x95c5, 0x3f},
+	{0x95c6, 0x3f},
+	{0x94c1, 0x02},
+	{0x94c2, 0x02},
+	{0x94c3, 0x02},
+	{0x95c1, 0x02},
+	{0x95c2, 0x02},
+	{0x95c3, 0x02},
+	{0x94be, 0x0c},
+	{0x94bf, 0x0c},
+	{0x94c0, 0x0c},
+	{0x95be, 0x0c},
+	{0x95bf, 0x0c},
+	{0x95c0, 0x0c},
+	{0x94d0, 0x74},
+	{0x94d1, 0x74},
+	{0x94d2, 0x74},
+	{0x95d0, 0x74},
+	{0x95d1, 0x74},
+	{0x95d2, 0x74},
+	{0x94cd, 0x2e},
+	{0x94ce, 0x2e},
+	{0x94cf, 0x2e},
+	{0x95cd, 0x2e},
+	{0x95ce, 0x2e},
+	{0x95cf, 0x2e},
+	{0x94ca, 0x4c},
+	{0x94cb, 0x4c},
+	{0x94cc, 0x4c},
+	{0x95ca, 0x4c},
+	{0x95cb, 0x4c},
+	{0x95cc, 0x4c},
+	{0x900e, 0x32},
+	{0x94e2, 0xff},
+	{0x94e3, 0xff},
+	{0x94e4, 0xff},
+	{0x95e2, 0xff},
+	{0x95e3, 0xff},
+	{0x95e4, 0xff},
+	{0x94df, 0x6e},
+	{0x94e0, 0x6e},
+	{0x94e1, 0x6e},
+	{0x95df, 0x6e},
+	{0x95e0, 0x6e},
+	{0x95e1, 0x6e},
+	{0x7fcc, 0x01},
+	{0x7b78, 0x00},
+	{0x9401, 0x35},
+	{0x9403, 0x23},
+	{0x9405, 0x23},
+	{0x9406, 0x00},
+	{0x9407, 0x31},
+	{0x9408, 0x00},
+	{0x9409, 0x1b},
+	{0x940a, 0x00},
+	{0x940b, 0x15},
+	{0x940d, 0x3f},
+	{0x940f, 0x3f},
+	{0x9411, 0x3f},
+	{0x9413, 0x64},
+	{0x9415, 0x64},
+	{0x9417, 0x64},
+	{0x941d, 0x34},
+	{0x941f, 0x01},
+	{0x9421, 0x01},
+	{0x9423, 0x01},
+	{0x9425, 0x23},
+	{0x9427, 0x23},
+	{0x9429, 0x23},
+	{0x942b, 0x2f},
+	{0x942d, 0x1a},
+	{0x942f, 0x14},
+	{0x9431, 0x3f},
+	{0x9433, 0x3f},
+	{0x9435, 0x3f},
+	{0x9437, 0x6b},
+	{0x9439, 0x7c},
+	{0x943b, 0x81},
+	{0x9443, 0x0f},
+	{0x9445, 0x0f},
+	{0x9447, 0x0f},
+	{0x9449, 0x0f},
+	{0x944b, 0x0f},
+	{0x944d, 0x0f},
+	{0x944f, 0x1e},
+	{0x9451, 0x0f},
+	{0x9453, 0x0b},
+	{0x9455, 0x28},
+	{0x9457, 0x13},
+	{0x9459, 0x0c},
+	{0x945d, 0x00},
+	{0x945e, 0x00},
+	{0x945f, 0x00},
+	{0x946d, 0x00},
+	{0x946f, 0x10},
+	{0x9471, 0x10},
+	{0x9473, 0x40},
+	{0x9475, 0x2e},
+	{0x9477, 0x10},
+	{0x9478, 0x0a},
+	{0x947b, 0xe0},
+	{0x947c, 0xe0},
+	{0x947d, 0xe0},
+	{0x947e, 0xe0},
+	{0x947f, 0xe0},
+	{0x9480, 0xe0},
+	{0x9483, 0x14},
+	{0x9485, 0x14},
+	{0x9487, 0x14},
+	{0x9501, 0x35},
+	{0x9503, 0x14},
+	{0x9505, 0x14},
+	{0x9507, 0x31},
+	{0x9509, 0x1b},
+	{0x950b, 0x15},
+	{0x950d, 0x1e},
+	{0x950f, 0x1e},
+	{0x9511, 0x1e},
+	{0x9513, 0x64},
+	{0x9515, 0x64},
+	{0x9517, 0x64},
+	{0x951d, 0x34},
+	{0x951f, 0x01},
+	{0x9521, 0x01},
+	{0x9523, 0x01},
+	{0x9525, 0x14},
+	{0x9527, 0x14},
+	{0x9529, 0x14},
+	{0x952b, 0x2f},
+	{0x952d, 0x1a},
+	{0x952f, 0x14},
+	{0x9531, 0x1e},
+	{0x9533, 0x1e},
+	{0x9535, 0x1e},
+	{0x9537, 0x6b},
+	{0x9539, 0x7c},
+	{0x953b, 0x81},
+	{0x9543, 0x0f},
+	{0x9545, 0x0f},
+	{0x9547, 0x0f},
+	{0x9549, 0x0f},
+	{0x954b, 0x0f},
+	{0x954d, 0x0f},
+	{0x954f, 0x15},
+	{0x9551, 0x0b},
+	{0x9553, 0x08},
+	{0x9555, 0x1c},
+	{0x9557, 0x0d},
+	{0x9559, 0x08},
+	{0x955d, 0x00},
+	{0x955e, 0x00},
+	{0x955f, 0x00},
+	{0x956d, 0x00},
+	{0x956f, 0x10},
+	{0x9571, 0x10},
+	{0x9573, 0x40},
+	{0x9575, 0x2e},
+	{0x9577, 0x10},
+	{0x9578, 0x0a},
+	{0x957b, 0xe0},
+	{0x957c, 0xe0},
+	{0x957d, 0xe0},
+	{0x957e, 0xe0},
+	{0x957f, 0xe0},
+	{0x9580, 0xe0},
+	{0x9583, 0x14},
+	{0x9585, 0x14},
+	{0x9587, 0x14},
+	{0x7f78, 0x00},
+	{0x7f89, 0x00},
+	{0x7f93, 0x00},
+	{0x924b, 0x1b},
+	{0x924c, 0x0a},
+	{0x9304, 0x04},
+	{0x9315, 0x04},
+	{0x9250, 0x50},
+	{0x9251, 0x3c},
+	{0x9252, 0x14},
+
+	REG8(0x94dc, 0x20),
+	REG8(0x94dd, 0x20),
+	REG8(0x94de, 0x20),
+	REG8(0x95dc, 0x20),
+	REG8(0x95dd, 0x20),
+	REG8(0x95de, 0x20),
+	REG8(0x7fb0, 0x00),
+	REG8(0x9010, 0x3e),
+	REG8(0x9419, 0x50),
+	REG8(0x941b, 0x50),
+	REG8(0x9519, 0x50),
+	REG8(0x951b, 0x50),
+
+	// common per-mode settings
+	REG16(ANA_GAIN_GLOBAL, 0),
+	REG8(0x20e, 0x01),
+	REG8(0x20f, 0x00),
+	REG8(0x210, 0x01),
+	REG8(0x211, 0x00),
+	REG8(0x212, 0x01),
+	REG8(0x213, 0x00),
+	REG8(0x214, 0x01),
+	REG8(0x215, 0x00),
+	REG8(AF_WINDOW_MODE, 0),
+	REG8(PHASE_PIX_OUTEN, 0x00),
+	REG8(PDPIX_DATA_RATE, 0x00),
+	REG8(HDR_MODE, 0x00),
 };
 
-static const struct imx258_reg mipi_data_rate_640mbps[] = {
-	{ 0x0301, 0x05 },
-	{ 0x0303, 0x02 },
-	{ 0x0305, 0x03 },
-	{ 0x0306, 0x00 },
-	{ 0x0307, 0x64 },
-	{ 0x0309, 0x0A },
-	{ 0x030B, 0x01 },
-	{ 0x030D, 0x02 },
-	{ 0x030E, 0x00 },
-	{ 0x030F, 0xD8 },
-	{ 0x0310, 0x00 },
-	{ 0x0820, 0x0A },
-	{ 0x0821, 0x00 },
-	{ 0x0822, 0x00 },
-	{ 0x0823, 0x00 },
+static const struct imx258_reg mode_4208x3120_regs[] = {
+	REG16(CSI_DT_FMT, 0x0a0a),
+	REG8(CSI_LANE_MODE, 0x03),
+	REG16(LINE_LENGTH_PCK, 5352),
+	REG16(FRM_LENGTH_LINES, 3224),
+	REG16(X_ADD_STA, 0),
+	REG16(Y_ADD_STA, 0),
+	REG16(X_ADD_END, 4207),
+	REG16(Y_ADD_END, 3119),
+	REG8(X_EVN_INC, 1),
+	REG8(X_ODD_INC, 1),
+	REG8(Y_EVN_INC, 1),
+	REG8(Y_ODD_INC, 1),
+	REG8(BINNING_MODE, 0x00),
+	REG8(BINNING_TYPE_V, 0x11),
+	REG8(SCALE_MODE, 0x00),
+	REG16(SCALE_M, 16),
+	REG16(DIG_CROP_X_OFFSET, 0),
+	REG16(DIG_CROP_Y_OFFSET, 0),
+	REG16(DIG_CROP_IMAGE_WIDTH, 4208),
+	REG16(DIG_CROP_IMAGE_HEIGHT, 3120),
+	REG8(SCALE_MODE_EXT, 0x00),
+	REG16(SCALE_M_EXT, 16),
+	REG8(FORCE_FD_SUM, 0x00),
+	REG16(X_OUT_SIZE, 4208),
+	REG16(Y_OUT_SIZE, 3120),
+	REG8(FRM_LENGTH_CTL, 0x01),
+	REG16(COARSE_INTEG_TIME, 3184),
 };
 
-static const struct imx258_reg mode_4208x3118_regs[] = {
-	{ 0x0136, 0x13 },
-	{ 0x0137, 0x33 },
-	{ 0x3051, 0x00 },
-	{ 0x3052, 0x00 },
-	{ 0x4E21, 0x14 },
-	{ 0x6B11, 0xCF },
-	{ 0x7FF0, 0x08 },
-	{ 0x7FF1, 0x0F },
-	{ 0x7FF2, 0x08 },
-	{ 0x7FF3, 0x1B },
-	{ 0x7FF4, 0x23 },
-	{ 0x7FF5, 0x60 },
-	{ 0x7FF6, 0x00 },
-	{ 0x7FF7, 0x01 },
-	{ 0x7FF8, 0x00 },
-	{ 0x7FF9, 0x78 },
-	{ 0x7FFA, 0x00 },
-	{ 0x7FFB, 0x00 },
-	{ 0x7FFC, 0x00 },
-	{ 0x7FFD, 0x00 },
-	{ 0x7FFE, 0x00 },
-	{ 0x7FFF, 0x03 },
-	{ 0x7F76, 0x03 },
-	{ 0x7F77, 0xFE },
-	{ 0x7FA8, 0x03 },
-	{ 0x7FA9, 0xFE },
-	{ 0x7B24, 0x81 },
-	{ 0x7B25, 0x00 },
-	{ 0x6564, 0x07 },
-	{ 0x6B0D, 0x41 },
-	{ 0x653D, 0x04 },
-	{ 0x6B05, 0x8C },
-	{ 0x6B06, 0xF9 },
-	{ 0x6B08, 0x65 },
-	{ 0x6B09, 0xFC },
-	{ 0x6B0A, 0xCF },
-	{ 0x6B0B, 0xD2 },
-	{ 0x6700, 0x0E },
-	{ 0x6707, 0x0E },
-	{ 0x9104, 0x00 },
-	{ 0x4648, 0x7F },
-	{ 0x7420, 0x00 },
-	{ 0x7421, 0x1C },
-	{ 0x7422, 0x00 },
-	{ 0x7423, 0xD7 },
-	{ 0x5F04, 0x00 },
-	{ 0x5F05, 0xED },
-	{ 0x0112, 0x0A },
-	{ 0x0113, 0x0A },
-	{ 0x0114, 0x03 },
-	{ 0x0342, 0x14 },
-	{ 0x0343, 0xE8 },
-	{ 0x0340, 0x0C },
-	{ 0x0341, 0x50 },
-	{ 0x0344, 0x00 },
-	{ 0x0345, 0x00 },
-	{ 0x0346, 0x00 },
-	{ 0x0347, 0x00 },
-	{ 0x0348, 0x10 },
-	{ 0x0349, 0x6F },
-	{ 0x034A, 0x0C },
-	{ 0x034B, 0x2E },
-	{ 0x0381, 0x01 },
-	{ 0x0383, 0x01 },
-	{ 0x0385, 0x01 },
-	{ 0x0387, 0x01 },
-	{ 0x0900, 0x00 },
-	{ 0x0901, 0x11 },
-	{ 0x0401, 0x00 },
-	{ 0x0404, 0x00 },
-	{ 0x0405, 0x10 },
-	{ 0x0408, 0x00 },
-	{ 0x0409, 0x00 },
-	{ 0x040A, 0x00 },
-	{ 0x040B, 0x00 },
-	{ 0x040C, 0x10 },
-	{ 0x040D, 0x70 },
-	{ 0x040E, 0x0C },
-	{ 0x040F, 0x30 },
-	{ 0x3038, 0x00 },
-	{ 0x303A, 0x00 },
-	{ 0x303B, 0x10 },
-	{ 0x300D, 0x00 },
-	{ 0x034C, 0x10 },
-	{ 0x034D, 0x70 },
-	{ 0x034E, 0x0C },
-	{ 0x034F, 0x30 },
-	{ 0x0350, 0x01 },
-	{ 0x0202, 0x0C },
-	{ 0x0203, 0x46 },
-	{ 0x0204, 0x00 },
-	{ 0x0205, 0x00 },
-	{ 0x020E, 0x01 },
-	{ 0x020F, 0x00 },
-	{ 0x0210, 0x01 },
-	{ 0x0211, 0x00 },
-	{ 0x0212, 0x01 },
-	{ 0x0213, 0x00 },
-	{ 0x0214, 0x01 },
-	{ 0x0215, 0x00 },
-	{ 0x7BCD, 0x00 },
-	{ 0x94DC, 0x20 },
-	{ 0x94DD, 0x20 },
-	{ 0x94DE, 0x20 },
-	{ 0x95DC, 0x20 },
-	{ 0x95DD, 0x20 },
-	{ 0x95DE, 0x20 },
-	{ 0x7FB0, 0x00 },
-	{ 0x9010, 0x3E },
-	{ 0x9419, 0x50 },
-	{ 0x941B, 0x50 },
-	{ 0x9519, 0x50 },
-	{ 0x951B, 0x50 },
-	{ 0x3030, 0x00 },
-	{ 0x3032, 0x00 },
-	{ 0x0220, 0x00 },
+static const struct imx258_reg mode_4032x3024_regs[] = {
+	REG16(CSI_DT_FMT, 0x0a0a),
+	REG8(CSI_LANE_MODE, 0x03),
+	REG16(LINE_LENGTH_PCK, 5352),
+	REG16(FRM_LENGTH_LINES, 3224),
+	REG16(X_ADD_STA, 0),
+	REG16(Y_ADD_STA, 0),
+	REG16(X_ADD_END, 4207),
+	REG16(Y_ADD_END, 3119),
+	REG8(X_EVN_INC, 1),
+	REG8(X_ODD_INC, 1),
+	REG8(Y_EVN_INC, 1),
+	REG8(Y_ODD_INC, 1),
+	REG8(BINNING_MODE, 0x00),
+	REG8(BINNING_TYPE_V, 0x11),
+	REG8(SCALE_MODE, 0x00),
+	REG16(SCALE_M, 16),
+	REG16(DIG_CROP_X_OFFSET, 0), //(4208-4032)/2),
+	REG16(DIG_CROP_Y_OFFSET, 0), //(3120-3024)/2),
+	REG16(DIG_CROP_IMAGE_WIDTH, 4032),
+	REG16(DIG_CROP_IMAGE_HEIGHT, 3024),
+	REG8(SCALE_MODE_EXT, 0),
+	REG16(SCALE_M_EXT, 16),
+	REG8(FORCE_FD_SUM, 0x00),
+	REG16(X_OUT_SIZE, 4032),
+	REG16(Y_OUT_SIZE, 3024),
+	REG8(FRM_LENGTH_CTL, 0x01),
+	REG16(COARSE_INTEG_TIME, 3184),
 };
 
 static const struct imx258_reg mode_2104_1560_regs[] = {
-	{ 0x0136, 0x13 },
-	{ 0x0137, 0x33 },
-	{ 0x3051, 0x00 },
-	{ 0x3052, 0x00 },
-	{ 0x4E21, 0x14 },
-	{ 0x6B11, 0xCF },
-	{ 0x7FF0, 0x08 },
-	{ 0x7FF1, 0x0F },
-	{ 0x7FF2, 0x08 },
-	{ 0x7FF3, 0x1B },
-	{ 0x7FF4, 0x23 },
-	{ 0x7FF5, 0x60 },
-	{ 0x7FF6, 0x00 },
-	{ 0x7FF7, 0x01 },
-	{ 0x7FF8, 0x00 },
-	{ 0x7FF9, 0x78 },
-	{ 0x7FFA, 0x00 },
-	{ 0x7FFB, 0x00 },
-	{ 0x7FFC, 0x00 },
-	{ 0x7FFD, 0x00 },
-	{ 0x7FFE, 0x00 },
-	{ 0x7FFF, 0x03 },
-	{ 0x7F76, 0x03 },
-	{ 0x7F77, 0xFE },
-	{ 0x7FA8, 0x03 },
-	{ 0x7FA9, 0xFE },
-	{ 0x7B24, 0x81 },
-	{ 0x7B25, 0x00 },
-	{ 0x6564, 0x07 },
-	{ 0x6B0D, 0x41 },
-	{ 0x653D, 0x04 },
-	{ 0x6B05, 0x8C },
-	{ 0x6B06, 0xF9 },
-	{ 0x6B08, 0x65 },
-	{ 0x6B09, 0xFC },
-	{ 0x6B0A, 0xCF },
-	{ 0x6B0B, 0xD2 },
-	{ 0x6700, 0x0E },
-	{ 0x6707, 0x0E },
-	{ 0x9104, 0x00 },
-	{ 0x4648, 0x7F },
-	{ 0x7420, 0x00 },
-	{ 0x7421, 0x1C },
-	{ 0x7422, 0x00 },
-	{ 0x7423, 0xD7 },
-	{ 0x5F04, 0x00 },
-	{ 0x5F05, 0xED },
-	{ 0x0112, 0x0A },
-	{ 0x0113, 0x0A },
-	{ 0x0114, 0x03 },
-	{ 0x0342, 0x14 },
-	{ 0x0343, 0xE8 },
-	{ 0x0340, 0x06 },
-	{ 0x0341, 0x38 },
-	{ 0x0344, 0x00 },
-	{ 0x0345, 0x00 },
-	{ 0x0346, 0x00 },
-	{ 0x0347, 0x00 },
-	{ 0x0348, 0x10 },
-	{ 0x0349, 0x6F },
-	{ 0x034A, 0x0C },
-	{ 0x034B, 0x2E },
-	{ 0x0381, 0x01 },
-	{ 0x0383, 0x01 },
-	{ 0x0385, 0x01 },
-	{ 0x0387, 0x01 },
-	{ 0x0900, 0x01 },
-	{ 0x0901, 0x12 },
-	{ 0x0401, 0x01 },
-	{ 0x0404, 0x00 },
-	{ 0x0405, 0x20 },
-	{ 0x0408, 0x00 },
-	{ 0x0409, 0x02 },
-	{ 0x040A, 0x00 },
-	{ 0x040B, 0x00 },
-	{ 0x040C, 0x10 },
-	{ 0x040D, 0x6A },
-	{ 0x040E, 0x06 },
-	{ 0x040F, 0x18 },
-	{ 0x3038, 0x00 },
-	{ 0x303A, 0x00 },
-	{ 0x303B, 0x10 },
-	{ 0x300D, 0x00 },
-	{ 0x034C, 0x08 },
-	{ 0x034D, 0x38 },
-	{ 0x034E, 0x06 },
-	{ 0x034F, 0x18 },
-	{ 0x0350, 0x01 },
-	{ 0x0202, 0x06 },
-	{ 0x0203, 0x2E },
-	{ 0x0204, 0x00 },
-	{ 0x0205, 0x00 },
-	{ 0x020E, 0x01 },
-	{ 0x020F, 0x00 },
-	{ 0x0210, 0x01 },
-	{ 0x0211, 0x00 },
-	{ 0x0212, 0x01 },
-	{ 0x0213, 0x00 },
-	{ 0x0214, 0x01 },
-	{ 0x0215, 0x00 },
-	{ 0x7BCD, 0x01 },
-	{ 0x94DC, 0x20 },
-	{ 0x94DD, 0x20 },
-	{ 0x94DE, 0x20 },
-	{ 0x95DC, 0x20 },
-	{ 0x95DD, 0x20 },
-	{ 0x95DE, 0x20 },
-	{ 0x7FB0, 0x00 },
-	{ 0x9010, 0x3E },
-	{ 0x9419, 0x50 },
-	{ 0x941B, 0x50 },
-	{ 0x9519, 0x50 },
-	{ 0x951B, 0x50 },
-	{ 0x3030, 0x00 },
-	{ 0x3032, 0x00 },
-	{ 0x0220, 0x00 },
+	REG16(CSI_DT_FMT, 0x0a0a),
+	REG8(CSI_LANE_MODE, 0x03),
+	REG16(LINE_LENGTH_PCK, 5352),
+	REG16(FRM_LENGTH_LINES, 1592),
+	REG16(X_ADD_STA, 0),
+	REG16(Y_ADD_STA, 0),
+	REG16(X_ADD_END, 4207),
+	REG16(Y_ADD_END, 3119),
+	REG8(X_EVN_INC, 1),
+	REG8(X_ODD_INC, 1),
+	REG8(Y_EVN_INC, 1),
+	REG8(Y_ODD_INC, 1),
+	REG8(BINNING_MODE, 0x01),
+	REG8(BINNING_TYPE_V, 0x12),
+	REG8(SCALE_MODE, 1),
+	REG16(SCALE_M, 32),
+	REG16(DIG_CROP_X_OFFSET, 0),
+	REG16(DIG_CROP_Y_OFFSET, 0),
+	REG16(DIG_CROP_IMAGE_WIDTH, 4208),
+	REG16(DIG_CROP_IMAGE_HEIGHT, 1560),
+	REG8(SCALE_MODE_EXT, 0x00),
+	REG16(SCALE_M_EXT, 16),
+	REG8(FORCE_FD_SUM, 0x00),
+	REG16(X_OUT_SIZE, 2104),
+	REG16(Y_OUT_SIZE, 1560),
+	REG8(FRM_LENGTH_CTL, 0x01),
+	REG16(COARSE_INTEG_TIME, 1582),
 };
 
 static const struct imx258_reg mode_1048_780_regs[] = {
-	{ 0x0136, 0x13 },
-	{ 0x0137, 0x33 },
-	{ 0x3051, 0x00 },
-	{ 0x3052, 0x00 },
-	{ 0x4E21, 0x14 },
-	{ 0x6B11, 0xCF },
-	{ 0x7FF0, 0x08 },
-	{ 0x7FF1, 0x0F },
-	{ 0x7FF2, 0x08 },
-	{ 0x7FF3, 0x1B },
-	{ 0x7FF4, 0x23 },
-	{ 0x7FF5, 0x60 },
-	{ 0x7FF6, 0x00 },
-	{ 0x7FF7, 0x01 },
-	{ 0x7FF8, 0x00 },
-	{ 0x7FF9, 0x78 },
-	{ 0x7FFA, 0x00 },
-	{ 0x7FFB, 0x00 },
-	{ 0x7FFC, 0x00 },
-	{ 0x7FFD, 0x00 },
-	{ 0x7FFE, 0x00 },
-	{ 0x7FFF, 0x03 },
-	{ 0x7F76, 0x03 },
-	{ 0x7F77, 0xFE },
-	{ 0x7FA8, 0x03 },
-	{ 0x7FA9, 0xFE },
-	{ 0x7B24, 0x81 },
-	{ 0x7B25, 0x00 },
-	{ 0x6564, 0x07 },
-	{ 0x6B0D, 0x41 },
-	{ 0x653D, 0x04 },
-	{ 0x6B05, 0x8C },
-	{ 0x6B06, 0xF9 },
-	{ 0x6B08, 0x65 },
-	{ 0x6B09, 0xFC },
-	{ 0x6B0A, 0xCF },
-	{ 0x6B0B, 0xD2 },
-	{ 0x6700, 0x0E },
-	{ 0x6707, 0x0E },
-	{ 0x9104, 0x00 },
-	{ 0x4648, 0x7F },
-	{ 0x7420, 0x00 },
-	{ 0x7421, 0x1C },
-	{ 0x7422, 0x00 },
-	{ 0x7423, 0xD7 },
-	{ 0x5F04, 0x00 },
-	{ 0x5F05, 0xED },
-	{ 0x0112, 0x0A },
-	{ 0x0113, 0x0A },
-	{ 0x0114, 0x03 },
-	{ 0x0342, 0x14 },
-	{ 0x0343, 0xE8 },
-	{ 0x0340, 0x03 },
-	{ 0x0341, 0x4C },
-	{ 0x0344, 0x00 },
-	{ 0x0345, 0x00 },
-	{ 0x0346, 0x00 },
-	{ 0x0347, 0x00 },
-	{ 0x0348, 0x10 },
-	{ 0x0349, 0x6F },
-	{ 0x034A, 0x0C },
-	{ 0x034B, 0x2E },
-	{ 0x0381, 0x01 },
-	{ 0x0383, 0x01 },
-	{ 0x0385, 0x01 },
-	{ 0x0387, 0x01 },
-	{ 0x0900, 0x01 },
-	{ 0x0901, 0x14 },
-	{ 0x0401, 0x01 },
-	{ 0x0404, 0x00 },
-	{ 0x0405, 0x40 },
-	{ 0x0408, 0x00 },
-	{ 0x0409, 0x06 },
-	{ 0x040A, 0x00 },
-	{ 0x040B, 0x00 },
-	{ 0x040C, 0x10 },
-	{ 0x040D, 0x64 },
-	{ 0x040E, 0x03 },
-	{ 0x040F, 0x0C },
-	{ 0x3038, 0x00 },
-	{ 0x303A, 0x00 },
-	{ 0x303B, 0x10 },
-	{ 0x300D, 0x00 },
-	{ 0x034C, 0x04 },
-	{ 0x034D, 0x18 },
-	{ 0x034E, 0x03 },
-	{ 0x034F, 0x0C },
-	{ 0x0350, 0x01 },
-	{ 0x0202, 0x03 },
-	{ 0x0203, 0x42 },
-	{ 0x0204, 0x00 },
-	{ 0x0205, 0x00 },
-	{ 0x020E, 0x01 },
-	{ 0x020F, 0x00 },
-	{ 0x0210, 0x01 },
-	{ 0x0211, 0x00 },
-	{ 0x0212, 0x01 },
-	{ 0x0213, 0x00 },
-	{ 0x0214, 0x01 },
-	{ 0x0215, 0x00 },
-	{ 0x7BCD, 0x00 },
-	{ 0x94DC, 0x20 },
-	{ 0x94DD, 0x20 },
-	{ 0x94DE, 0x20 },
-	{ 0x95DC, 0x20 },
-	{ 0x95DD, 0x20 },
-	{ 0x95DE, 0x20 },
-	{ 0x7FB0, 0x00 },
-	{ 0x9010, 0x3E },
-	{ 0x9419, 0x50 },
-	{ 0x941B, 0x50 },
-	{ 0x9519, 0x50 },
-	{ 0x951B, 0x50 },
-	{ 0x3030, 0x00 },
-	{ 0x3032, 0x00 },
-	{ 0x0220, 0x00 },
+	REG16(CSI_DT_FMT, 0x0a0a),
+	REG8(CSI_LANE_MODE, 0x03),
+	REG16(LINE_LENGTH_PCK, 5352),
+	REG16(FRM_LENGTH_LINES, 844),
+	REG16(X_ADD_STA, 0),
+	REG16(Y_ADD_STA, 0),
+	REG16(X_ADD_END, 4191),
+	REG16(Y_ADD_END, 3119),
+	REG8(X_EVN_INC, 1),
+	REG8(X_ODD_INC, 1),
+	REG8(Y_EVN_INC, 1),
+	REG8(Y_ODD_INC, 1),
+	REG8(BINNING_MODE, 0x01),
+	REG8(BINNING_TYPE_V, 0x14),
+	REG8(SCALE_MODE, 0x01),
+	REG16(SCALE_M, 64),
+	REG16(DIG_CROP_X_OFFSET, 0),
+	REG16(DIG_CROP_Y_OFFSET, 0),
+	REG16(DIG_CROP_IMAGE_WIDTH, 4192),
+	REG16(DIG_CROP_IMAGE_HEIGHT, 780),
+	REG8(SCALE_MODE_EXT, 0x00),
+	REG16(SCALE_M_EXT, 16),
+	REG8(FORCE_FD_SUM, 0x00),
+	REG16(X_OUT_SIZE, 1048),
+	REG16(Y_OUT_SIZE, 780),
+	REG8(FRM_LENGTH_CTL, 0x01),
+	REG16(COARSE_INTEG_TIME, 834),
 };
 
 static const char * const imx258_test_pattern_menu[] = {
@@ -518,13 +570,110 @@ static const char * const imx258_test_pattern_menu[] = {
 	"Pseudorandom Sequence (PN9)",
 };
 
-/* Configurations for supported link frequencies */
-#define IMX258_LINK_FREQ_634MHZ	633600000ULL
-#define IMX258_LINK_FREQ_320MHZ	320000000ULL
-
 enum {
-	IMX258_LINK_FREQ_1267MBPS,
-	IMX258_LINK_FREQ_640MBPS,
+	IMX258_LINK_FREQ_1224MBPS,
+	IMX258_LINK_FREQ_642MBPS,
+};
+
+/* Menu items for LINK_FREQ V4L2 control */
+static const s64 link_freq_menu_items[] = {
+	612000000ULL,
+	321000000ULL,
+};
+
+/* 4032*3024 needs 1224 Mbps/lane, 4 lanes */
+static const struct imx258_reg mipi_data_rate_1224mbps[] = {
+	REG8(IVTPXCK_DIV, 5),
+	REG8(IVTSYCK_DIV, 2),
+	REG8(PREPLLCK_VT_DIV, 4),
+	REG16(PLL_IVT_MPY, 204), // 1224 MHz
+	REG8(IOPPXCK_DIV, 10), // or 8
+	REG8(IOPSYCK_DIV, 1),
+	REG8(PREPLLCK_OP_DIV, 2),
+	REG16(PLL_IOP_MPY, 216),
+	REG8(PLL_MULT_DRIV, 0),
+	REG16(REQ_LINK_BIT_RATE_MBPS_H, 1224*4),
+	REG16(REQ_LINK_BIT_RATE_MBPS_L, 0),
+};
+
+static const struct imx258_reg mipi_data_rate_642mbps[] = {
+	REG8(IVTPXCK_DIV, 5),
+	REG8(IVTSYCK_DIV, 2),
+	REG8(PREPLLCK_VT_DIV, 4),
+	REG16(PLL_IVT_MPY, 107),
+	REG8(IOPPXCK_DIV, 10),
+	REG8(IOPSYCK_DIV, 1),
+	REG8(PREPLLCK_OP_DIV, 2),
+	REG16(PLL_IOP_MPY, 216),
+	REG8(PLL_MULT_DRIV, 0),
+	REG16(REQ_LINK_BIT_RATE_MBPS_H, 2568),
+	REG16(REQ_LINK_BIT_RATE_MBPS_L, 0),
+};
+
+/* Link frequency configs */
+static const struct imx258_link_freq_config link_freq_configs[] = {
+	[IMX258_LINK_FREQ_1224MBPS] = {
+		.pixels_per_line = IMX258_PPL_DEFAULT,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mipi_data_rate_1224mbps),
+			.regs = mipi_data_rate_1224mbps,
+		}
+	},
+	[IMX258_LINK_FREQ_642MBPS] = {
+		.pixels_per_line = IMX258_PPL_DEFAULT,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mipi_data_rate_642mbps),
+			.regs = mipi_data_rate_642mbps,
+		}
+	},
+};
+
+/* Mode configs */
+static const struct imx258_mode supported_modes[] = {
+	{
+		.width = 4208,
+		.height = 3120,
+		.vts_def = IMX258_VTS_30FPS,
+		.vts_min = IMX258_VTS_30FPS,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_4208x3120_regs),
+			.regs = mode_4208x3120_regs,
+		},
+		.link_freq_index = IMX258_LINK_FREQ_1224MBPS,
+	},
+	{
+		.width = 4032,
+		.height = 3024,
+		.vts_def = IMX258_VTS_30FPS,
+		.vts_min = IMX258_VTS_30FPS,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_4032x3024_regs),
+			.regs = mode_4032x3024_regs,
+		},
+		.link_freq_index = IMX258_LINK_FREQ_1224MBPS,
+	},
+	{
+		.width = 2104,
+		.height = 1560,
+		.vts_def = IMX258_VTS_30FPS_2K,
+		.vts_min = IMX258_VTS_30FPS_2K,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_2104_1560_regs),
+			.regs = mode_2104_1560_regs,
+		},
+		.link_freq_index = IMX258_LINK_FREQ_642MBPS,
+	},
+	{
+		.width = 1048,
+		.height = 780,
+		.vts_def = IMX258_VTS_30FPS_VGA,
+		.vts_min = IMX258_VTS_30FPS_VGA,
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(mode_1048_780_regs),
+			.regs = mode_1048_780_regs,
+		},
+		.link_freq_index = IMX258_LINK_FREQ_642MBPS,
+	},
 };
 
 /*
@@ -539,66 +688,15 @@ static u64 link_freq_to_pixel_rate(u64 f)
 	return f;
 }
 
-/* Menu items for LINK_FREQ V4L2 control */
-static const s64 link_freq_menu_items[] = {
-	IMX258_LINK_FREQ_634MHZ,
-	IMX258_LINK_FREQ_320MHZ,
+/* regulator supplies */
+static const char * const imx258_supply_names[] = {
+	"vana", /* Analog (2.8V) supply */
+	"vdig", /* Digital Core (1.5V) supply */
+	"vif",  /* Digital I/O (1.8V) supply */
+	"i2c",  /* I2C BUS I/O (1.8V) supply */
 };
 
-/* Link frequency configs */
-static const struct imx258_link_freq_config link_freq_configs[] = {
-	[IMX258_LINK_FREQ_1267MBPS] = {
-		.pixels_per_line = IMX258_PPL_DEFAULT,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mipi_data_rate_1267mbps),
-			.regs = mipi_data_rate_1267mbps,
-		}
-	},
-	[IMX258_LINK_FREQ_640MBPS] = {
-		.pixels_per_line = IMX258_PPL_DEFAULT,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mipi_data_rate_640mbps),
-			.regs = mipi_data_rate_640mbps,
-		}
-	},
-};
-
-/* Mode configs */
-static const struct imx258_mode supported_modes[] = {
-	{
-		.width = 4208,
-		.height = 3118,
-		.vts_def = IMX258_VTS_30FPS,
-		.vts_min = IMX258_VTS_30FPS,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_4208x3118_regs),
-			.regs = mode_4208x3118_regs,
-		},
-		.link_freq_index = IMX258_LINK_FREQ_1267MBPS,
-	},
-	{
-		.width = 2104,
-		.height = 1560,
-		.vts_def = IMX258_VTS_30FPS_2K,
-		.vts_min = IMX258_VTS_30FPS_2K,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_2104_1560_regs),
-			.regs = mode_2104_1560_regs,
-		},
-		.link_freq_index = IMX258_LINK_FREQ_640MBPS,
-	},
-	{
-		.width = 1048,
-		.height = 780,
-		.vts_def = IMX258_VTS_30FPS_VGA,
-		.vts_min = IMX258_VTS_30FPS_VGA,
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_1048_780_regs),
-			.regs = mode_1048_780_regs,
-		},
-		.link_freq_index = IMX258_LINK_FREQ_640MBPS,
-	},
-};
+#define IMX258_SUPPLY_COUNT ARRAY_SIZE(imx258_supply_names)
 
 struct imx258 {
 	struct v4l2_subdev sd;
@@ -611,6 +709,10 @@ struct imx258 {
 	struct v4l2_ctrl *vblank;
 	struct v4l2_ctrl *hblank;
 	struct v4l2_ctrl *exposure;
+
+	struct gpio_desc *pwdn_gpio;
+	struct gpio_desc *reset_gpio;
+	struct regulator_bulk_data supplies[IMX258_SUPPLY_COUNT];
 
 	/* Current mode */
 	const struct imx258_mode *cur_mode;
@@ -715,7 +817,7 @@ static int imx258_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Initialize try_fmt */
 	try_fmt->width = supported_modes[0].width;
 	try_fmt->height = supported_modes[0].height;
-	try_fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	try_fmt->code = IMX258_MBUS_FORMAT;
 	try_fmt->field = V4L2_FIELD_NONE;
 
 	return 0;
@@ -827,7 +929,7 @@ static int imx258_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->index > 0)
 		return -EINVAL;
 
-	code->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	code->code = IMX258_MBUS_FORMAT;
 
 	return 0;
 }
@@ -839,7 +941,7 @@ static int imx258_enum_frame_size(struct v4l2_subdev *sd,
 	if (fse->index >= ARRAY_SIZE(supported_modes))
 		return -EINVAL;
 
-	if (fse->code != MEDIA_BUS_FMT_SGRBG10_1X10)
+	if (fse->code != IMX258_MBUS_FORMAT)
 		return -EINVAL;
 
 	fse->min_width = supported_modes[fse->index].width;
@@ -855,7 +957,7 @@ static void imx258_update_pad_format(const struct imx258_mode *mode,
 {
 	fmt->format.width = mode->width;
 	fmt->format.height = mode->height;
-	fmt->format.code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	fmt->format.code = IMX258_MBUS_FORMAT;
 	fmt->format.field = V4L2_FIELD_NONE;
 }
 
@@ -903,7 +1005,7 @@ static int imx258_set_pad_format(struct v4l2_subdev *sd,
 	mutex_lock(&imx258->mutex);
 
 	/* Only one raw bayer(GBRG) order is supported */
-	fmt->format.code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	fmt->format.code = IMX258_MBUS_FORMAT;
 
 	mode = v4l2_find_nearest_size(supported_modes,
 		ARRAY_SIZE(supported_modes), width, height,
@@ -947,6 +1049,13 @@ static int imx258_start_streaming(struct imx258 *imx258)
 	struct i2c_client *client = v4l2_get_subdevdata(&imx258->sd);
 	const struct imx258_reg_list *reg_list;
 	int ret, link_freq_index;
+
+	/* Common registers */
+	ret = imx258_write_regs(imx258, common_regs, ARRAY_SIZE(common_regs));
+	if (ret) {
+		dev_err(&client->dev, "%s failed to set common registers\n", __func__);
+		return ret;
+	}
 
 	/* Setup PLL */
 	link_freq_index = imx258->cur_mode->link_freq_index;
@@ -1008,13 +1117,50 @@ static int imx258_power_on(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct imx258 *imx258 = to_imx258(sd);
+	u32 val = 0;
 	int ret;
 
-	ret = clk_prepare_enable(imx258->clk);
-	if (ret)
-		dev_err(dev, "failed to enable clock\n");
+	if (imx258->clk) {
+		ret = clk_set_rate(imx258->clk, IMX258_INPUT_CLOCK_FREQ);
+		if (ret < 0)
+			dev_warn(dev, "Failed to set clk rate\n");
 
-	return ret;
+		val = clk_get_rate(imx258->clk);
+		if (val < IMX258_INPUT_CLOCK_FREQ_MIN ||
+		    val > IMX258_INPUT_CLOCK_FREQ_MAX) {
+			dev_err(dev, "clk mismatched, expecting %u, got %u Hz\n",
+				 IMX258_INPUT_CLOCK_FREQ, val);
+			return -EINVAL;
+		}
+	}
+
+	ret = regulator_bulk_enable(IMX258_SUPPLY_COUNT, imx258->supplies);
+	if (ret) {
+		dev_err(dev, "failed to enable regulators\n");
+		return ret;
+	}
+
+	mdelay(20);
+
+	gpiod_set_value_cansleep(imx258->pwdn_gpio, 0);
+
+	mdelay(5);
+
+	ret = clk_prepare_enable(imx258->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable clock\n");
+		gpiod_set_value_cansleep(imx258->pwdn_gpio, 1);
+		regulator_bulk_disable(IMX258_SUPPLY_COUNT, imx258->supplies);
+		return ret;
+	}
+
+	usleep_range(1000, 2000);
+
+	gpiod_set_value_cansleep(imx258->reset_gpio, 0);
+
+	usleep_range(400, 500);
+
+	return 0;
 }
 
 static int imx258_power_off(struct device *dev)
@@ -1023,6 +1169,11 @@ static int imx258_power_off(struct device *dev)
 	struct imx258 *imx258 = to_imx258(sd);
 
 	clk_disable_unprepare(imx258->clk);
+
+	gpiod_set_value_cansleep(imx258->reset_gpio, 1);
+	gpiod_set_value_cansleep(imx258->pwdn_gpio, 1);
+
+	regulator_bulk_disable(IMX258_SUPPLY_COUNT, imx258->supplies);
 
 	return 0;
 }
@@ -1124,6 +1275,53 @@ static int imx258_identify_module(struct imx258 *imx258)
 	return 0;
 }
 
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int imx258_g_register(struct v4l2_subdev *sd,
+			     struct v4l2_dbg_register *reg)
+{
+	struct imx258 *imx258 = to_imx258(sd);
+	u32 val = 0;
+	int ret;
+
+	if (reg->reg > 0xffff)
+		return -EINVAL;
+
+	reg->size = 1;
+
+	mutex_lock(&imx258->mutex);
+	ret = imx258_read_reg(imx258, reg->reg, 1, &val);
+	mutex_unlock(&imx258->mutex);
+	if (ret)
+		return -EIO;
+
+	reg->val = val;
+	return 0;
+}
+
+static int imx258_s_register(struct v4l2_subdev *sd,
+			     const struct v4l2_dbg_register *reg)
+{
+	struct imx258 *imx258 = to_imx258(sd);
+	int ret;
+
+	if (reg->reg > 0xffff || reg->val > 0xff)
+		return -EINVAL;
+
+	mutex_lock(&imx258->mutex);
+	ret = imx258_write_reg(imx258, reg->reg, 1, reg->val);
+	mutex_unlock(&imx258->mutex);
+
+	return ret;
+}
+#endif
+
+static const struct v4l2_subdev_core_ops imx258_core_ops = {
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.g_register = imx258_g_register,
+	.s_register = imx258_s_register,
+#endif
+};
+
 static const struct v4l2_subdev_video_ops imx258_video_ops = {
 	.s_stream = imx258_set_stream,
 };
@@ -1136,6 +1334,7 @@ static const struct v4l2_subdev_pad_ops imx258_pad_ops = {
 };
 
 static const struct v4l2_subdev_ops imx258_subdev_ops = {
+	.core = &imx258_core_ops,
 	.video = &imx258_video_ops,
 	.pad = &imx258_pad_ops,
 };
@@ -1173,7 +1372,8 @@ static int imx258_init_controls(struct imx258 *imx258)
 		imx258->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	pixel_rate_max = link_freq_to_pixel_rate(link_freq_menu_items[0]);
-	pixel_rate_min = link_freq_to_pixel_rate(link_freq_menu_items[1]);
+	pixel_rate_min = link_freq_to_pixel_rate(
+		link_freq_menu_items[ARRAY_SIZE(link_freq_menu_items) - 1]);
 	/* By default, PIXEL_RATE is read only */
 	imx258->pixel_rate = v4l2_ctrl_new_std(ctrl_hdlr, &imx258_ctrl_ops,
 				V4L2_CID_PIXEL_RATE,
@@ -1252,7 +1452,7 @@ static void imx258_free_controls(struct imx258 *imx258)
 static int imx258_probe(struct i2c_client *client)
 {
 	struct imx258 *imx258;
-	int ret;
+	int ret, i;
 	u32 val = 0;
 
 	imx258 = devm_kzalloc(&client->dev, sizeof(*imx258), GFP_KERNEL);
@@ -1271,10 +1471,10 @@ static int imx258_probe(struct i2c_client *client)
 	} else {
 		val = clk_get_rate(imx258->clk);
 	}
-	if (val != IMX258_INPUT_CLOCK_FREQ) {
-		dev_err(&client->dev, "input clock frequency not supported\n");
-		return -EINVAL;
-	}
+
+	//XXX: the driver just checked for the clock to be as expected here
+	// but we now just configure the clock to expected value before power on
+	// if possible
 
 	/*
 	 * Check that the device is mounted upside down. The driver only
@@ -1283,6 +1483,26 @@ static int imx258_probe(struct i2c_client *client)
 	ret = device_property_read_u32(&client->dev, "rotation", &val);
 	if (ret || val != 180)
 		return -EINVAL;
+
+	for (i = 0; i < IMX258_SUPPLY_COUNT; i++)
+		imx258->supplies[i].supply = imx258_supply_names[i];
+	ret = devm_regulator_bulk_get(&client->dev,
+				      IMX258_SUPPLY_COUNT,
+				      imx258->supplies);
+	if (ret)
+		return dev_err_probe(&client->dev, ret, "Failed to get supplies\n");
+
+	/* request optional power down pin */
+	imx258->pwdn_gpio = devm_gpiod_get_optional(&client->dev, "powerdown",
+						    GPIOD_OUT_HIGH);
+	if (IS_ERR(imx258->pwdn_gpio))
+		return PTR_ERR(imx258->pwdn_gpio);
+
+	/* request optional reset pin */
+	imx258->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
+						    GPIOD_OUT_HIGH);
+	if (IS_ERR(imx258->reset_gpio))
+		return PTR_ERR(imx258->reset_gpio);
 
 	/* Initialize subdev */
 	v4l2_i2c_subdev_init(&imx258->sd, client, &imx258_subdev_ops);

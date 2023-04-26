@@ -99,6 +99,7 @@ snd-soc-da7219-objs := da7219.o da7219-aad.o
 snd-soc-da732x-objs := da732x.o
 snd-soc-da9055-objs := da9055.o
 snd-soc-dmic-objs := dmic.o
+snd-soc-ec25-objs := ec25.o
 snd-soc-es7134-objs := es7134.o
 snd-soc-es7241-objs := es7241.o
 snd-soc-es8316-objs := es8316.o
@@ -345,6 +346,7 @@ snd-soc-wm-hubs-objs := wm_hubs.o
 snd-soc-wsa881x-objs := wsa881x.o
 snd-soc-wsa883x-objs := wsa883x.o
 snd-soc-zl38060-objs := zl38060.o
+snd-soc-acx00-objs := acx00.o
 # Amp
 snd-soc-max9877-objs := max9877.o
 snd-soc-max98504-objs := max98504.o
@@ -459,6 +461,7 @@ obj-$(CONFIG_SND_SOC_DA7219)	+= snd-soc-da7219.o
 obj-$(CONFIG_SND_SOC_DA732X)	+= snd-soc-da732x.o
 obj-$(CONFIG_SND_SOC_DA9055)	+= snd-soc-da9055.o
 obj-$(CONFIG_SND_SOC_DMIC)	+= snd-soc-dmic.o
+obj-$(CONFIG_SND_SOC_EC25)	+= snd-soc-ec25.o
 obj-$(CONFIG_SND_SOC_ES7134)	+= snd-soc-es7134.o
 obj-$(CONFIG_SND_SOC_ES7241)	+= snd-soc-es7241.o
 obj-$(CONFIG_SND_SOC_ES8316)    += snd-soc-es8316.o
@@ -705,6 +708,7 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 obj-$(CONFIG_SND_SOC_WSA881X)	+= snd-soc-wsa881x.o
 obj-$(CONFIG_SND_SOC_WSA883X)	+= snd-soc-wsa883x.o
 obj-$(CONFIG_SND_SOC_ZL38060)	+= snd-soc-zl38060.o
+obj-$(CONFIG_SND_SOC_ACX00)	+= snd-soc-acx00.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o

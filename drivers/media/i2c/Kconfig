@@ -619,6 +619,19 @@ config VIDEO_OV8856
 	  To compile this driver as a module, choose M here: the
 	  module will be called ov8856.
 
+config VIDEO_OV8858
+	tristate "OmniVision OV8858 sensor support"
+	depends on I2C && VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the OmniVision
+	  OV8858 camera sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov8858.
+
 config VIDEO_OV8865
 	tristate "OmniVision OV8865 sensor support"
 	depends on I2C && PM && VIDEO_DEV
@@ -782,6 +795,26 @@ config VIDEO_VS6624
 source "drivers/media/i2c/ccs/Kconfig"
 source "drivers/media/i2c/et8ek8/Kconfig"
 source "drivers/media/i2c/m5mols/Kconfig"
+
+config VIDEO_HM5065
+	tristate "Himax HM5065 sensor support"
+	depends on I2C
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	help
+	  This is a V4L2 sensor-level driver for Himax HM5065
+	  5 Mpixel camera.
+
+config VIDEO_GC2145
+	tristate "GalaxyCore GC2145 sensor support"
+	depends on I2C
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	help
+	  This is a V4L2 sensor-level driver for GalaxyCore GC2145
+	  2 Mpixel camera.
 
 endmenu
 
