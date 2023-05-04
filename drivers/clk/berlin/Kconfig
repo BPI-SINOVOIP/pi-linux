@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config SYNA_VS680_PLL
+	tristate "Synaptics VS680 pll drivers"
+	depends on ARCH_BERLIN
+	help
+	  Build the pll drivers for berlin VS680/VS640 SOCs.
+
+config SYNA_AS370_PLL
+	tristate "Synaptics AS370 pll drivers"
+	depends on ARCH_BERLIN
+	help
+	  Build the pll drivers for berlin AS370/AS470 SOCs.
+
+config SYNA_CLK_BASE
+	tristate "Synaptics switch/gate base drivers"
+	depends on ARCH_BERLIN
+	help
+	  Build the base clk driver for synaptics SOCs.
+
+config SYNA_AS370_CLK
+	tristate "Synaptics AS370 SOC's switch/gate clk drivers"
+	depends on SYNA_CLK_BASE
+	help
+	  Build the clk drivers for berlin AS370 SOCs.
+
+config SYNA_AS470_CLK
+	tristate "Synaptics AS470 SOC's switch/gate clk drivers"
+	depends on SYNA_CLK_BASE
+	help
+	  Build the clk drivers for berlin AS470 SOCs.
+
+config SYNA_VS640_CLK
+	tristate "Synaptics VS640 SOC's switch/gate clk drivers"
+	depends on SYNA_CLK_BASE
+	help
+	  Build the clk drivers for berlin VS640 SOCs.
+
+config SYNA_VS680_CLK
+	tristate "Synaptics VS680 SOC's switch/gate clk drivers"
+	depends on SYNA_CLK_BASE
+	help
+	  Build the clk drivers for berlin VS680 SOCs.

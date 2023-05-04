@@ -16,6 +16,13 @@ config PCIE_DW_EP
 	depends on PCI_ENDPOINT
 	select PCIE_DW
 
+config PCIE_BERLIN
+	tristate "Synaptics Berlin PCIe controller"
+	depends on PCI
+	depends on ARCH_BERLIN && OF
+	depends on PCI_MSI_IRQ_DOMAIN
+	select PCIE_DW_HOST
+
 config PCI_DRA7XX
 	bool
 

@@ -23,8 +23,9 @@ struct sy8824_config {
 	unsigned int enable_reg;
 	/* Voltage range and step(linear) */
 	unsigned int vsel_min;
-	unsigned int vsel_step;
+	unsigned int uV_step;
 	unsigned int vsel_count;
+	const struct regmap_config *config;
 };
 
 struct sy8824_device_info {
@@ -32,6 +33,7 @@ struct sy8824_device_info {
 	struct regulator_desc desc;
 	struct regulator_init_data *regulator;
 	const struct sy8824_config *cfg;
+	unsigned int vsel_step;
 };
 
 static int sy8824_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -98,9 +100,10 @@ static int sy8824_regulator_register(struct sy8824_device_info *di,
 	rdesc->enable_reg = cfg->enable_reg;
 	rdesc->enable_mask = SY8824C_BUCK_EN;
 	rdesc->min_uV = cfg->vsel_min;
-	rdesc->uV_step = cfg->vsel_step;
+	rdesc->uV_step = cfg->uV_step;
 	rdesc->vsel_reg = cfg->vol_reg;
 	rdesc->vsel_mask = cfg->vsel_count - 1;
+	rdesc->vsel_step = di->vsel_step;
 	rdesc->owner = THIS_MODULE;
 
 	rdev = devm_regulator_register(di->dev, &di->desc, config);
@@ -110,6 +113,15 @@ static int sy8824_regulator_register(struct sy8824_device_info *di,
 static const struct regmap_config sy8824_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.num_reg_defaults_raw = 1,
+	.cache_type = REGCACHE_FLAT,
+};
+
+static const struct regmap_config sy20276_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.num_reg_defaults_raw = 2,
+	.cache_type = REGCACHE_FLAT,
 };
 
 static int sy8824_i2c_probe(struct i2c_client *client,
@@ -135,7 +147,7 @@ static int sy8824_i2c_probe(struct i2c_client *client,
 	di->dev = dev;
 	di->cfg = of_device_get_match_data(dev);
 
-	regmap = devm_regmap_init_i2c(client, &sy8824_regmap_config);
+	regmap = devm_regmap_init_i2c(client, di->cfg->config);
 	if (IS_ERR(regmap)) {
 		dev_err(dev, "Failed to allocate regmap!\n");
 		return PTR_ERR(regmap);
@@ -148,6 +160,8 @@ static int sy8824_i2c_probe(struct i2c_client *client,
 	config.driver_data = di;
 	config.of_node = np;
 
+	of_property_read_u32(np, "silergy,vsel-step", &di->vsel_step);
+
 	ret = sy8824_regulator_register(di, &config);
 	if (ret < 0)
 		dev_err(dev, "Failed to register regulator!\n");
@@ -159,8 +173,9 @@ static const struct sy8824_config sy8824c_cfg = {
 	.mode_reg = 0x00,
 	.enable_reg = 0x00,
 	.vsel_min = 762500,
-	.vsel_step = 12500,
+	.uV_step = 12500,
 	.vsel_count = 64,
+	.config = &sy8824_regmap_config,
 };
 
 static const struct sy8824_config sy8824e_cfg = {
@@ -168,8 +183,9 @@ static const struct sy8824_config sy8824e_cfg = {
 	.mode_reg = 0x00,
 	.enable_reg = 0x00,
 	.vsel_min = 700000,
-	.vsel_step = 12500,
+	.uV_step = 12500,
 	.vsel_count = 64,
+	.config = &sy8824_regmap_config,
 };
 
 static const struct sy8824_config sy20276_cfg = {
@@ -177,8 +193,9 @@ static const struct sy8824_config sy20276_cfg = {
 	.mode_reg = 0x01,
 	.enable_reg = 0x01,
 	.vsel_min = 600000,
-	.vsel_step = 10000,
+	.uV_step = 10000,
 	.vsel_count = 128,
+	.config = &sy20276_regmap_config,
 };
 
 static const struct sy8824_config sy20278_cfg = {
@@ -186,8 +203,9 @@ static const struct sy8824_config sy20278_cfg = {
 	.mode_reg = 0x01,
 	.enable_reg = 0x01,
 	.vsel_min = 762500,
-	.vsel_step = 12500,
+	.uV_step = 12500,
 	.vsel_count = 64,
+	.config = &sy20276_regmap_config,
 };
 
 static const struct of_device_id sy8824_dt_ids[] = {

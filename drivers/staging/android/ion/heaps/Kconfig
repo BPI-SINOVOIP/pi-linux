@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: GPL-2.0
+config ION_SYSTEM_HEAP
+	tristate "Ion system heap"
+	depends on ION
+	help
+	  Choose this option to enable the Ion system heap. The system heap
+	  is backed by pages from the buddy allocator. If in doubt, say Y.
+
+config ION_CMA_HEAP
+	tristate "Ion CMA heap support"
+	depends on ION && DMA_CMA
+	help
+	  Choose this option to enable CMA heaps with Ion. This heap is backed
+	  by the Contiguous Memory Allocator (CMA). If your system has these
+	  regions, you should say Y here.
+
+config ION_HEAP_EXTRA
+	tristate "Ion heap extra function support"
+	depends on ION
+	help
+	  Choose this option to enable ION heap extra functions, currently it
+	  only supports heap call back register.
+
+config ION_BERLIN_HEAP
+	tristate "Ion BERLIN heap support"
+	depends on ION_HEAP_EXTRA
+	help
+	  Choose this option to enable BERLIN heaps with Ion. This heap is to
+	  support berlin platform related features.
+
+config ION_SYSTEM_CUST_HEAP
+	tristate "Ion system cust heap"
+	depends on ION_HEAP_EXTRA
+	help
+	  Choose this option to enable the customized Ion system heap. If in
+	  doubt, say N.
+
+config ION_CMA_CUST_HEAP
+	tristate "Ion CMA cust heap support"
+	depends on ION_HEAP_EXTRA && DMA_CMA
+	help
+	  Choose this option to enable CMA customized heaps with Ion. If in
+	  doubt, say N.

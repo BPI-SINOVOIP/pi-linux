@@ -1,0 +1,15 @@
+#
+# GPU variants
+#
+
+choice
+	prompt	"Synaptics GPU Variants"
+	default	GPU_VS640
+
+config GPU_VS640
+	bool	"Synaptics VS640"
+
+config GPU_VS680
+	bool	"Synaptics VS680"
+
+endchoice

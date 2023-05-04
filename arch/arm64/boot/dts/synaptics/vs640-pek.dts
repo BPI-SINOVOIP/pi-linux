@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 Synaptics Incorporated
+ *
+ * Author: Benson Gui <begu@synaptics.com>
+ */
+
+/dts-v1/;
+
+/memreserve/ 0x7f000000 0x01000000;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "vs640.dtsi"
+
+/ {
+	model = "Synaptics VS640 PEK";
+	compatible = "syna,vs640-pek", "syna,vs640";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x01000000 0 0x7f000000>;
+	};
+
+	ion {
+		compatible = "syna,ion-berlin-heaps";
+		pool-num = <2>;
+		reg-names = "NonSecure-NC", "Secure";
+		reg = <0 0x7f000000 0 0x00800000>,
+		      <0 0x7f800000 0 0x00800000>;
+		attributes-num-per-pool = <2>;
+		pool-attributes = <0x00000105 0x00000F3A 0x00000102 0x00000F3D>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg_usb0_vbus: usb0_vbus {
+			compatible = "regulator-fixed";
+			regulator-name = "usb0_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&portb 27 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
+		reg_xhci0_vbus: xhci0_vbus {
+			compatible = "regulator-fixed";
+			regulator-name = "xhci0_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&expander1 4 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+};
+
+&cpu0 {
+	/delete-property/ operating-points-v2;
+};
+
+&pinctrl {
+	i2c0_pmux: i2c0-pmux {
+		groups = "TW0_SCL", "TW0_SDA";
+		function = "tw0";
+		drive-strength = <7>;
+	};
+
+	usb0_pmux: usb0-pmux {
+		groups = "USB2_DRV_VBUS";
+		function = "gpio";
+	};
+
+	scrd_pmux: scrd-pmux {
+		groups ="SCRD0_RST", "SCRD0_DCLK", "SPI1_SS2n", "SPI1_SS3n", "SCRD0_DIO", "SCRD0_CRD_PRES";
+		function = "scrd0";
+	};
+};
+
+&sm_pinctrl {
+	i2c2_pmux: i2c2-pmux {
+		groups = "SM_TW2_SCL", "SM_TW2_SDA";
+		function = "tw2";
+	};
+
+	i2c3_pmux: i2c3-pmux {
+		groups = "SM_TW3_SCL", "SM_TW3_SDA";
+		function = "tw3";
+	};
+};
+
+&avio_pinctrl {
+	i2s1_pmux: i2s1-pmux {
+		groups = "I2S1_BCLKIO", "I2S1_LRCKIO", "I2S1_DO0", "I2S1_MCLK";
+		function = "i2s1";
+	};
+
+	spdifo_pmux: spdifo-pmux {
+		groups = "SPDIFO";
+		function = "spdifo";
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pmux>;
+
+	expander0: gpio@70 {
+		compatible = "nxp,pca9538";
+		reg = <0x70>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	expander1: gpio@71 {
+		compatible = "nxp,pca9538";
+		reg = <0x71>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pmux>;
+	no-irq-suspend;
+
+	expander3: gpio@70 {
+		compatible = "nxp,pca9538";
+		reg = <0x70>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pmux>;
+};
+
+&ephy {
+	status = "okay";
+};
+
+&mdio0 {
+	phy0: ethernet-phy@0 {
+		reg = <0>;
+		interrupt-parent = <&sic>;
+		interrupts = <30>;
+		ephy = <&ephy>;
+	};
+};
+
+&gmac0 {
+	status = "okay";
+	phy-handle = <&phy0>;
+	phy-mode = "mii";
+};
+
+&pcie_phy0 {
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
+	reset-gpios = <&expander3 3 GPIO_ACTIVE_LOW>;
+	power-gpios = <&expander3 2 GPIO_ACTIVE_HIGH>;
+};
+
+&sdhci0 {
+	status = "okay";
+	sdclkdl-dc = /bits/ 8 <26>;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&usb0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb0_pmux>;
+	vbus-supply = <&reg_usb0_vbus>;
+	status = "okay";
+};
+
+&usb_phy0 {
+	status = "okay";
+};
+
+&xhci0 {
+	vbus-supply = <&reg_xhci0_vbus>;
+	status = "okay";
+};
+
+&usb_phy1{
+	status = "okay";
+};
+
+&h1 {
+	status = "okay";
+};
+
+&vxg {
+	status = "okay";
+};
+
+&shm {
+	status = "okay";
+};
+
+&bm {
+	status = "okay";
+};
+
+&tsp {
+	status = "okay";
+};
+
+&npu {
+	status = "okay";
+};
+
+&avio {
+	status = "okay";
+};
+
+&aout {
+	status = "okay";
+	pinctrl-0 = <&i2s1_pmux>, <&spdifo_pmux>;
+	pinctrl-names = "default";
+};
+
+&nsk {
+	status = "okay";
+};
+
+&ovp {
+	status = "okay";
+};
+
+&usim {
+	status = "okay";
+	pinctrl-0 = <&scrd_pmux>;
+	pinctrl-names = "default";
+	voltcfg1-gpios = <&portb 2 GPIO_ACTIVE_HIGH>;
+	voltcfg2-gpios = <&portb 1 GPIO_ACTIVE_HIGH>;
+	cmdvcc-gpios = <&expander0 2 GPIO_ACTIVE_HIGH>;
+	chipsel-gpios = <&expander0 3 GPIO_ACTIVE_HIGH>;
+	clkdiv1-gpios = <&expander0 4 GPIO_ACTIVE_HIGH>;
+	clkdiv2-gpios = <&expander0 5 GPIO_ACTIVE_HIGH>;
+	ext-volt-cfg-div = <0 1 3>; /* <VOLT_CFG_1_8V VOLT_CFG_3_3V VOLT_CFG_5_0V> */
+	ext-clk-cfg-div = <0 1 2 3>; /* <FXTAL/8 FXTAL/4 FXTAL/1 FXTAL/2> */
+};
+
+&vpp {
+	status = "okay";
+};
+
+&fb {
+	status = "okay";
+};
+
+&dsp0 {
+	status = "okay";
+};
+
+&dsp1 {
+	status = "okay";
+};
+
+&ifcp {
+	status = "okay";
+};
+
+&axi_meter {
+	status = "okay";
+};

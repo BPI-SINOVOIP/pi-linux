@@ -1,0 +1,36 @@
+Synaptics VS680 Digital Microphone capture DAI configuration
+
+Required properties:
+  - compatible : "syna,syna,vs680-dmic-pdm"
+  - interrupts : adhub irq number (dhub channel number)
+  - interrupt-parent : dhub irq controller, see "syna,berlin-dhub-irq.txt"
+
+Optional properties:
+  - pdm-type : three types
+	       0: 2ch SPDIFI pad
+	       1: 8ch I2S2_DI3, I2S2_DI2, I2S2_DI1, I2S2_DI0
+	       2: 8ch I2S2_DI3, I2S2_DI2, I2S1_DO3, I2S1_DO2
+  - pdm-clk-sel:
+             000: Clock A (I2S2_BCLKIO) Master Mode and PDMA_CLKIO_DO_FB
+		  (Core → loopback before I2S2_BCLKIO pad → mux input)
+	     001: Clock A Slave Mode and PDMA_CLKIO_DI_2mux
+		  (From I2S2_BCLKIO pad)
+	     010: Clock B (I2S2_MCLK) Master Mode and PDMB_CLKIO_DO_FB
+		  (Core → loopback before I2S2_MCLK pad → input of mux)
+	     011: Clock B Slave Mode and PDMB_CLKIO_DI_2mux
+		  (From I2S2_MCLK pad)
+	     1xx: I2S2 BCLK Cross feed and I2S2_BCLKIO_DI_2module
+		  (After I2S2BCLK Final clock mux.)
+  - channels-map: array indicates which channel connected to dmic.
+		  set 1: dmic available. set 0: no dmic.
+
+Example:
+dmic: dmic-pdm {
+	compatible = "syna,vs680-dmic-pdm";
+	status = "disabled";
+	interrupt-parent = <&dhubctr_a>;
+	interrupts = <4>;
+	pdm-type = <1>;
+	pdm-clk-sel = <2>;
+	channels-map = <1 1 1 1 0 0 0 0>;
+};

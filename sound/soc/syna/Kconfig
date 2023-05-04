@@ -1,0 +1,94 @@
+menuconfig SND_SOC_SYNA
+	tristate "ASoC support for Synaptics"
+	help
+	  Say Y or M if you want to add support for Synaptics SoCs'
+	  Audio interfaces. You will also need to select the audio
+	  interfaces below to support them.
+
+if SND_SOC_SYNA
+
+config SND_SOC_BERLIN_ASOC
+	tristate "ASoC for the BERLIN chip"
+	depends on OF && I2C
+	help
+	  Say Y if you want to add Synaptics Berlin machine driver.
+
+config SND_SOC_BERLIN_PCM
+	tristate "Berlin PCM platform driver"
+	select SND_HWDEP
+	select BERLIN_AVIO
+	select BERLIN_DHUB_IRQ
+	depends on INPUT
+	help
+	  Say Y if you want to add Synaptics Berlin PCM driver.
+
+config SND_SOC_BERLIN_OUTDAI
+	tristate "Berlin output dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin playback driver.
+
+config SND_SOC_BERLIN_SEC
+	tristate "Berlin secondary dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin Sec playback driver.
+
+config SND_SOC_BERLIN_PDMI
+	tristate "Berlin PDM input dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin PDM capture driver.
+
+config SND_SOC_BERLIN_MIC1
+	tristate "Berlin MIC1 dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin MIC1 driver.
+
+config SND_SOC_BERLIN_MIC2
+	tristate "Berlin MIC2 dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin MIC2 driver.
+
+config SND_SOC_BERLIN_MIC6
+	tristate "Berlin MIC6 dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin MIC6 driver.
+
+config SND_SOC_BERLIN_PRI_LOOPBACK
+	tristate "Berlin Pri Loopback dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin Pri Loopback driver.
+
+config SND_SOC_BERLIN_HDMI_LOOPBACK
+	tristate "Berlin HDMI Loopback dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin HDMI Loopback driver.
+
+config SND_SOC_BERLIN_SPDIFI
+	tristate "Berlin SPDIF RX dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin SPDIF RX driver.
+
+config SND_SOC_BERLIN_DMIC
+	tristate "Berlin DMIC dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin DMIC driver.
+endif #SND_SOC_SYNA

@@ -8,20 +8,6 @@ config ARMADA375_USBCLUSTER_PHY
 	depends on OF && HAS_IOMEM
 	select GENERIC_PHY
 
-config PHY_BERLIN_SATA
-	tristate "Marvell Berlin SATA PHY driver"
-	depends on ARCH_BERLIN && HAS_IOMEM && OF
-	select GENERIC_PHY
-	help
-	  Enable this to support the SATA PHY on Marvell Berlin SoCs.
-
-config PHY_BERLIN_USB
-	tristate "Marvell Berlin USB PHY Driver"
-	depends on ARCH_BERLIN && RESET_CONTROLLER && HAS_IOMEM && OF
-	select GENERIC_PHY
-	help
-	  Enable this to support the USB PHY on Marvell Berlin SoCs.
-
 config PHY_MVEBU_A3700_COMPHY
 	tristate "Marvell A3700 comphy driver"
 	depends on ARCH_MVEBU || COMPILE_TEST

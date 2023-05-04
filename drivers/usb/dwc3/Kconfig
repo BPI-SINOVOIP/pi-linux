@@ -125,6 +125,14 @@ config USB_DWC3_ST
 	  inside (i.e. STiH407).
 	  Say 'Y' or 'M' if you have one such device.
 
+config USB_DWC3_SYNA
+	tristate "Synaptics Platforms"
+	depends on (ARCH_BERLIN || COMPILE_TEST) && OF
+	default USB_DWC3
+	help
+	  Synaptics SOCs with dwc3 IP.
+	  Say 'Y' or 'M' if you have one such device.
+
 config USB_DWC3_QCOM
 	tristate "Qualcomm Platform"
 	depends on ARCH_QCOM || COMPILE_TEST

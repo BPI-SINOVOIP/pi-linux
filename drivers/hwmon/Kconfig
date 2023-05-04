@@ -1736,6 +1736,12 @@ config SENSORS_VIA686A
 	  This driver can also be built as a module. If so, the module
 	  will be called via686a.
 
+config SENSORS_VS680
+	tristate "Synaptics VS680 SoC hardware monitoring driver"
+	help
+	  If you say yes here you get support for the PVT sensors for
+	  Synaptics VS680 SoC.
+
 config SENSORS_VT1211
 	tristate "VIA VT1211"
 	depends on !PPC

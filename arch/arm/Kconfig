@@ -49,6 +49,7 @@ config ARM
 	select GENERIC_ARCH_TOPOLOGY if ARM_CPU_TOPOLOGY
 	select GENERIC_ATOMIC64 if CPU_V7M || CPU_V6 || !CPU_32v6K || !AEABI
 	select GENERIC_CLOCKEVENTS_BROADCAST if SMP
+	select GENERIC_IRQ_IPI if SMP
 	select GENERIC_CPU_AUTOPROBE
 	select GENERIC_EARLY_IOREMAP
 	select GENERIC_IDLE_POLL_SETUP
@@ -1251,6 +1252,7 @@ config HAVE_ARM_ARCH_TIMER
 	depends on CPU_V7
 	select ARM_ARCH_TIMER
 	select GENERIC_CLOCKEVENTS
+	select GENERIC_GETTIMEOFDAY
 	help
 	  This option enables support for the ARM architected timer
 
@@ -2097,3 +2099,4 @@ source "arch/arm/crypto/Kconfig"
 endif
 
 source "arch/arm/kvm/Kconfig"
+source "arch/arm/Kconfig.assembler"

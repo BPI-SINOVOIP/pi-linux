@@ -20,6 +20,9 @@ struct berlin_desc_group {
 	u8				offset;
 	u8				bit_width;
 	u8				lsb;
+	u16				conf_offset;
+	u8				str_bit_width;
+	u8				str_lsb;
 	struct berlin_desc_function	*functions;
 };
 
@@ -33,6 +36,20 @@ struct berlin_pinctrl_function {
 	const char	**groups;
 	unsigned	ngroups;
 };
+
+#define BERLIN_PINCTRLCONF_GROUP(_name, _offset, _width, _lsb,		\
+		_conf_offset, _str_width, _str_lsb, ...)		\
+	{								\
+		.name = _name,						\
+		.offset = _offset,					\
+		.bit_width = _width,					\
+		.lsb = _lsb,						\
+		.conf_offset = _conf_offset,				\
+		.str_bit_width = _str_width,				\
+		.str_lsb = _str_lsb,					\
+		.functions = (struct berlin_desc_function[]){		\
+			__VA_ARGS__, { } },				\
+	}
 
 #define BERLIN_PINCTRL_GROUP(_name, _offset, _width, _lsb, ...)		\
 	{								\
@@ -57,6 +74,11 @@ int berlin_pinctrl_probe(struct platform_device *pdev,
 
 int berlin_pinctrl_probe_regmap(struct platform_device *pdev,
 				const struct berlin_pinctrl_desc *desc,
-				struct regmap *regmap);
+				struct regmap *regmap,
+				struct regmap *conf);
+
+int berlin_pinctrl_suspend(struct device *dev);
+
+int berlin_pinctrl_resume(struct device *dev);
 
 #endif /* __PINCTRL_BERLIN_H */

@@ -5,3 +5,6 @@ obj-$(CONFIG_PINCTRL_BERLIN_BG2CD)	+= berlin-bg2cd.o
 obj-$(CONFIG_PINCTRL_BERLIN_BG2Q)	+= berlin-bg2q.o
 obj-$(CONFIG_PINCTRL_BERLIN_BG4CT)	+= berlin-bg4ct.o
 obj-$(CONFIG_PINCTRL_AS370)		+= pinctrl-as370.o
+obj-$(CONFIG_PINCTRL_AS470)		+= pinctrl-as470.o
+obj-$(CONFIG_PINCTRL_VS640)		+= pinctrl-vs640.o
+obj-$(CONFIG_PINCTRL_VS680)		+= pinctrl-vs680.o

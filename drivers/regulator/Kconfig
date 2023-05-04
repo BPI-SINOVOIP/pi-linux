@@ -349,6 +349,13 @@ config REGULATOR_HI655X
 	  This driver provides support for the voltage regulators of the
 	  Hisilicon Hi655x PMIC device.
 
+config REGULATOR_HL7593
+	tristate "Halo HL7593 regulator"
+	depends on I2C && (OF || COMPILE_TEST)
+	select REGMAP_I2C
+	help
+	  This driver supports HL7593 single output regulator.
+
 config REGULATOR_ISL9305
 	tristate "Intersil ISL9305 regulator"
 	depends on I2C
@@ -600,6 +607,13 @@ config REGULATOR_MCP16502
 	  through the regulator interface. In addition it enables
 	  suspend-to-ram/standby transition.
 
+config REGULATOR_MP886X
+	tristate "MPS MP8869 regulator driver"
+	depends on I2C && (OF || COMPILE_TEST)
+	select REGMAP_I2C
+	help
+	  This driver supports the MP8869 voltage regulator.
+
 config REGULATOR_MT6311
 	tristate "MediaTek MT6311 PMIC"
 	depends on I2C
@@ -734,6 +748,7 @@ config REGULATOR_QCOM_RPM
 config REGULATOR_QCOM_RPMH
 	tristate "Qualcomm Technologies, Inc. RPMh regulator driver"
 	depends on QCOM_RPMH || COMPILE_TEST
+	depends on QCOM_COMMAND_DB || !QCOM_COMMAND_DB
 	help
 	  This driver supports control of PMIC regulators via the RPMh hardware
 	  block found on Qualcomm Technologies Inc. SoCs.  RPMh regulator
@@ -922,6 +937,13 @@ config REGULATOR_SY8824X
 	select REGMAP_I2C
 	help
 	  This driver supports SY8824C single output regulator.
+
+config REGULATOR_SY8827N
+	tristate "Silergy SY8827N regulator"
+	depends on I2C && (OF || COMPILE_TEST)
+	select REGMAP_I2C
+	help
+	  This driver supports SY8827N single output regulator.
 
 config REGULATOR_TPS51632
 	tristate "TI TPS51632 Power Regulator"

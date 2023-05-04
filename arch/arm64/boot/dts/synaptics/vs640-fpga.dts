@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 Synaptics Incorporated
+ *
+ * Author: Jisheng Zhang <jszhang@kernel.org>
+ */
+
+/dts-v1/;
+
+/memreserve/ 0x63c00000 0x1c400000;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "vs640.dtsi"
+
+/ {
+	model = "Synaptics VS640 FPGA";
+	compatible = "syna,vs640-fpga", "syna,as640";
+
+	chosen {
+		bootargs = "maxcpus=1 cma=0x10000000@0x49c00000";
+		stdout-path = "serial0:115200n8";
+		linux,initrd-start = <0x08000000>;
+		linux,initrd-end = <0x0807AF91>;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x04a00000 0 0x5f200000>;
+	};
+
+	ion {
+		compatible = "syna,ion-berlin-heaps";
+		pool-num = <2>;
+		reg-names = "NonSecure-NC", "Secure";
+		reg = <0 0x63c00000 0 0x01400000>,
+		      <0 0x65000000 0 0x1b000000>;
+		attributes-num-per-pool = <2>;
+		pool-attributes = <0x00000105 0x00000F3A 0x00000102 0x00000F3D>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vmmc_sdio: vmmc_sdio {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vmmc_sdio";
+			enable-active-high;
+			regulator-boot-on;
+			gpio = <&portb 16 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+&CPU_SLEEP_0 {
+	status = "disabled";
+};
+
+&pinctrl {
+	sdio_pmux: sdio-pmux {
+		groups = "SDIO0_CDn";
+		function = "sdio";
+	};
+
+	sdio_gpio_pmux: sdio_gpio-pmux {
+		groups = "SDIO0_WP";
+		function = "gpio";
+	};
+};
+
+&sm_pinctrl {
+	gmac0_pmux: gmac0-pmux {
+		groups = "SM_SPI2_SS1n";
+		function = "gpio";
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+	wp-inverted;
+	no-1-8-v;
+	vmmc-supply = <&vmmc_sdio>;
+	pinctrl-0 = <&sdio_pmux>, <&sdio_gpio_pmux>;
+	pinctrl-names = "default";
+};
+
+&mdio0 {
+	phy0: ethernet-phy@1 {
+		reg = <1>;
+		max-speed = <100>;
+	};
+};
+
+&gmac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&gmac0_pmux>;
+	phy-handle = <&phy0>;
+	phy-mode = "mii";
+	snps,reset-gpio = <&portd 16 GPIO_ACTIVE_LOW>;
+	snps,reset-delays-us = <0 10000 0>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&h1 {
+	status = "okay";
+};
+
+&vxg {
+	status = "okay";
+};
+
+&shm {
+	status = "okay";
+};
+
+&bm {
+	status = "okay";
+};
+
+&tsp {
+	status = "okay";
+};
+
+&avio {
+	status = "okay";
+};
+
+&ovp {
+	status = "okay";
+};
+
+&vpp {
+	status = "okay";
+};
+
+&fb {
+	status = "okay";
+};

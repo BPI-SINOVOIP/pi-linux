@@ -65,6 +65,7 @@
 #include <linux/syscalls.h>
 #include <linux/task_work.h>
 #include <linux/tsacct_kern.h>
+#include <linux/android_kabi.h>
 
 #include <asm/tlb.h>
 
@@ -399,8 +400,14 @@ struct task_group {
 	struct uclamp_se	uclamp_req[UCLAMP_CNT];
 	/* Effective clamp values used for a task group */
 	struct uclamp_se	uclamp[UCLAMP_CNT];
+	/* Latency-sensitive flag used for a task group */
+	unsigned int		latency_sensitive;
 #endif
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -717,6 +724,12 @@ struct perf_domain {
 	struct rcu_head rcu;
 };
 
+struct max_cpu_capacity {
+	raw_spinlock_t lock;
+	unsigned long val;
+	int cpu;
+};
+
 /* Scheduling group status flags */
 #define SG_OVERLOAD		0x1 /* More than one runnable task on a CPU. */
 #define SG_OVERUTILIZED		0x2 /* One or more CPUs are over-utilized. */
@@ -775,16 +788,23 @@ struct root_domain {
 	cpumask_var_t		rto_mask;
 	struct cpupri		cpupri;
 
-	unsigned long		max_cpu_capacity;
+	/* Maximum cpu capacity in the system. */
+	struct max_cpu_capacity max_cpu_capacity;
 
 	/*
 	 * NULL-terminated list of performance domains intersecting with the
 	 * CPUs of the rd. Protected by RCU.
 	 */
 	struct perf_domain __rcu *pd;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 extern void init_defrootdomain(void);
+extern void init_max_cpu_capacity(struct max_cpu_capacity *mcc);
 extern int sched_init_domains(const struct cpumask *cpu_map);
 extern void rq_attach_root(struct rq *rq, struct root_domain *rd);
 extern void sched_get_rd(struct root_domain *rd);
@@ -1002,6 +1022,11 @@ struct rq {
 	/* Must be inspected within a rcu lock section */
 	struct cpuidle_state	*idle_state;
 #endif
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -1339,8 +1364,6 @@ extern void sched_ttwu_pending(void);
 #define for_each_domain(cpu, __sd) \
 	for (__sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd); \
 			__sd; __sd = __sd->parent)
-
-#define for_each_lower_domain(sd) for (; sd; sd = sd->child)
 
 /**
  * highest_flag_domain - Return highest sched_domain containing flag.
@@ -1997,6 +2020,15 @@ unsigned long arch_scale_freq_capacity(int cpu)
 }
 #endif
 
+#ifndef arch_scale_max_freq_capacity
+struct sched_domain;
+static __always_inline
+unsigned long arch_scale_max_freq_capacity(struct sched_domain *sd, int cpu)
+{
+	return SCHED_CAPACITY_SCALE;
+}
+#endif
+
 #ifdef CONFIG_SMP
 #ifdef CONFIG_PREEMPTION
 
@@ -2321,7 +2353,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
 #endif /* CONFIG_CPU_FREQ */
 
 #ifdef CONFIG_UCLAMP_TASK
-unsigned int uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
+unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
 
 /**
  * uclamp_util_with - clamp @util with @rq and @p effective uclamp values.
@@ -2341,11 +2373,11 @@ unsigned int uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
  * static key is disabled.
  */
 static __always_inline
-unsigned int uclamp_util_with(struct rq *rq, unsigned int util,
-			      struct task_struct *p)
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p)
 {
-	unsigned int min_util;
-	unsigned int max_util;
+	unsigned long min_util;
+	unsigned long max_util;
 
 	if (!static_branch_likely(&sched_uclamp_used))
 		return util;
@@ -2369,9 +2401,9 @@ unsigned int uclamp_util_with(struct rq *rq, unsigned int util,
 	return clamp(util, min_util, max_util);
 }
 
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
+static inline bool uclamp_boosted(struct task_struct *p)
 {
-	return uclamp_util_with(rq, util, NULL);
+	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
 }
 
 /*
@@ -2387,14 +2419,15 @@ static inline bool uclamp_is_used(void)
 	return static_branch_likely(&sched_uclamp_used);
 }
 #else /* CONFIG_UCLAMP_TASK */
-static inline unsigned int uclamp_util_with(struct rq *rq, unsigned int util,
-					    struct task_struct *p)
+static inline
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p)
 {
 	return util;
 }
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
+static inline bool uclamp_boosted(struct task_struct *p)
 {
-	return util;
+	return false;
 }
 
 static inline bool uclamp_is_used(void)
@@ -2402,6 +2435,25 @@ static inline bool uclamp_is_used(void)
 	return false;
 }
 #endif /* CONFIG_UCLAMP_TASK */
+
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+static inline bool uclamp_latency_sensitive(struct task_struct *p)
+{
+	struct cgroup_subsys_state *css = task_css(p, cpu_cgrp_id);
+	struct task_group *tg;
+
+	if (!css)
+		return false;
+	tg = container_of(css, struct task_group, css);
+
+	return tg->latency_sensitive;
+}
+#else
+static inline bool uclamp_latency_sensitive(struct task_struct *p)
+{
+	return false;
+}
+#endif /* CONFIG_UCLAMP_TASK_GROUP */
 
 #ifdef arch_scale_freq_capacity
 # ifndef arch_scale_freq_invariant

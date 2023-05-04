@@ -27,4 +27,5 @@ obj-y					+= broadcom/	\
 					   samsung/	\
 					   socionext/	\
 					   st/		\
+					   synaptics/	\
 					   ti/

@@ -1,0 +1,4 @@
+menuconfig SYNA_FBDEV
+	depends on FB && BERLIN_VPP
+	default n
+	tristate "Helper for implementing the fbdev API in SYNA drivers"

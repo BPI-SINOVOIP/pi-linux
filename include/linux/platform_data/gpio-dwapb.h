@@ -6,6 +6,8 @@
 #ifndef GPIO_DW_APB_H
 #define GPIO_DW_APB_H
 
+#define DW_NO_SUSPEND_RESUME	BIT(0)
+
 struct dwapb_port_property {
 	struct fwnode_handle *fwnode;
 	unsigned int	idx;
@@ -19,6 +21,7 @@ struct dwapb_port_property {
 struct dwapb_platform_data {
 	struct dwapb_port_property *properties;
 	unsigned int nports;
+	u8 flag;
 };
 
 #endif

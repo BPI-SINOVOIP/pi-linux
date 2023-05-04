@@ -478,6 +478,11 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		goto done;
 	}
 
+	if (dev->rx_outstanding) {
+		ret = -EIO;
+		goto done;
+	}
+
 	/* No error */
 	if (likely(!dev->cmd_err && !dev->status)) {
 		ret = num;

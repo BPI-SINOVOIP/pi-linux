@@ -26,6 +26,8 @@
 #include <linux/wait.h>
 #include <linux/pr.h>
 #include <linux/refcount.h>
+#include <linux/blk-crypto.h>
+#include <linux/keyslot-manager.h>
 
 #define DM_MSG_PREFIX "core"
 
@@ -452,14 +454,48 @@ static int dm_blk_getgeo(struct block_device *bdev, struct hd_geometry *geo)
 	return dm_get_geometry(md, geo);
 }
 
-static int dm_blk_report_zones(struct gendisk *disk, sector_t sector,
-			       struct blk_zone *zones, unsigned int *nr_zones)
-{
 #ifdef CONFIG_BLK_DEV_ZONED
+int dm_report_zones_cb(struct blk_zone *zone, unsigned int idx, void *data)
+{
+	struct dm_report_zones_args *args = data;
+	sector_t sector_diff = args->tgt->begin - args->start;
+
+	/*
+	 * Ignore zones beyond the target range.
+	 */
+	if (zone->start >= args->start + args->tgt->len)
+		return 0;
+
+	/*
+	 * Remap the start sector and write pointer position of the zone
+	 * to match its position in the target range.
+	 */
+	zone->start += sector_diff;
+	if (zone->type != BLK_ZONE_TYPE_CONVENTIONAL) {
+		if (zone->cond == BLK_ZONE_COND_FULL)
+			zone->wp = zone->start + zone->len;
+		else if (zone->cond == BLK_ZONE_COND_EMPTY)
+			zone->wp = zone->start;
+		else
+			zone->wp += sector_diff;
+	}
+
+	args->next_sector = zone->start + zone->len;
+	return args->orig_cb(zone, args->zone_idx++, args->orig_data);
+}
+EXPORT_SYMBOL_GPL(dm_report_zones_cb);
+
+static int dm_blk_report_zones(struct gendisk *disk, sector_t sector,
+		unsigned int nr_zones, report_zones_cb cb, void *data)
+{
 	struct mapped_device *md = disk->private_data;
-	struct dm_target *tgt;
 	struct dm_table *map;
 	int srcu_idx, ret;
+	struct dm_report_zones_args args = {
+		.next_sector = sector,
+		.orig_data = data,
+		.orig_cb = cb,
+	};
 
 	if (dm_suspended_md(md))
 		return -EAGAIN;
@@ -470,38 +506,30 @@ static int dm_blk_report_zones(struct gendisk *disk, sector_t sector,
 		goto out;
 	}
 
-	tgt = dm_table_find_target(map, sector);
-	if (!tgt) {
-		ret = -EIO;
-		goto out;
-	}
+	do {
+		struct dm_target *tgt;
 
-	/*
-	 * If we are executing this, we already know that the block device
-	 * is a zoned device and so each target should have support for that
-	 * type of drive. A missing report_zones method means that the target
-	 * driver has a problem.
-	 */
-	if (WARN_ON(!tgt->type->report_zones)) {
-		ret = -EIO;
-		goto out;
-	}
+		tgt = dm_table_find_target(map, args.next_sector);
+		if (WARN_ON_ONCE(!tgt->type->report_zones)) {
+			ret = -EIO;
+			goto out;
+		}
 
-	/*
-	 * blkdev_report_zones() will loop and call this again to cover all the
-	 * zones of the target, eventually moving on to the next target.
-	 * So there is no need to loop here trying to fill the entire array
-	 * of zones.
-	 */
-	ret = tgt->type->report_zones(tgt, sector, zones, nr_zones);
+		args.tgt = tgt;
+		ret = tgt->type->report_zones(tgt, &args, nr_zones);
+		if (ret < 0)
+			goto out;
+	} while (args.zone_idx < nr_zones &&
+		 args.next_sector < get_capacity(disk));
 
+	ret = args.zone_idx;
 out:
 	dm_put_live_table(md, srcu_idx);
 	return ret;
-#else
-	return -ENOTSUPP;
-#endif
 }
+#else
+#define dm_blk_report_zones		NULL
+#endif /* CONFIG_BLK_DEV_ZONED */
 
 static int dm_prepare_ioctl(struct mapped_device *md, int *srcu_idx,
 			    struct block_device **bdev)
@@ -1235,54 +1263,6 @@ void dm_accept_partial_bio(struct bio *bio, unsigned n_sectors)
 }
 EXPORT_SYMBOL_GPL(dm_accept_partial_bio);
 
-/*
- * The zone descriptors obtained with a zone report indicate
- * zone positions within the underlying device of the target. The zone
- * descriptors must be remapped to match their position within the dm device.
- * The caller target should obtain the zones information using
- * blkdev_report_zones() to ensure that remapping for partition offset is
- * already handled.
- */
-void dm_remap_zone_report(struct dm_target *ti, sector_t start,
-			  struct blk_zone *zones, unsigned int *nr_zones)
-{
-#ifdef CONFIG_BLK_DEV_ZONED
-	struct blk_zone *zone;
-	unsigned int nrz = *nr_zones;
-	int i;
-
-	/*
-	 * Remap the start sector and write pointer position of the zones in
-	 * the array. Since we may have obtained from the target underlying
-	 * device more zones that the target size, also adjust the number
-	 * of zones.
-	 */
-	for (i = 0; i < nrz; i++) {
-		zone = zones + i;
-		if (zone->start >= start + ti->len) {
-			memset(zone, 0, sizeof(struct blk_zone) * (nrz - i));
-			break;
-		}
-
-		zone->start = zone->start + ti->begin - start;
-		if (zone->type == BLK_ZONE_TYPE_CONVENTIONAL)
-			continue;
-
-		if (zone->cond == BLK_ZONE_COND_FULL)
-			zone->wp = zone->start + zone->len;
-		else if (zone->cond == BLK_ZONE_COND_EMPTY)
-			zone->wp = zone->start;
-		else
-			zone->wp = zone->wp + ti->begin - start;
-	}
-
-	*nr_zones = i;
-#else /* !CONFIG_BLK_DEV_ZONED */
-	*nr_zones = 0;
-#endif
-}
-EXPORT_SYMBOL_GPL(dm_remap_zone_report);
-
 static noinline void __set_swap_bios_limit(struct mapped_device *md, int latch)
 {
 	mutex_lock(&md->swap_bios_lock);
@@ -1377,12 +1357,15 @@ static int clone_bio(struct dm_target_io *tio, struct bio *bio,
 		     sector_t sector, unsigned len)
 {
 	struct bio *clone = &tio->clone;
+	int r;
 
 	__bio_clone_fast(clone, bio);
 
-	if (bio_integrity(bio)) {
-		int r;
+	r = bio_crypt_clone(clone, bio, GFP_NOIO);
+	if (r < 0)
+		return r;
 
+	if (bio_integrity(bio)) {
 		if (unlikely(!dm_target_has_integrity(tio->ti->type) &&
 			     !dm_target_passes_integrity(tio->ti->type))) {
 			DMWARN("%s: the target %s doesn't support integrity data.",
@@ -1912,6 +1895,19 @@ static const struct dax_operations dm_dax_ops;
 
 static void dm_wq_work(struct work_struct *work);
 
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+static void dm_queue_destroy_keyslot_manager(struct request_queue *q)
+{
+	dm_destroy_keyslot_manager(q->ksm);
+}
+
+#else /* CONFIG_BLK_INLINE_ENCRYPTION */
+
+static inline void dm_queue_destroy_keyslot_manager(struct request_queue *q)
+{
+}
+#endif /* !CONFIG_BLK_INLINE_ENCRYPTION */
+
 static void cleanup_mapped_device(struct mapped_device *md)
 {
 	if (md->wq)
@@ -1933,8 +1929,10 @@ static void cleanup_mapped_device(struct mapped_device *md)
 		put_disk(md->disk);
 	}
 
-	if (md->queue)
+	if (md->queue) {
+		dm_queue_destroy_keyslot_manager(md->queue);
 		blk_cleanup_queue(md->queue);
+	}
 
 	cleanup_srcu_struct(&md->io_barrier);
 

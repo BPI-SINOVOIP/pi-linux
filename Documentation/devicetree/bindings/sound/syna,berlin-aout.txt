@@ -1,0 +1,19 @@
+Synaptics Berlin Sound Output
+
+This devices handle all sound stream related operations
+
+Required properties:
+
+  - compatible : should be one of:
+	"syna,berlin-aout"
+
+Optional properties:
+
+Example:
+aout {
+	compatible = "syna,berlin-aout";
+	interrupt-parent = <&dhubctr_a>;
+	interrupts = <0>, <2>, <7>, <14>;
+	interrupt-names = "ma0", "loro", "hdmi", "spdif";
+};
+

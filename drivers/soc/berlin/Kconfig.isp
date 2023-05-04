@@ -1,0 +1,22 @@
+#
+# ISP variants
+#
+
+if SYNA_ISP
+
+choice
+	prompt	"Synaptics ISP Variants"
+	default	ISP_NONE
+
+config ISP_NONE
+	bool	"Not select any ISP variant in default"
+
+config ISP_VS680
+	bool	"Synaptics VS680"
+
+config ISP_VS680_A0
+	bool	"Synaptics VS680 A0"
+
+endchoice
+
+endif

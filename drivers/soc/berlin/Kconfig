@@ -1,0 +1,197 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Berlin SoC drivers
+#
+menu "Berlin SoC drivers"
+	depends on ARCH_BERLIN || COMPILE_TEST
+
+source "drivers/soc/berlin/Kconfig.avio"
+source "drivers/soc/berlin/Kconfig.isp"
+source "drivers/soc/berlin/Kconfig.gpu"
+
+config BERLIN_CHIPID
+	bool "Support BERLIN CHIPID"
+	default n
+	select SOC_BUS
+	help
+	  If you say Y here you get support for the BERLIN CHIP id
+
+config BERLIN_SM
+	bool "Support SM CPU"
+	default n
+	select POWER_RESET
+	select REBOOT_MODE
+	help
+	  Enable support for SM(System Manager) which is designed for front
+	  panel control and power management.
+
+config BERLIN_TZD
+	tristate "Support Synaptics ARM TrustZone"
+	default n
+	help
+	  Enable support for Synaptics ARM TrustZone
+
+config BERLIN_SHM
+	tristate "Support BERLIN SHM"
+	default n
+	depends on ION
+	help
+	  SHM support
+
+config BERLIN_VPP
+	tristate "Support Berlin VPP module"
+	default n
+	depends on ION && BERLIN_AVIO
+	help
+	  This is the VPP module for Berlin.
+
+config BERLIN_CC
+	tristate "Support BERLIN CC"
+	default n
+	help
+	  Enable support for BERLIN CC
+
+config BERLIN_AVIO
+	tristate "Support AVIO"
+	default n
+	select BERLIN_MSGQ
+	select BERLIN_TZD
+	help
+	  Enable support for AVIO
+
+config BERLIN_MSGQ
+	tristate "Support Message Q"
+	default n
+	help
+	  Enable support for MSGQ
+
+config BERLIN_VPU
+	tristate "Support BERLIN VPU"
+	default n
+	select BERLIN_MSGQ
+	help
+	  Enable support for VPU
+
+config SYNA_ISP
+	tristate "Support for ISP"
+	default n
+	help
+	  isp core driver
+
+config BERLIN_TSP
+	tristate "Support BERLIN TSP"
+	default n
+	select BERLIN_MSGQ
+	help
+	  Enable support for TSP
+
+config BERLIN_AXI_METER
+	tristate "Support AXI performance meter"
+	default n
+	help
+	  axi performance meter support
+
+config BERLIN_AOUT
+	tristate "Support BERLIN AOUT"
+	default n
+	select BERLIN_DHUB_IRQ
+	depends on BERLIN_MSGQ && BERLIN_SHM && BERLIN_AVIO
+	help
+	  AOUT support
+
+config POWERVR_ROGUE
+	tristate "PowerVR rogue android driver"
+	default n
+	help
+	  Imagination gpu driver for android
+
+config POWERVR_ROGUE_WS
+	tristate "PowerVR rogue Linux window system driver"
+	default n
+	help
+	  Imagination gpu driver for Linux window system
+
+config BERLIN_NSK
+	tristate "Support BERLIN NSK"
+	default n
+	help
+	  NSK support
+
+config BERLIN_OVP
+	tristate "Support OVP"
+	default n
+	select BERLIN_MSGQ
+	select BERLIN_TZD
+	help
+	  Enable support for OVP
+
+config BERLIN_SCRD
+	tristate "Support BERLIN SMARTCARD"
+	default n
+	select BERLIN_MSGQ
+	help
+	  Enable support for Smart card
+
+config BERLIN_CEC
+	tristate "Support BERLIN CEC"
+	default n
+	select BERLIN_MSGQ
+	help
+	  Enable support for CEC
+
+config HIFI_DSP
+	tristate "Support HIFI DSP"
+	default n
+	depends on BERLIN_MSGQ
+	help
+	  DSP support
+
+config BERLIN_VSYNC
+	tristate "Support BERLIN VSYNC"
+	default n
+	help
+	  Enable Berlin Vsync
+
+config BERLIN_HRX
+	tristate "Support BERLIN HRX"
+	default n
+	select BERLIN_DHUB_IRQ
+	depends on BERLIN_MSGQ && BERLIN_SHM && BERLIN_AVIO
+	help
+	  HRX support
+
+config BERLIN_IFCP
+	tristate "Support Irdeto IFCP"
+	default n
+	help
+	  Enable support for Irdeto IFCP
+
+config BERLIN_BM
+	tristate "Support BERLIN BM"
+	default n
+	depends on ION_HEAP_EXTRA
+	help
+	 AMP buffer meta data management module
+
+config SYNAPTICS_BT_DEVICE
+	bool "BT Device support"
+	depends on BT && RFKILL
+	default n
+	help
+	  Say Y here if you want to use the BT device.
+
+config SYNA_DRM
+	tristate "synaptics drm display module"
+	default n
+	select BERLIN_VPP
+	select BERLIN_AVIO
+	help
+	  synaptics drm display support
+
+config SYNA_MC_DFC
+	tristate "Support MC hwcc"
+	default n
+	help
+	  MC DFC HWCC for DDR frequency switch on the fly.
+
+endmenu

@@ -5322,3 +5322,55 @@ int dwc2_gadget_exit_hibernation(struct dwc2_hsotg *hsotg,
 
 	return ret;
 }
+
+/**
+ * dwc2_gadget_exit_suspend()
+ * This function is for exiting from suspend.
+ *
+ * @hsotg: Programming view of the DWC_otg controller
+ * Return non-zero if failed to exit from suspend.
+ */
+int dwc2_gadget_exit_suspend(struct dwc2_hsotg *hsotg)
+{
+	int ret = 0;
+	struct dwc2_gregs_backup *gr;
+	struct dwc2_dregs_backup *dr;
+
+	gr = &hsotg->gr_backup;
+	dr = &hsotg->dr_backup;
+
+	dev_dbg(hsotg->dev, "%s: called\n", __func__);
+
+	dwc2_restore_essential_regs(hsotg, 0, 0);
+
+	/* Clear all pending interupts */
+	dwc2_writel(hsotg, 0xffffffff, GINTSTS);
+
+	/* Restore GUSBCFG, DCFG and DCTL */
+	dwc2_writel(hsotg, gr->gusbcfg, GUSBCFG);
+	dwc2_writel(hsotg, dr->dcfg, DCFG);
+	dwc2_writel(hsotg, dr->dctl, DCTL);
+
+	mdelay(1);
+	/* Clear all pending interupts */
+	dwc2_writel(hsotg, 0xffffffff, GINTSTS);
+
+	/* Restore global registers */
+	ret = dwc2_restore_global_registers(hsotg);
+	if (ret) {
+		dev_err(hsotg->dev, "%s: failed to restore registers\n",
+			__func__);
+		return ret;
+	}
+
+	/* Restore device registers */
+	ret = dwc2_restore_device_registers(hsotg, 0);
+	if (ret) {
+		dev_err(hsotg->dev, "%s: failed to restore device registers\n",
+			__func__);
+		return ret;
+	}
+
+	hsotg->lx_state = DWC2_L0;
+	return 0;
+}

@@ -411,6 +411,9 @@ static int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
 		}
 	}
 
+	if (snum && inet_is_local_unbindable_port(net, snum))
+		return -EPERM;
+
 	if (snum && snum < inet_prot_sock(net) &&
 	    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE))
 		return -EACCES;
@@ -1090,6 +1093,8 @@ static int sctp_connect_new_asoc(struct sctp_endpoint *ep,
 		if (sctp_autobind(sk))
 			return -EAGAIN;
 	} else {
+		if (inet_is_local_unbindable_port(net, ep->base.bind_addr.port))
+			return -EPERM;
 		if (ep->base.bind_addr.port < inet_prot_sock(net) &&
 		    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE))
 			return -EACCES;

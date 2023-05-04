@@ -4,10 +4,16 @@ if (ARCH_BERLIN || COMPILE_TEST)
 config PINCTRL_BERLIN
 	bool
 	select PINMUX
+	select GENERIC_PINCONF
 	select REGMAP_MMIO
 
 config PINCTRL_AS370
 	bool "Synaptics as370 pin controller driver"
+	depends on OF
+	select PINCTRL_BERLIN
+
+config PINCTRL_AS470
+	bool "Synaptics as470 pin controller driver"
 	depends on OF
 	select PINCTRL_BERLIN
 
@@ -28,6 +34,16 @@ config PINCTRL_BERLIN_BG2Q
 
 config PINCTRL_BERLIN_BG4CT
 	bool "Marvell berlin4ct pin controller driver"
+	depends on OF
+	select PINCTRL_BERLIN
+
+config PINCTRL_VS640
+	bool "Synaptics VS640 pin controller driver"
+	depends on OF
+	select PINCTRL_BERLIN
+
+config PINCTRL_VS680
+	bool "Synaptics VS680 pin controller driver"
 	depends on OF
 	select PINCTRL_BERLIN
 

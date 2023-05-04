@@ -1105,14 +1105,18 @@ int extcon_dev_register(struct extcon_dev *edev)
 	edev->dev.class = extcon_class;
 	edev->dev.release = extcon_dev_release;
 
-	edev->name = dev_name(edev->dev.parent);
-	if (IS_ERR_OR_NULL(edev->name)) {
-		dev_err(&edev->dev,
-			"extcon device name is null\n");
-		return -EINVAL;
+	if (edev->name) {
+		dev_set_name(&edev->dev, edev->name);
+	} else {
+		edev->name = dev_name(edev->dev.parent);
+		if (IS_ERR_OR_NULL(edev->name)) {
+			dev_err(&edev->dev,
+				"extcon device name is null\n");
+			return -EINVAL;
+		}
+		dev_set_name(&edev->dev, "extcon%lu",
+				(unsigned long)atomic_inc_return(&edev_no));
 	}
-	dev_set_name(&edev->dev, "extcon%lu",
-			(unsigned long)atomic_inc_return(&edev_no));
 
 	if (edev->max_supported) {
 		char *str;
@@ -1407,6 +1411,24 @@ const char *extcon_get_edev_name(struct extcon_dev *edev)
 {
 	return !edev ? NULL : edev->name;
 }
+EXPORT_SYMBOL_GPL(extcon_get_edev_name);
+
+/**
+ * extcon_set_edev_name() - Set the name of the extcon device.
+ * @edev:	the extcon device
+ * @name:	the device name
+ *
+ * Return NULL if parameters are wrong or return device name if success.
+ */
+void extcon_set_edev_name(struct extcon_dev *edev, const char *name)
+{
+	if ((!edev) || (!name)) {
+		return;
+	}
+
+	edev->name = name;
+}
+EXPORT_SYMBOL_GPL(extcon_set_edev_name);
 
 static int __init extcon_class_init(void)
 {

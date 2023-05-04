@@ -56,7 +56,9 @@
 #define GPIO_SWPORT_DR_STRIDE	0x0c /* register stride 3*32 bits */
 #define GPIO_SWPORT_DDR_STRIDE	0x0c /* register stride 3*32 bits */
 
-#define GPIO_REG_OFFSET_V2	1
+/* gpio flag bits definition */
+#define GPIO_REG_OFFSET_V2	BIT(0)
+#define GPIO_NO_SUSPEND_RESUME	BIT(1)
 
 #define GPIO_INTMASK_V2		0x44
 #define GPIO_INTTYPE_LEVEL_V2	0x34
@@ -587,6 +589,9 @@ dwapb_gpio_get_pdata(struct device *dev)
 
 	pdata->nports = nports;
 
+	if (device_property_read_bool(dev, "no-suspend-resume"))
+		pdata->flag |= DW_NO_SUSPEND_RESUME;
+
 	i = 0;
 	device_for_each_child_node(dev, fwnode)  {
 		struct device_node *np = NULL;
@@ -602,8 +607,8 @@ dwapb_gpio_get_pdata(struct device *dev)
 			return ERR_PTR(-EINVAL);
 		}
 
-		if (fwnode_property_read_u32(fwnode, "snps,nr-gpios",
-					 &pp->ngpio)) {
+		if (fwnode_property_read_u32(fwnode, "ngpios", &pp->ngpio) &&
+		    fwnode_property_read_u32(fwnode, "snps,nr-gpios", &pp->ngpio)) {
 			dev_info(dev,
 				 "failed to get number of gpios for port%d\n",
 				 i);
@@ -721,6 +726,9 @@ static int dwapb_gpio_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (pdata->flag & DW_NO_SUSPEND_RESUME)
+		gpio->flags |= GPIO_NO_SUSPEND_RESUME;
+
 	for (i = 0; i < gpio->nr_ports; i++) {
 		err = dwapb_gpio_add_port(gpio, &pdata->properties[i], i);
 		if (err)
@@ -757,6 +765,9 @@ static int dwapb_gpio_suspend(struct device *dev)
 	struct gpio_chip *gc	= &gpio->ports[0].gc;
 	unsigned long flags;
 	int i;
+
+	if (gpio->flags & GPIO_NO_SUSPEND_RESUME)
+		return 0;
 
 	spin_lock_irqsave(&gc->bgpio_lock, flags);
 	for (i = 0; i < gpio->nr_ports; i++) {
@@ -802,6 +813,9 @@ static int dwapb_gpio_resume(struct device *dev)
 	unsigned long flags;
 	int i;
 
+	if (gpio->flags & GPIO_NO_SUSPEND_RESUME)
+		return 0;
+
 	if (!IS_ERR(gpio->clk))
 		clk_prepare_enable(gpio->clk);
 
@@ -838,10 +852,15 @@ static int dwapb_gpio_resume(struct device *dev)
 
 	return 0;
 }
+#else
+#define dwapb_gpio_suspend	NULL
+#define dwapb_gpio_resume	NULL
 #endif
 
-static SIMPLE_DEV_PM_OPS(dwapb_gpio_pm_ops, dwapb_gpio_suspend,
-			 dwapb_gpio_resume);
+static const struct dev_pm_ops dwapb_gpio_pm_ops = {
+	.suspend_noirq = dwapb_gpio_suspend,
+	.resume_noirq = dwapb_gpio_resume,
+};
 
 static struct platform_driver dwapb_gpio_driver = {
 	.driver		= {
@@ -854,7 +873,17 @@ static struct platform_driver dwapb_gpio_driver = {
 	.remove		= dwapb_gpio_remove,
 };
 
-module_platform_driver(dwapb_gpio_driver);
+static int __init dwapb_gpio_driver_init(void)
+{
+	return platform_driver_register(&dwapb_gpio_driver);
+}
+subsys_initcall(dwapb_gpio_driver_init);
+
+static void __exit dwapb_gpio_driver_exit(void)
+{
+	platform_driver_unregister(&dwapb_gpio_driver);
+}
+module_exit(dwapb_gpio_driver_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jamie Iles");

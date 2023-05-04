@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 Synaptics Incorporated
+ *
+ * Author: Jisheng Zhang <jszhang@kernel.org>
+ */
+
+/dts-v1/;
+
+/memreserve/ 0x3ff00000 0x00100000;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "as470.dtsi"
+
+/ {
+	model = "Synaptics AS470 PEK";
+	compatible = "syna,as470-pek", "syna,as470";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		linux,initrd-start = <0x08000000>;
+		linux,initrd-end = <0x0807AF91>;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x01000000 0 0x3f000000>;
+	};
+
+	ion {
+		compatible = "syna,ion-berlin-heaps";
+		pool-num = <1>;
+		reg-names = "NonSecure";
+		reg = <0 0x3ff00000 0 0x100000>;
+		attributes-num-per-pool = <2>;
+		pool-attributes = <0x00000102 0x00000F36>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vmmc_sdio: vmmc_sdio {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vmmc_sdio";
+			enable-active-high;
+			regulator-boot-on;
+			gpio = <&portb 17 GPIO_ACTIVE_HIGH>;
+		};
+
+		vqmmc_sdio: vqmmc_sdio {
+			compatible = "regulator-gpio";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vqmmc_sdio";
+			regulator-type = "voltage";
+			enable-active-high;
+			gpios = <&porta 30 GPIO_ACTIVE_HIGH>;
+			states = <3300000 0x0
+				  1800000 0x1>;
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	pinctrl-0 = <&i2c0_pmux>;
+	pinctrl-names = "default";
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-0 = <&i2c1_pmux>;
+	pinctrl-names = "default";
+};
+
+&pinctrl {
+	i2c0_pmux: i2c0-pmux {
+		groups = "TW0_SCL", "TW0_SDA";
+		function = "tw0";
+	};
+
+	i2c1_pmux: i2c1-pmux {
+		groups = "TW1_SCL", "TW1_SDA";
+		function = "tw1";
+	};
+
+	sdio_pmux: sdio-pmux {
+		groups = "SDIO_CDn", "SDIO_WP", "SDIO_DATA0", "SDIO_DATA1", "SDIO_DATA2", "SDIO_DATA3", "SDIO_CLK", "SDIO_CMD";
+		function = "sdio";
+	};
+
+	sdio_gpio_pmux: sdio_gpio-pmux {
+		groups = "SPI2_SS1n", "GPIO_A0";
+		function = "gpio";
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+	vmmc-supply = <&vmmc_sdio>;
+	vqmmc-supply = <&vqmmc_sdio>;
+	pinctrl-0 = <&sdio_pmux>, <&sdio_gpio_pmux>;
+	pinctrl-names = "default";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&watchdog0 {
+	status = "okay";
+};

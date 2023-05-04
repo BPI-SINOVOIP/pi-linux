@@ -1,0 +1,407 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2018 Synaptics Incorporated
+ *
+ * Author: Jisheng Zhang <jszhang@kernel.org>
+ */
+
+/dts-v1/;
+
+/memreserve/ 0x1ff00000 0x00100000;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "as370.dtsi"
+
+/ {
+	model = "Synaptics AS370 RDK";
+	compatible = "syna,as370-rdk", "syna,as370";
+
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+	};
+
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vcore>;
+		};
+	};
+
+	chosen {
+		bootargs = "root=/dev/mtdblock7 rootfstype=squashfs";
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x01000000 0 0x1f000000>;
+	};
+
+	ion {
+		compatible = "syna,ion-berlin-heaps";
+		pool-num = <1>;
+		reg-names = "NonSecure";
+		reg = <0 0x1ff00000 0 0x100000>;
+		attributes-num-per-pool = <2>;
+		pool-attributes = <0x00000102 0x00000F36>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vmmc_sdio0: vmmc_sdio0 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vmmc_sdio0";
+			enable-active-high;
+			regulator-boot-on;
+			gpio = <&portb 31 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-0 = <&gpio_keys_pmux>;
+		pinctrl-names = "default";
+
+		factory_reset {
+			wakeup-source;
+			label = "GPIO Key Factory Reset";
+			gpios = <&portb 30 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
+		};
+	};
+};
+
+&adc {
+	status = "okay";
+	syna,adc-vref = <1800>;
+};
+
+&pinctrl {
+	gpio_keys_pmux: gpio_keys_pmux {
+		groups = "SD0_CDn";
+		function = "gpio";
+	};
+
+	i2c0_pmux: i2c0-pmux {
+		groups = "TW0_SCL", "TW0_SDA";
+		function = "tw0";
+	};
+
+	i2c1_pmux: i2c1-pmux {
+		groups = "TW1_SCL", "TW1_SDA";
+		function = "tw1";
+	};
+
+	nand_pmux: nand-pmux {
+		groups = "NAND_IO0", "NAND_IO1", "NAND_IO2", "NAND_IO3", "NAND_IO4", "NAND_IO5", "NAND_IO6", "NAND_IO7", "NAND_ALE", "NAND_CLE", "NAND_WEn", "NAND_REn", "NAND_WPn", "NAND_CEn", "NAND_RDY";
+		function = "nand";
+	};
+
+	pwm0_pmux: pwm0-pmux {
+		groups = "PWM0", "PWM1";
+		function = "pwm";
+	};
+
+	sd0_pmux: sd0-pmux {
+		groups = "SD0_CLK", "SD0_DAT0", "SD0_DAT1", "SD0_DAT2", "SD0_DAT3", "SD0_CMD";
+		function = "sd0";
+	};
+
+	sd0_gpio_pmux: sd0_gpio-pmux {
+		groups = "SD0_WP";
+		function = "gpio";
+	};
+
+	i2s1_pmux: i2s1-pmux {
+		groups = "I2S1_BCLKIO", "I2S1_LRCKIO", "I2S1_DO0", "I2S1_MCLK";
+		function = "i2s1";
+	};
+
+	i2s2_pmux: i2s2-pmux {
+		groups = "I2S2_BCLKIO", "I2S2_LRCKIO", "I2S2_DI0";
+		function = "i2s2";
+	};
+
+	spdifo_pmux: spdifo-pmux {
+		groups = "I2S1_DO3";
+		function = "spdifo";
+	};
+
+	pdm_pmux: pdm-pmux {
+		groups = "PDM_CLKO", "PDM_DI0", "PDM_DI1";
+		function = "pdm";
+	};
+
+	i2s3_pmux: i2s3-pmux {
+		groups = "I2S3_DI", "I2S3_DO", "I2S3_BCLKIO", "I2S3_LRCKIO";
+		function = "i2s3";
+	};
+
+	mute_pmux: mute-pmux {
+		groups = "I2S2_DI2";
+		function = "gpio";
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	pinctrl-0 = <&i2c0_pmux>;
+	pinctrl-names = "default";
+
+	tas2770: tas2770@41 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tas2770";
+		reg = <0x41>;
+		ti,asi-format = <0>;
+		ti,reset-gpio = <&porta 17 GPIO_ACTIVE_HIGH>;
+		ti,left-slot = <0>;
+		ti,right-slot = <1>;
+		ti,imon-slot-no = <0>;
+		ti,vmon-slot-no = <4>;
+	};
+
+	vcore: regulator@66 {
+		compatible = "silergy,sy8824";
+		regulator-name = "vcore";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <1150000>;
+		regulator-max-step-microvolt = <12500>;
+		regulator-always-on;
+		regulator-boot-on;
+		reg = <0x66>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-0 = <&i2c1_pmux>;
+	pinctrl-names = "default";
+};
+
+&pwm0 {
+	status = "okay";
+	pinctrl-0 = <&pwm0_pmux>;
+	pinctrl-names = "default";
+};
+
+&sdhci0 {
+	status = "okay";
+	broken-cd;
+	non-removable;
+	vmmc-supply = <&vmmc_sdio0>;
+	pinctrl-0 = <&sd0_pmux>, <&sd0_gpio_pmux>;
+	pinctrl-names = "default";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&usb_phy0 {
+	status = "okay";
+};
+
+&usb0 {
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&nand0 {
+	status = "okay";
+	pinctrl-0 = <&nand_pmux>;
+	pinctrl-names = "default";
+	nand-ecc-step-size = <2048>;
+	nand-ecc-strength = <48>;
+	zos-end = <0x240000>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		partition_block0 {
+			label = "block0";
+			reg = <0x00000 0x40000>;	/* 256 KiB */
+			read-only;
+		};
+
+		partition_prebootloader {
+			label = "prebootloader";
+			reg = <0x040000 0x200000>;	/* 2 MiB */
+			read-only;
+		};
+
+		partition_tz {
+			label = "TZ";
+			reg = <0x240000 0x800000>;	/* 8 MiB */
+			read-only;
+		};
+
+		partition_tz_b {
+			label = "TZ-B";
+			reg = <0xa40000 0x800000>;	/* 8 MiB */
+			read-only;
+		};
+
+		partition_postbootloader {
+			label = "postbootloader";
+			reg = <0x1240000 0x100000>;	/* 1 MiB */
+			read-only;
+		};
+
+		partition_postbootloader_b {
+			label = "postbootloader-B";
+			reg = <0x1340000 0x100000>;	/* 1 MiB */
+			read-only;
+		};
+
+		partition_kernel {
+			label = "kernel";
+			reg = <0x1440000 0xa00000>;	/* 10 MiB */
+			read-only;
+		};
+
+		partition_rootfs {
+			label = "rootfs";
+			reg = <0x1e40000 0xb400000>;	/* 180 MiB */
+			read-only;
+		};
+
+		partition_cache {
+			label = "cache";
+			reg = <0xd240000 0x118c0000>;	/* 287,488 KiB */
+		};
+
+		partition_recovery {
+			label = "recovery";
+			reg = <0x1eb00000 0xf00000>;	/* 15 MiB */
+		};
+
+		partition_fts {
+			label = "fts";
+			reg = <0x1fa00000 0x100000>;	/* 1 MiB */
+		};
+
+		partition_factory_store {
+			label = "factory_store";
+			reg = <0x1fb00000 0x300000>;	/* 3 MiB */
+		};
+
+		partition_bbt {
+			label = "bbt";
+			reg = <0x1fe00000 0x200000>;	/* 2 MiB */
+			read-only;
+		};
+	};
+};
+
+&as370_pdmi0 {
+	status = "okay";
+	pinctrl-0 = <&pdm_pmux>;
+	pinctrl-names = "default";
+	max-ch-inuse = <3>;
+};
+
+&as370_pdmi1 {
+	status = "okay";
+	pinctrl-0 = <&pdm_pmux>;
+	pinctrl-names = "default";
+};
+
+&as370_mic1_0 {
+	status = "okay";
+	pinctrl-0 = <&i2s2_pmux>;
+	pinctrl-names = "default";
+};
+
+&as370_mic2 {
+	status = "okay";
+	pinctrl-0 = <&i2s3_pmux>;
+	pinctrl-names = "default";
+};
+
+&as370_outdai {
+	status = "okay";
+	pinctrl-0 = <&i2s1_pmux>, <&spdifo_pmux>;
+	pinctrl-names = "default";
+	interrupts = <0>;
+	interrupt-names = "pri";
+};
+
+&as370_sec {
+	status = "okay";
+	pinctrl-0 = <&i2s3_pmux>;
+	pinctrl-names = "default";
+};
+
+&as370_pcm {
+	status = "okay";
+};
+
+&as370_asoc {
+	status = "okay";
+	pinctrl-0 = <&mute_pmux>;
+	pinctrl-names = "default";
+	mute-gpios = <&porta 11 GPIO_ACTIVE_HIGH>;
+
+	dummy_pdmi0: dummy-pdmi0 {
+		status = "okay";
+		stream-name = "dummy-pdmi0";
+		link-name = "dummy-pdmi0";
+		cpu-node = <&as370_pdmi0>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&as370_pcm>;
+	};
+
+	outdai_tas2770: outdai-tas2770 {
+		status = "okay";
+		stream-name = "outdai-tas2770";
+		link-name = "outdai-tas2770";
+		cpu-node = <&as370_outdai>;
+		codec-node = <&tas2770>;
+		codec-dai-name = "tas2770 ASI1";
+		platform-node = <&as370_pcm>;
+		format = "i2s";
+	};
+
+	dummy_pdmi1: dummy-pdmi1 {
+		status = "okay";
+		stream-name = "dummy-pdmi1";
+		link-name = "dummy-pdmi1";
+		cpu-node = <&as370_pdmi1>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&as370_pcm>;
+	};
+
+	tas2770_mic1: tas2770-mic1 {
+		status = "okay";
+		stream-name = "tas2770-mic1";
+		link-name = "tas2770-mic1";
+		cpu-node = <&as370_mic1_0>;
+		codec-node = <&tas2770>;
+		codec-dai-name = "tas2770 ASI1";
+		platform-node = <&as370_pcm>;
+		format = "i2s";
+	};
+};
+
+&npu {
+	status = "okay";
+};
+
+&aviocore {
+	status = "okay";
+};

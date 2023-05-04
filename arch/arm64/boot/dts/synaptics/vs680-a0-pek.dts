@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 Synaptics Incorporated
+ *
+ * Author: Jisheng Zhang <jszhang@kernel.org>
+ */
+
+/dts-v1/;
+
+/memreserve/ 0x7f000000 0x01000000;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "vs680-a0.dtsi"
+
+/ {
+	model = "Synaptics VS680 PEK";
+	compatible = "syna,vs680-pek", "syna,vs680";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0 0x01000000 0 0x7f000000>;
+	};
+
+	ion {
+		compatible = "syna,ion-berlin-heaps";
+		pool-num = <2>;
+		reg-names = "NonSecure", "Secure";
+		reg = <0 0x7f000000 0 0x00800000>,
+		      <0 0x7f800000 0 0x00800000>;
+		attributes-num-per-pool = <2>;
+		pool-attributes = <0x00000105 0x00000F3A 0x00000102 0x00000F3D>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vmmc_sdio: vmmc_sdio {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "vmmc_sdio";
+			enable-active-high;
+			gpio = <&expander0 0 GPIO_ACTIVE_HIGH>;
+		};
+
+		reg_usb0_vbus: usb0_vbus {
+			compatible = "regulator-fixed";
+			regulator-name = "usb0_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&portb 23 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
+		reg_xhci0_vbus: xhci0_vbus {
+			compatible = "regulator-fixed";
+			regulator-name = "xhci0_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&expander0 3 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+};
+
+&cpu0 {
+	/delete-property/ operating-points-v2;
+};
+
+&pinctrl {
+	i2c0_pmux: i2c0-pmux {
+		groups = "TW0_SCL", "TW0_SDA";
+		function = "tw0";
+	};
+
+	sdio_pmux: sdio-pmux {
+		groups = "SDIO_CDn";
+		function = "gpio";
+	};
+
+	usb2_pmux: usb2-pmux {
+		groups = "USB2_DRV_VBUS";
+		function = "gpio";
+	};
+};
+
+&sm_pinctrl {
+	i2c3_pmux: i2c3-pmux {
+		groups = "SM_TW3_SCL", "SM_TW3_SDA";
+		function = "tw3";
+	};
+};
+
+&pcie_phy0 {
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
+	reset-gpios = <&expander0 6 GPIO_ACTIVE_LOW>;
+	power-gpios = <&expander0 5 GPIO_ACTIVE_HIGH>;
+};
+
+&avio_pinctrl {
+	i2s1_pmux: i2s1-pmux {
+		groups = "I2S1_BCLKIO", "I2S1_LRCKIO", "I2S1_DO0", "I2S1_MCLK";
+		function = "i2s1";
+	};
+
+	i2s2_pmux: i2s2-pmux {
+		groups = "I2S2_BCLKIO", "I2S2_LRCKIO", "I2S2_DI0";
+		function = "i2s2";
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+	/delete-property/ mmc-ddr-1_8v;
+	/delete-property/ mmc-hs200-1_8v;
+	no-1-8-v;
+};
+
+&sdhci1 {
+	status = "okay";
+	wp-inverted;
+	cd-gpios = <&portb 13 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&vmmc_sdio>;
+	pinctrl-0 = <&sdio_pmux>;
+	pinctrl-names = "default";
+};
+
+&i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pmux>;
+	no-irq-suspend;
+
+	expander0: gpio@70 {
+		compatible = "nxp,pca9538";
+		reg = <0x70>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pmux>;
+	no-irq-suspend;
+
+	expander1: gpio@70 {
+		compatible = "nxp,pca9538";
+		reg = <0x70>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		sys_rstn {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&npu {
+	status = "okay";
+};
+
+&usb0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2_pmux>;
+	vbus-supply = <&reg_usb0_vbus>;
+	status = "okay";
+};
+
+&usb_phy0  {
+	status = "okay";
+};
+
+&xhci0 {
+	vbus-supply = <&reg_xhci0_vbus>;
+	status = "okay";
+};
+
+&usb_phy1  {
+	status = "okay";
+};
+
+&mdio0 {
+	phy0: ethernet-phy@0 {
+		reg = <0>;
+	};
+};
+
+&gmac0 {
+	status = "okay";
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+};
+
+&sm {
+	status = "okay";
+};
+
+&aout {
+	status = "okay";
+};
+
+&avio {
+	status = "okay";
+};
+
+&i2s_spdif {
+	status = "okay";
+	pinctrl-0 = <&i2s1_pmux>;
+	pinctrl-names = "default";
+	interrupts = <0>;
+	interrupt-names = "pri";
+};
+
+&i2s_mic1 {
+	status = "okay";
+	pinctrl-0 = <&i2s2_pmux>;
+	pinctrl-names = "default";
+	invertfsync;
+	disablemicmute;
+	intlmode;
+};
+
+&vs680_pcm {
+	status = "okay";
+};
+
+&vs680_asoc {
+	status = "okay";
+
+	dummy_i2si: dummy-i2si {
+		status = "okay";
+		stream-name = "dummy-i2si";
+		link-name = "dummy-i2si";
+		format = "i2s";
+		cpu-node = <&i2s_mic1>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&vs680_pcm>;
+	};
+
+	dummy_i2so: dummy-i2so {
+		status = "okay";
+		stream-name = "dummy-i2so";
+		link-name = "dummy-i2so";
+		format = "i2s";
+		cpu-node = <&i2s_spdif>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&vs680_pcm>;
+	};
+};
+
+&ovp {
+	status = "okay";
+};

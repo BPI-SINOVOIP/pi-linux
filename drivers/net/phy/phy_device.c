@@ -1300,6 +1300,10 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
 	if (err)
 		goto error;
 
+	err = phy_disable_interrupts(phydev);
+	if (err)
+		return err;
+
 	phy_resume(phydev);
 	phy_led_triggers_register(phydev);
 
@@ -2177,6 +2181,20 @@ static bool phy_drv_supports_irq(struct phy_driver *phydrv)
 }
 
 /**
+ * phy_shutdown - shutdown a PHY device
+ * @dev: device to shutdown
+ *
+ * Description: shutdown the phy_device structure,
+ */
+static void phy_shutdown(struct device *dev)
+{
+	struct phy_device *phydev = to_phy_device(dev);
+
+	if (phydev->drv && phydev->drv->shutdown)
+		phydev->drv->shutdown(phydev);
+}
+
+/**
  * phy_probe - probe and init a PHY device
  * @dev: device to probe and init
  *
@@ -2324,6 +2342,7 @@ int phy_driver_register(struct phy_driver *new_driver, struct module *owner)
 	new_driver->mdiodrv.driver.bus = &mdio_bus_type;
 	new_driver->mdiodrv.driver.probe = phy_probe;
 	new_driver->mdiodrv.driver.remove = phy_remove;
+	new_driver->mdiodrv.driver.shutdown = phy_shutdown;
 	new_driver->mdiodrv.driver.owner = owner;
 
 	retval = driver_register(&new_driver->mdiodrv.driver);

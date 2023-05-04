@@ -18,6 +18,7 @@ void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 
 	pci_epc_linkup(epc);
 }
+EXPORT_SYMBOL_GPL(dw_pcie_ep_linkup);
 
 static void __dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar,
 				   int flags)
@@ -305,10 +306,8 @@ static void dw_pcie_ep_stop(struct pci_epc *epc)
 	struct dw_pcie_ep *ep = epc_get_drvdata(epc);
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 
-	if (!pci->ops->stop_link)
-		return;
-
-	pci->ops->stop_link(pci);
+	if (pci->ops && pci->ops->stop_link)
+		pci->ops->stop_link(pci);
 }
 
 static int dw_pcie_ep_start(struct pci_epc *epc)
@@ -316,7 +315,7 @@ static int dw_pcie_ep_start(struct pci_epc *epc)
 	struct dw_pcie_ep *ep = epc_get_drvdata(epc);
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 
-	if (!pci->ops->start_link)
+	if (!pci->ops || !pci->ops->start_link)
 		return -EINVAL;
 
 	return pci->ops->start_link(pci);
@@ -607,3 +606,4 @@ int dw_pcie_ep_init(struct dw_pcie_ep *ep)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(dw_pcie_ep_init);

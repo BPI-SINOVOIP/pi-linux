@@ -266,8 +266,30 @@ static struct sync_file *sync_file_merge(const char *name, struct sync_file *a,
 	for (; i_b < b_num_fences; i_b++)
 		add_fence(fences, &i, b_fences[i_b]);
 
-	if (i == 0)
-		fences[i++] = dma_fence_get(a_fences[0]);
+	if (i == 0) {
+		struct dma_fence *A = dma_fence_get(a_fences[0]);
+		struct dma_fence *B = dma_fence_get(b_fences[0]);
+
+		/*
+		 *If A or B is NULL, make it the same logic as before.
+		 */
+		if (A == NULL || B == NULL) {
+			fences[i++] = dma_fence_get(a_fences[0]);
+		} else {
+			/*
+			 *When merge, we need the larger timestamp one. In original code,
+			 *If A and B both signaled, it only add A to final fence, that is wrong.
+			 *B's timestamp maybe larger then A's. We need B as the final one.
+			 */
+			if (ktime_compare(A->timestamp, B->timestamp) >= 0) {
+				fences[i++] = A;
+				dma_fence_put(B);
+			} else {
+				fences[i++] = B;
+				dma_fence_put(A);
+			}
+		}
+	}
 
 	if (num_fences > i) {
 		nfences = krealloc(fences, i * sizeof(*fences),

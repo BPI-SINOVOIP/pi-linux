@@ -134,8 +134,18 @@ static int __dwc2_lowlevel_hw_enable(struct dwc2_hsotg *hsotg)
 	if (hsotg->clk) {
 		ret = clk_prepare_enable(hsotg->clk);
 		if (ret)
-			return ret;
+			goto err0;
 	}
+
+	if (hsotg->core_clk) {
+		ret = clk_prepare_enable(hsotg->core_clk);
+		if (ret)
+			goto err1;
+	}
+
+	reset_control_reset(hsotg->reset_sync);
+	reset_control_assert(hsotg->reset);
+	reset_control_assert(hsotg->reset_ecc);
 
 	if (hsotg->uphy) {
 		ret = usb_phy_init(hsotg->uphy);
@@ -147,6 +157,25 @@ static int __dwc2_lowlevel_hw_enable(struct dwc2_hsotg *hsotg)
 			ret = phy_init(hsotg->phy);
 	}
 
+	if (ret)
+		goto err2;
+
+	reset_control_deassert(hsotg->reset);
+	udelay(10);
+	reset_control_deassert(hsotg->reset_ecc);
+	udelay(50);
+
+	return 0;
+
+err2:
+	if (hsotg->core_clk)
+		clk_disable_unprepare(hsotg->core_clk);
+err1:
+	if (hsotg->clk)
+		clk_disable_unprepare(hsotg->clk);
+err0:
+	regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies),
+				     hsotg->supplies);
 	return ret;
 }
 
@@ -186,6 +215,9 @@ static int __dwc2_lowlevel_hw_disable(struct dwc2_hsotg *hsotg)
 	if (hsotg->clk)
 		clk_disable_unprepare(hsotg->clk);
 
+	if (hsotg->core_clk)
+		clk_disable_unprepare(hsotg->core_clk);
+
 	ret = regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies),
 				     hsotg->supplies);
 
@@ -219,8 +251,6 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 		return ret;
 	}
 
-	reset_control_deassert(hsotg->reset);
-
 	hsotg->reset_ecc = devm_reset_control_get_optional(hsotg->dev, "dwc2-ecc");
 	if (IS_ERR(hsotg->reset_ecc)) {
 		ret = PTR_ERR(hsotg->reset_ecc);
@@ -228,7 +258,12 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 		return ret;
 	}
 
-	reset_control_deassert(hsotg->reset_ecc);
+	hsotg->reset_sync = devm_reset_control_get_optional(hsotg->dev, "dwc2-sync");
+	if (IS_ERR(hsotg->reset_sync)) {
+		ret = PTR_ERR(hsotg->reset_sync);
+		dev_err(hsotg->dev, "error getting sync reset %d\n", ret);
+		return ret;
+	}
 
 	/*
 	 * Attempt to find a generic PHY, then look for an old style
@@ -276,6 +311,12 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 	if (IS_ERR(hsotg->clk)) {
 		dev_err(hsotg->dev, "cannot get otg clock\n");
 		return PTR_ERR(hsotg->clk);
+	}
+
+	hsotg->core_clk = devm_clk_get_optional(hsotg->dev, "core");
+	if (IS_ERR(hsotg->core_clk)) {
+		dev_err(hsotg->dev, "cannot get core clock\n");
+		return PTR_ERR(hsotg->core_clk);
 	}
 
 	/* Regulators */
@@ -534,8 +575,7 @@ static int __maybe_unused dwc2_suspend(struct device *dev)
 	bool is_device_mode = dwc2_is_device_mode(dwc2);
 	int ret = 0;
 
-	if (is_device_mode)
-		dwc2_hsotg_suspend(dwc2);
+	dwc2_enter_suspend(dwc2);
 
 	if (dwc2->ll_hw_enabled &&
 	    (is_device_mode || dwc2_host_can_poweroff_phy(dwc2))) {
@@ -558,8 +598,7 @@ static int __maybe_unused dwc2_resume(struct device *dev)
 	}
 	dwc2->phy_off_for_suspend = false;
 
-	if (dwc2_is_device_mode(dwc2))
-		ret = dwc2_hsotg_resume(dwc2);
+	ret = dwc2_exit_suspend(dwc2);
 
 	return ret;
 }

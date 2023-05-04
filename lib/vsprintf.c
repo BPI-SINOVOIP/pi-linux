@@ -764,6 +764,32 @@ static int __init initialize_ptr_random(void)
 	return ret;
 }
 early_initcall(initialize_ptr_random);
+ 
+static inline int __ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
+{
+	unsigned long hashval;
+
+	if (static_branch_unlikely(&not_filled_random_ptr_key))
+		return -EAGAIN;
+
+#ifdef CONFIG_64BIT
+	hashval = (unsigned long)siphash_1u64((u64)ptr, &ptr_key);
+	/*
+	 * Mask off the first 32 bits, this makes explicit that we have
+	 * modified the address (and 32 bits is plenty for a unique ID).
+	 */
+	hashval = hashval & 0xffffffff;
+#else
+	hashval = (unsigned long)siphash_1u32((u32)ptr, &ptr_key);
+#endif
+	*hashval_out = hashval;
+	return 0;
+}
+
+int ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
+{
+	return __ptr_to_hashval(ptr, hashval_out);
+}
 
 /* Maps a pointer to a 32 bit unique identifier. */
 static char *ptr_to_id(char *buf, char *end, const void *ptr,
@@ -771,6 +797,7 @@ static char *ptr_to_id(char *buf, char *end, const void *ptr,
 {
 	const char *str = sizeof(ptr) == 8 ? "(____ptrval____)" : "(ptrval)";
 	unsigned long hashval;
+	int ret;
 
 	/*
 	 * Print the real pointer value for NULL and error pointers,
@@ -785,22 +812,13 @@ static char *ptr_to_id(char *buf, char *end, const void *ptr,
 		return pointer_string(buf, end, (const void *)hashval, spec);
 	}
 
-	if (static_branch_unlikely(&not_filled_random_ptr_key)) {
+	ret = __ptr_to_hashval(ptr, &hashval);
+	if (ret) {
 		spec.field_width = 2 * sizeof(ptr);
 		/* string length must be less than default_width */
 		return error_string(buf, end, str, spec);
 	}
 
-#ifdef CONFIG_64BIT
-	hashval = (unsigned long)siphash_1u64((u64)ptr, &ptr_key);
-	/*
-	 * Mask off the first 32 bits, this makes explicit that we have
-	 * modified the address (and 32 bits is plenty for a unique ID).
-	 */
-	hashval = hashval & 0xffffffff;
-#else
-	hashval = (unsigned long)siphash_1u32((u32)ptr, &ptr_key);
-#endif
 	return pointer_string(buf, end, (const void *)hashval, spec);
 }
 
@@ -2037,6 +2055,32 @@ static char *kobject_string(char *buf, char *end, void *ptr,
 	return error_string(buf, end, "(%pO?)", spec);
 }
 
+/* Disable pointer hashing if requested */
+bool no_hash_pointers __ro_after_init;
+EXPORT_SYMBOL_GPL(no_hash_pointers);
+
+static int __init no_hash_pointers_enable(char *str)
+{
+	no_hash_pointers = true;
+
+	pr_warn("**********************************************************\n");
+	pr_warn("**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n");
+	pr_warn("**                                                      **\n");
+	pr_warn("** This system shows unhashed kernel memory addresses   **\n");
+	pr_warn("** via the console, logs, and other interfaces. This    **\n");
+	pr_warn("** might reduce the security of your system.            **\n");
+	pr_warn("**                                                      **\n");
+	pr_warn("** If you see this message and you are not debugging    **\n");
+	pr_warn("** the kernel, report this immediately to your system   **\n");
+	pr_warn("** administrator!                                       **\n");
+	pr_warn("**                                                      **\n");
+	pr_warn("**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n");
+	pr_warn("**********************************************************\n");
+
+	return 0;
+}
+early_param("no_hash_pointers", no_hash_pointers_enable);
+
 /*
  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
  * by an extra set of alphanumeric characters that are extended format
@@ -2222,8 +2266,14 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		return pointer_string(buf, end, ptr, spec);
 	}
 
-	/* default is to _not_ leak addresses, hash before printing */
-	return ptr_to_id(buf, end, ptr, spec);
+	/*
+	 * default is to _not_ leak addresses, so hash before printing,
+	 * unless no_hash_pointers is specified on the command line.
+	 */
+	if (unlikely(no_hash_pointers))
+		return pointer_string(buf, end, ptr, spec);
+	else
+		return ptr_to_id(buf, end, ptr, spec);
 }
 
 /*

@@ -1,0 +1,31 @@
+#
+# Phy drivers for Synaptics platforms
+#
+
+config PHY_BERLIN_PCIE
+	tristate "Synaptics Berlin PCIE PHY Driver"
+	depends on ARCH_BERLIN && RESET_CONTROLLER && HAS_IOMEM && OF
+	select GENERIC_PHY
+	help
+	  Enable this to support the PCIE PHY on Synaptics SoCs.
+
+config PHY_BERLIN_SATA
+	tristate "Synaptics Berlin SATA PHY driver"
+	depends on ARCH_BERLIN && HAS_IOMEM && OF
+	select GENERIC_PHY
+	help
+	  Enable this to support the SATA PHY on Synaptics Berlin SoCs.
+
+config PHY_BERLIN_USB
+	tristate "Synaptics Berlin USB PHY Driver"
+	depends on ARCH_BERLIN && RESET_CONTROLLER && HAS_IOMEM && OF
+	select GENERIC_PHY
+	help
+	  Enable this to support the USB PHY on Synaptics Berlin SoCs.
+
+config PHY_SYNA_USB
+	tristate "Synaptics USB PHY Driver"
+	depends on ARCH_BERLIN && RESET_CONTROLLER && HAS_IOMEM && OF
+	select GENERIC_PHY
+	help
+	  Enable this to support the USB PHY on Synaptics SoCs.

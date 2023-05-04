@@ -1,0 +1,31 @@
+#
+# AVIO variants
+#
+
+if ARCH_BERLIN
+
+choice
+	prompt	"Synaptics AVIO Variants"
+	default	AVIO_NONE
+
+config AVIO_NONE
+	bool	"Not select any AVIO variant in default"
+
+config AVIO_AS370
+	bool	"Synaptics AS370"
+
+config AVIO_AS470
+	bool	"Synaptics AS470"
+
+config AVIO_VS640
+	bool	"Synaptics VS640"
+
+config AVIO_VS680
+	bool	"Synaptics VS680"
+
+config AVIO_VS680_A0
+	bool	"Synaptics VS680 A0"
+
+endchoice
+
+endif

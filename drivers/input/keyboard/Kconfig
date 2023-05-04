@@ -153,6 +153,13 @@ config KEYBOARD_ATKBD_RDI_KEYCODES
 	  right-hand column will be interpreted as the key shown in the
 	  left-hand column.
 
+config KEYBOARD_BERLIN_IR
+	bool "Berlin Infra-Red remote keypad support"
+	depends on BERLIN_SM
+	default n
+	help
+	  Enable support for Berlin Infra-Red remote keypad
+
 config KEYBOARD_QT1050
 	tristate "Microchip AT42QT1050 Touch Sensor Chip"
 	depends on I2C

@@ -355,7 +355,7 @@ static int as370_pinctrl_probe(struct platform_device *pdev)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	return berlin_pinctrl_probe_regmap(pdev, match->data, regmap);
+	return berlin_pinctrl_probe_regmap(pdev, match->data, regmap, NULL);
 }
 
 static struct platform_driver as370_pinctrl_driver = {

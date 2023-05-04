@@ -207,6 +207,18 @@ config AD799X
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad799x.
 
+config AS370_ADC
+	tristate "Synaptics AS370 ADC"
+	depends on ARCH_BERLIN
+	help
+	  Say yes here to build support for Synaptics AS370 ADC.
+
+config AS470_ADC
+	tristate "Synaptics AS470 ADC"
+	depends on ARCH_BERLIN
+	help
+	  Say yes here to build support for Synaptics AS470 ADC.
+
 config ASPEED_ADC
 	tristate "Aspeed ADC"
 	depends on ARCH_ASPEED || COMPILE_TEST

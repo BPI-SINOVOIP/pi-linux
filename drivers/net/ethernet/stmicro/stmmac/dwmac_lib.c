@@ -24,7 +24,7 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 
 	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
 				 !(value & DMA_BUS_MODE_SFT_RESET),
-				 10000, 100000);
+				 10000, 200000);
 	if (err)
 		return -EBUSY;
 

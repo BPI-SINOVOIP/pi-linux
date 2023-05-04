@@ -475,6 +475,11 @@ config STE10XP
 	---help---
 	  This is the driver for the STe100p and STe101p PHYs.
 
+config SUNPLUS_PHY
+	tristate "SUNPLUS PHYs"
+	---help---
+	  Supports the SUNPLUS PHY.
+
 config TERANETICS_PHY
 	tristate "Teranetics PHYs"
 	---help---

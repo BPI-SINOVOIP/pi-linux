@@ -248,7 +248,7 @@ int dwc2_enter_partial_power_down(struct dwc2_hsotg *hsotg)
  * @rmode: Restore mode, enabled in case of remote-wakeup.
  * @is_host: Host or device mode.
  */
-static void dwc2_restore_essential_regs(struct dwc2_hsotg *hsotg, int rmode,
+void dwc2_restore_essential_regs(struct dwc2_hsotg *hsotg, int rmode,
 					int is_host)
 {
 	u32 pcgcctl;
@@ -486,6 +486,62 @@ int dwc2_exit_hibernation(struct dwc2_hsotg *hsotg, int rem_wakeup,
 		return dwc2_host_exit_hibernation(hsotg, rem_wakeup, reset);
 	else
 		return dwc2_gadget_exit_hibernation(hsotg, rem_wakeup, reset);
+}
+
+/*
+ * dwc2_enter_suspend()
+ *
+ * @hsotg: Programming view of the DWC_otg controller
+ *
+ * Return: 0 if successful, negative error code otherwise
+ */
+int dwc2_enter_suspend(struct dwc2_hsotg *hsotg)
+{
+	int host;
+
+	host = dwc2_is_host_mode(hsotg);
+	if (!host)
+		dwc2_hsotg_suspend(hsotg);
+
+	dwc2_backup_global_registers(hsotg);
+
+	if (host)
+		dwc2_backup_host_registers(hsotg);
+	else
+		dwc2_backup_device_registers(hsotg);
+
+	hsotg->host_suspended = host;
+	hsotg->lx_state = DWC2_L2;
+	return 0;
+}
+
+/*
+ * dwc2_exit_suspend()
+ *
+ * @hsotg: Programming view of the DWC_otg controller
+ *
+ * Return: 0 if successful, negative error code otherwise
+ */
+int dwc2_exit_suspend(struct dwc2_hsotg *hsotg)
+{
+	int ret = 0;
+
+	dev_dbg(hsotg->dev, "Preparing to exit suspend\n");
+
+	if (hsotg->host_suspended) {
+		ret = dwc2_host_exit_suspend(hsotg);
+	} else {
+		ret = dwc2_gadget_exit_suspend(hsotg);
+		if (ret) {
+			dev_err(hsotg->dev, "gadget failed to exit suspend\n");
+			return ret;
+		}
+
+		ret = dwc2_hsotg_resume(hsotg);
+	}
+
+	dev_dbg(hsotg->dev, "exit suspend with %d\n", ret);
+	return ret;
 }
 
 /*

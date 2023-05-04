@@ -1,0 +1,18 @@
+Synaptics Berlin HdmiRx Input
+
+This devices handle all hdmirx related operations
+
+Required properties:
+
+  - compatible : should be one of:
+	"syna,berlin-hrx"
+
+Optional properties:
+
+Example:
+hrx {
+	compatible = "syna,berlin-hrx";
+	interrupt-parent = <&dhubctr_a>;
+	interrupts = <9>, <23>, <24>, <25>, <26>, <27>;
+	interrupt-names = "mic3", "otg", "hdmirx", "ytg", "uvtg", "itg";
+};

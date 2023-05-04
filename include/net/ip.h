@@ -30,7 +30,9 @@
 #include <net/flow.h>
 #include <net/flow_dissector.h>
 #include <net/netns/hash.h>
+#ifndef __GENKSYMS__
 #include <net/lwtunnel.h>
+#endif
 
 #define IPV4_MAX_PMTU		65535U		/* RFC 2675, Section 5.1 */
 #define IPV4_MIN_MTU		68			/* RFC 791 */
@@ -347,6 +349,13 @@ static inline int inet_is_local_reserved_port(struct net *net, int port)
 	return test_bit(port, net->ipv4.sysctl_local_reserved_ports);
 }
 
+static inline bool inet_is_local_unbindable_port(struct net *net, unsigned short port)
+{
+	if (!net->ipv4.sysctl_local_unbindable_ports)
+		return false;
+	return test_bit(port, net->ipv4.sysctl_local_unbindable_ports);
+}
+
 static inline bool sysctl_dev_name_is_allowed(const char *name)
 {
 	return strcmp(name, "default") != 0  && strcmp(name, "all") != 0;
@@ -361,6 +370,11 @@ static inline int inet_prot_sock(struct net *net)
 static inline int inet_is_local_reserved_port(struct net *net, int port)
 {
 	return 0;
+}
+
+static inline bool inet_is_local_unbindable_port(struct net *net, unsigned short port)
+{
+	return false;
 }
 
 static inline int inet_prot_sock(struct net *net)

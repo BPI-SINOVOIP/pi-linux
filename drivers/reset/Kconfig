@@ -36,8 +36,8 @@ config RESET_AXS10X
 	  This enables the reset controller driver for AXS10x.
 
 config RESET_BERLIN
-	bool "Berlin Reset Driver" if COMPILE_TEST
-	default ARCH_BERLIN
+	tristate "Berlin Reset Driver"
+	depends on ARCH_BERLIN || COMPILE_TEST
 	help
 	  This enables the reset controller driver for Marvell Berlin SoCs.
 
@@ -99,7 +99,7 @@ config RESET_PISTACHIO
 	  This enables the reset driver for ImgTec Pistachio SoCs.
 
 config RESET_QCOM_AOSS
-	bool "Qcom AOSS Reset Driver"
+	tristate "Qcom AOSS Reset Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
 	help
 	  This enables the AOSS (always on subsystem) reset driver
