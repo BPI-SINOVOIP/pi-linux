@@ -70,6 +70,9 @@ static int spdifi_hw_params(struct snd_pcm_substream *ss,
 	struct berlin_ss_params ssparams;
 	int ret = 0;
 
+	/* Trigger spdif reset as h/w init */
+	aio_spdifi_sw_reset(spdifi->aio_handle);
+
 	/* dynamic_src_ctrl true: user can switch source dynamically */
 	if (!spdifi->dynamic_src_ctrl)
 		aio_spdifi_src_sel(spdifi->aio_handle,

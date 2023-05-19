@@ -18,6 +18,7 @@
 #include "avio_debug.h"
 
 #include "hal_dhub.h"
+#include "hal_vpp.h"
 
 #include "avio_sub_module.h"
 
@@ -26,6 +27,11 @@
 #define VPP_ISR_MSGQ_SIZE			64
 #define DEBUG_TIMER_VALUE			(0xFFFFFFFF)
 #define VPP_CC_MSG_TYPE_VPP			0x00
+
+/* Reset duration for the MIPI panel to get reset
+ * For SNP based Chips, tReset is 10 ms.
+ */
+#define VPP_MIPI_PANEL_RESET_DELAY_MS  10
 
 typedef enum _VPP_INTR_TYPE_ {
 	VPP_INTR_TYPE_NONE,
@@ -55,8 +61,8 @@ typedef struct _VPP_INTERRUPT_ {
 } VPP_INTR;
 
 typedef struct avio_irq_profiler {
-	unsigned long long vppCPCB0_intr_curr;
-	unsigned long long vppCPCB0_intr_last;
+	unsigned long long vppCPCB0_intr_curr, vppCPCB1_intr_curr;
+	unsigned long long vppCPCB0_intr_last, vppCPCB1_intr_last;
 	unsigned long long vpp_task_sched_last;
 	unsigned long long vpp_isr_start;
 
@@ -80,6 +86,9 @@ typedef struct _VPP_CONTEXT_ {
 	struct semaphore vpp_sem;
 	struct semaphore vsync_sem;
 	struct semaphore vsync1_sem;
+	atomic_t vsync_cnt;
+	atomic_t vsync1_cnt;
+	atomic_t vde_cnt;
 	atomic64_t vsynctime;
 	atomic64_t vsync1time;
 	int64_t lastvsynctime;
@@ -95,7 +104,8 @@ typedef struct _VPP_CONTEXT_ {
 
 	VPP_INTR vpp_interrupt_list[VPP_INTERRUPT_LIST_MAX];
 	int vpp_interrupt_list_count;
-	int hpd_intr_num, vsync_intr_num;
+	int hpd_intr_num, vsync_intr_num, vsync1_intr_num;
+	int vde_intr_num;
 
 	int instat;
 	HDL_semaphore *pSemHandle;
@@ -113,6 +123,8 @@ typedef struct _VPP_CONTEXT_ {
 	struct extcon_dev *hdmitx_dev;
 	struct gpio_desc *gpio_hdmitx_5v;
 	struct gpio_desc *gpio_mipirst;
+
+	VOUT_DISP_MODE display_mode;
 } VPP_CTX;
 
 
@@ -124,5 +136,8 @@ int avio_module_drv_vpp_probe(struct platform_device *dev);
 
 HRESULT avio_devices_vpp_post_msg(VPP_CTX *hVppCtx, unsigned int msgId,
 			unsigned int param1, unsigned int param2);
+
+void drv_mipi_reset(void *hVppCtx, int enable);
+
 #endif //_DRV_VPP_H_
 

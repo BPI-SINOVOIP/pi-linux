@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-int wrap_MV_VPP_InitVPPS(unsigned int *vpp_init_parm);
+int wrap_MV_VPP_InitVPPS(ENUM_TA_UUID_TYPE uuidType, unsigned int *vpp_init_parm);
 
 int wrap_MV_VPPOBJ_GetCPCBOutputResolution(int cpcbID, int *resID);
 
@@ -47,7 +47,14 @@ int wrap_MV_VPPOBJ_Destroy(void);
 int wrap_MV_VPPOBJ_IsrHandler(unsigned int MsgId, unsigned int IntSts);
 int wrap_MV_VPPOBJ_SemOper(int cmd_id, int sem_id, int *pParam);
 int wrap_MV_VPP_WaitVsync(void);
-
+int wrap_MV_VPPOBJ_EnableHdmiAudioFmt(int enable);
+int wrap_MV_VPPOBJ_InvokePassShm_Helper(void *pBuffer, unsigned int shmCmdId,
+		unsigned int sBufferSize);
+int wrap_MV_VPPOBJ_SetFormat(int cpcbID,
+			VPP_DISP_OUT_PARAMS *pDispParams);
+int wrap_MV_VPPOBJ_GetCPCBOutputPixelClock(int resID, int *pixel_clock);
+int wrap_MV_VPPOBJ_GetDispOutParams(VPP_DISP_OUT_PARAMS *pdispParams, int size);
+void wrap_MV_VPP_MIPI_Reset(int enable);
 #ifdef __cplusplus
 }
 #endif

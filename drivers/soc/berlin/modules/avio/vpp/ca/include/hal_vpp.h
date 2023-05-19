@@ -19,7 +19,6 @@
 #include "avio_type.h"
 #include "vpp_vbuf.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -87,6 +86,8 @@ extern "C" {
 //fastlogo.ta always uses Internal memory manager
 #define VPP_ENABLE_INTERNAL_MEM_MGR
 
+#define VPP_SETFORMAT_SIZE		(sizeof(VPP_DISP_OUT_PARAMS) + sizeof(INT))
+
 /*definition of global alpha enable or disable (disable means: per pixel alpha)*/
 typedef enum {
 	GLOBAL_ALPHA_FLAG_DISABLE = 0,
@@ -99,6 +100,27 @@ typedef enum {
 	TA_UUID_FASTLOGO = 0,
 	TA_UUID_VPP,
 } ENUM_TA_UUID_TYPE;
+
+/* definition of VPP video outputs */
+typedef enum {
+	VOUT_INVALID   = -1,
+	FIRST_VOUT     = 0,
+	VOUT_HDMI      = 0,
+	VOUT_HD        = 1,
+	VOUT_SD        = 2,
+	VOUT_DSI       = 3,
+	MAX_NUM_VOUTS
+} ENUM_VOUT_ID;
+
+/* definition of VOP2 input mode */
+typedef enum {
+	VPP_VOUT_SINGLE_MODE_PRI  = 0,/**< Primary overlay output on Primary Display */
+	VPP_VOUT_SINGLE_MODE_SEC  = 1,/**< Primary overlay output on Secondary Display */
+	VPP_VOUT_DUAL_MODE_PIP    = 2,/**< Secondary output with PIP plane. */
+	VPP_VOUT_DUAL_MODE_GFX0   = 3,/**< Secondary output with GFX1 plane. */
+	VPP_VOUT_DUAL_MODE_GFX1   = 4,/**< Secondary output with GFX2 plane. */
+	VPP_VOUT_MODE_MAX         = 5/**< Output type Max */
+} VOUT_DISP_MODE;
 
 //struct    --
 typedef struct VPP_WIN_T {
@@ -138,6 +160,15 @@ typedef struct VPP_RESOLUTION_DESCRIPTION_T {
 	unsigned int   uiIsInterlaced;
 	unsigned int   uiIsDDD;
 } VPP_RESOLUTION_DESCRIPTION;
+
+typedef struct VPP_DISP_OUT_PARAMS_T {
+	ENUM_VOUT_ID uiDispId;
+	int uiResId;
+	UINT32 uiBitDepth;
+	UINT32 uiColorFmt;
+	INT32 iPixelRepeat;
+	UINT32 uiDisplayMode;
+} VPP_DISP_OUT_PARAMS;
 
 #ifdef __cplusplus
 }

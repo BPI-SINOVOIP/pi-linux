@@ -1,0 +1,28 @@
+Synaptics Berlin Sound Output
+
+This devices handle all sound stream related operations
+
+Required properties:
+
+  - compatible : should be one of:
+	{ .compatible = "syna,as370-sec",  },
+	{ .compatible = "syna,as470-sec",  },
+	{ .compatible = "syna,vs680-i2s-sec",  },
+	{ .compatible = "syna,vs640-i2s-sec",  },
+
+Optional properties:
+
+Example:
+	i2s_sec: i2s-sec {
+		compatible = "syna,vs680-i2s-sec";
+		status = "disabled";
+		interrupt-parent = <&dhubctr_a>;
+		interrupts = <2>;
+	};
+
+	i2s_sec: i2s-sec {
+		compatible = "syna,vs640-i2s-sec";
+		status = "disabled";
+		interrupt-parent = <&dhubctr_a>;
+		interrupts = <2>;
+	};

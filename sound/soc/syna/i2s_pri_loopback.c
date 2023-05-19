@@ -102,6 +102,7 @@ static void i2s_pri_loopback_shutdown(struct snd_pcm_substream *ss,
 	snd_printd("%s: start %p %p\n", __func__, ss, dai);
 	pri_loopback_ch_mute(lpbk, 1);
 	pri_loopback_ch_en(lpbk, 0);
+	aio_i2s_clk_sync_reset(lpbk->aio_handle, AIO_ID_MIC4_RX);
 }
 
 static int i2s_pri_loopback_hw_params(struct snd_pcm_substream *ss,
@@ -112,8 +113,7 @@ static int i2s_pri_loopback_hw_params(struct snd_pcm_substream *ss,
 	struct berlin_ss_params ssparams;
 	int ret;
 
-	aio_set_loopback_clk_gate(lpbk->aio_handle,
-	   AIO_LOOPBACK_CLK_GATE_MIC4, 0);
+	aio_set_loopback_clk_gate(lpbk->aio_handle, AIO_LOOPBACK_CLK_GATE_MIC4, 0);
 	ret = aio_configure_loopback(lpbk->aio_handle, AIO_ID_MIC4_RX,
 			 params_channels(params), lpbk->dummy_data);
 
@@ -287,8 +287,7 @@ static int i2s_pri_loopback_probe(struct platform_device *pdev)
 		snd_printk("got invalid dhub chid %d\n", lpbk->chid);
 		return -EINVAL;
 	}
-	snd_printd("got irq %d chid %d\n",
-		   lpbk->irq, lpbk->chid);
+	snd_printd("got irq %d chid %d\n", lpbk->irq, lpbk->chid);
 
 	lpbk->dummy_data = of_property_read_bool(np, "dummy_data");
 	lpbk->disable_mic_mute =

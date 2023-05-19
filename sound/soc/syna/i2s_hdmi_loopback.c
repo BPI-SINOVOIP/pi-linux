@@ -102,6 +102,7 @@ static void i2s_hdmi_loopback_shutdown(struct snd_pcm_substream *ss,
 	snd_printd("%s: start %p %p\n", __func__, ss, dai);
 	hdmi_lpbk_ch_mute(lpbk, 1);
 	hdmi_lpbk_ch_en(lpbk, 0);
+	aio_i2s_clk_sync_reset(lpbk->aio_handle, AIO_ID_MIC5_RX);
 }
 
 static int i2s_hdmi_loopback_hw_params(struct snd_pcm_substream *ss,

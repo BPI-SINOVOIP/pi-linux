@@ -20,9 +20,14 @@
 #include "aio_hal.h"
 #include "avio_dhub_drv.h"
 
+/* Enable the buffer status debugging. As some debug function may be called from isr, in case printk console log
+ * level is high, isr would be waiting in console driver which would make the underrun situation more worst.
+ * Enable it only when needed.
+ */
+//#define BUF_STATE_DEBUG
 
-#define DMA_BUFFER_SIZE        (4 * 1024)
-#define DMA_BUFFER_MIN         (DMA_BUFFER_SIZE >> 2)
+#define DMA_BUFFER_SIZE        (256 * 1024)
+#define DMA_BUFFER_MIN         (1024)
 #define MAX_BUFFER_SIZE        (DMA_BUFFER_SIZE << 1)
 
 #define ZERO_DMA_BUFFER_SIZE   (32)
@@ -71,6 +76,7 @@ struct berlin_playback {
 	dma_addr_t pcm_dma_addr;
 	unsigned int pcm_buf_size;
 	unsigned int pcm_ratio;
+	unsigned int pcm_ratio_div;
 
 	/* hw parameter */
 	unsigned int sample_rate;
@@ -138,8 +144,10 @@ static void start_dma_if_needed(struct berlin_playback *bp)
 
 	assert_spin_locked(&bp->lock);
 	if (bp->pcm_indirect.hw_ready < bp->period_size) {
-		snd_printk("%s: underrun! hw_ready: %d\n", __func__,
+#ifdef BUF_STATE_DEBUG
+		snd_printd("%s: underrun! hw_ready: %d\n", __func__,
 			   bp->pcm_indirect.hw_ready);
+#endif
 		return;
 	}
 
@@ -148,9 +156,9 @@ static void start_dma_if_needed(struct berlin_playback *bp)
 
 	if ((bp->output_mode & I2SO_MODE)
 	    && !bp->ma_dma_pending) {
-		dma_source_address =
-			bp->pcm_dma_addr + bp->dma_offset * bp->pcm_ratio;
-		dma_size = bp->period_size * bp->pcm_ratio;
+		dma_source_address = bp->pcm_dma_addr +
+					bp->dma_offset * bp->pcm_ratio / bp->pcm_ratio_div;
+		dma_size = bp->period_size * bp->pcm_ratio / bp->pcm_ratio_div;
 		bp->ma_dma_pending = true;
 
 		dhub_channel_write_cmd(bp->chip->dhub,
@@ -300,9 +308,8 @@ int berlin_playback_open(struct snd_pcm_substream *ss)
 
 	snd_printd("%s: start.\n", __func__);
 
-	err = snd_pcm_hw_constraint_list(runtime, 0,
-			SNDRV_PCM_HW_PARAM_RATE,
-			&berlin_constraints_rates);
+	err = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+					 &berlin_constraints_rates);
 	if (err < 0)
 		return err;
 
@@ -425,12 +432,14 @@ int berlin_playback_hw_params(struct snd_pcm_substream *ss,
 	struct spdif_cs *chnsts;
 	int err;
 
-	snd_printk("%s: fs:%d ch:%d width:%d format:%s, period bytes:%d\n",
+	snd_printd("%s: fs:%d ch:%d width:%d format:%s, period bytes:%d buffer bytes: %d format: %s\n",
 		__func__,
 		params_rate(p), params_channels(p),
 		params_width(p),
 		snd_pcm_format_name(params_format(p)),
-		params_period_bytes(p));
+		params_period_bytes(p),
+		params_buffer_bytes(p),
+		snd_pcm_format_name(params_format(p)));
 
 	bp->chip = chip;
 	berlin_playback_hw_free(ss);
@@ -452,11 +461,23 @@ int berlin_playback_hw_params(struct snd_pcm_substream *ss,
 	bp->period_size = params_period_bytes(p);
 	bp->buf_size = params_buffer_bytes(p);
 	bp->pcm_ratio = 1;
+	bp->pcm_ratio_div = 1;
 
 	if (bp->sample_format == SNDRV_PCM_FORMAT_S16_LE)
 		bp->pcm_ratio *= 2;
+	if (params_width(p)/8 == 3) {
+		bp->pcm_ratio *= 4;
+		bp->pcm_ratio_div = 3;
+	}
 
-	bp->pcm_buf_size = bp->buf_size * bp->pcm_ratio;
+	bp->pcm_buf_size = bp->buf_size * bp->pcm_ratio / bp->pcm_ratio_div;
+
+	snd_printd("%s: pcm_ratio:%d pcm_ratio_div:%d buf_size:%ld pcm_buf_size:%d\n",
+		__func__,
+		bp->pcm_ratio,
+		bp->pcm_ratio_div,
+		bp->buf_size,
+		bp->pcm_buf_size);
 
 	bp->pcm_dma_area =
 		dma_alloc_coherent(&pdev->dev, bp->pcm_buf_size,
@@ -470,6 +491,8 @@ int berlin_playback_hw_params(struct snd_pcm_substream *ss,
 #else
 	bp->spdif_ratio = bp->pcm_ratio;
 #endif
+	if (bp->sample_format == SNDRV_PCM_FORMAT_S16_LE)
+		bp->spdif_ratio *= 2;
 
 	bp->spdif_buf_size = bp->buf_size * bp->spdif_ratio;
 
@@ -489,9 +512,11 @@ int berlin_playback_hw_params(struct snd_pcm_substream *ss,
 	if (zero_dma_buf == NULL) {
 		zero_dma_buf = devm_kzalloc(&pdev->dev, ZERO_DMA_BUFFER_SIZE,
 					    GFP_KERNEL);
-		if (!zero_dma_buf)
+		if (!zero_dma_buf) {
+			snd_printk("%s: failed to allocate zero DMA area\n",
+				   __func__);
 			goto err_zero_dma;
-
+		}
 		zero_dma_addr = dma_map_single(&pdev->dev, zero_dma_buf,
 					       ZERO_DMA_BUFFER_SIZE, DMA_TO_DEVICE);
 	}
@@ -620,10 +645,7 @@ static int berlin_playback_copy(struct snd_pcm_substream *ss,
 {
 	struct snd_pcm_runtime *runtime = ss->runtime;
 	struct berlin_playback *bp = runtime->private_data;
-	int32_t *pcm_buf = (int32_t *)(bp->pcm_dma_area +
-				      pos * bp->pcm_ratio);
-	int32_t *spdif_buf = (int32_t *)(bp->spdif_dma_area +
-					pos * bp->spdif_ratio);
+	int32_t *pcm_buf;
 	const int frames = bytes /
 			   (bp->channel_num *
 			    snd_pcm_format_width(bp->sample_format) / 8);
@@ -633,6 +655,7 @@ static int berlin_playback_copy(struct snd_pcm_substream *ss,
 	if (pos >= bp->buf_size)
 		return -EINVAL;
 
+#ifdef BUF_STATE_DEBUG
 	if (bp->pcm_indirect.hw_ready >= bp->period_size) {
 		const unsigned long dma_b = bp->dma_offset;
 		const unsigned long dma_e = dma_b + bp->period_size - 1;
@@ -641,20 +664,33 @@ static int berlin_playback_copy(struct snd_pcm_substream *ss,
 
 		// Write begin position shouldn't be in DMA area.
 		if ((dma_b <= write_b) && (write_b <= dma_e)) {
-			snd_printk("%s: db:%lu <= wb:%lu <= de:%lu\n",
+			snd_printd("%s: db:%lu <= wb:%lu <= de:%lu\n",
 				   __func__, dma_b, write_b, dma_e);
 		}
 		// Write end position shouldn't be in DMA area.
 		if ((dma_b <= write_e) && (write_e <= dma_e)) {
-			snd_printk("%s: db:%lu <= we:%lu <= de:%lu\n",
+			snd_printd("%s: db:%lu <= we:%lu <= de:%lu\n",
 				   __func__, dma_b, write_e, dma_e);
 		}
 		// Write shouldn't overlap DMA area.
 		if ((write_b <= dma_b) && (write_e >= dma_e)) {
-			snd_printk("%s: wb:%lu <= db:%lu && we:%lu >= de:%lu\n",
+			snd_printd("%s: wb:%lu <= db:%lu && we:%lu >= de:%lu\n",
 				   __func__, write_b, dma_b,
 				   write_e, dma_e);
 		}
+	}
+#endif
+
+	if (bp->output_mode & I2SO_MODE) {
+		pcm_buf = (int32_t *)(bp->pcm_dma_area +
+					pos * bp->pcm_ratio / bp->pcm_ratio_div);
+	} else if (bp->output_mode & SPDIFO_MODE) {
+
+		pcm_buf = (int32_t *)(bp->spdif_dma_area +
+							pos * bp->spdif_ratio);
+	} else {
+		snd_printd("output mode %d", bp->output_mode);
+		return -EINVAL;
 	}
 
 	if (bp->sample_format == SNDRV_PCM_FORMAT_S16_LE) {
@@ -697,13 +733,13 @@ static int berlin_playback_copy(struct snd_pcm_substream *ss,
 					s32_pcm_source[i * channels + j] << 8;
 		}
 	} else {
-		snd_printk("Unsupported format:%s\n",
+		snd_printd("Unsupported format:%s\n",
 		snd_pcm_format_name(bp->sample_format));
 		return -EINVAL;
 	}
 
 	if (bp->output_mode & SPDIFO_MODE)
-		spdif_encode(bp, pcm_buf, spdif_buf, frames);
+		spdif_encode(bp, pcm_buf, pcm_buf, frames);
 
 	return 0;
 }
@@ -827,17 +863,25 @@ int berlin_playback_isr(struct snd_pcm_substream *ss,
 	/* If we were not pending, avoid pointer manipulation */
 	if (!bp->ma_dma_pending && !bp->spdif_dma_pending) {
 		spin_unlock(&bp->lock);
+#ifdef BUF_STATE_DEBUG
 		snd_printd("stream %p no dma pending\n", ss);
+#endif
 		return 0;
 	}
 
 	if (chanId == bp->i2s_ch) {
+#ifdef BUF_STATE_DEBUG
 		if (bp->intr_updates & I2SO_MODE)
 			snd_printd("stream %p dual i2s intrupt\n", ss);
+#endif
 		bp->ma_dma_pending = false;
-	} else if (chanId == bp->spdif_ch) {
+	}
+
+	if (chanId == bp->spdif_ch) {
+#ifdef BUF_STATE_DEBUG
 		if (bp->intr_updates & SPDIFO_MODE)
 			snd_printd("stream %p dual spdif interrupt\n", ss);
+#endif
 		bp->spdif_dma_pending = false;
 	}
 	/* Roll the DMA pointer, and chain if needed */

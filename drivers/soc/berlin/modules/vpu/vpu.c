@@ -12,10 +12,12 @@
 #include <linux/fs.h>
 #include <linux/errno.h>
 #include <linux/types.h>
+#include <linux/suspend.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/completion.h>
 #include <linux/kdev_t.h>
 #include <linux/clk.h>
 #include <linux/cdev.h>
@@ -31,6 +33,8 @@
 
 #define VPU_INT_TIMEOUT				2000
 #define VDEC_ISR_MSGQ_SIZE			16
+#define VPU_POWER_TRANS_TIMEOUT			(200U)
+#define VPU_POWER_TRANS_RETRY			(3U)
 #define VPU_DEVICE_TAG    "[vpu kernel driver] "
 #define vpu_debug(...)		pr_dbg( VPU_DEVICE_TAG __VA_ARGS__)
 #define vpu_trace(...)		pr_info( VPU_DEVICE_TAG __VA_ARGS__)
@@ -43,6 +47,9 @@ enum {
 	VPU_IOCTL_ENABLE_INT,
 	VPU_IOCTL_SET_INT_AFFINITY,
 	VPU_IOCTL_WAKEUP,
+	/* In the device critial state, system would not suspend or sleep */
+	VPU_IOCTL_ENTRY_CRITICAL,
+	VPU_IOCTL_EXIT_CRITICAL,
 };
 
 enum VPU_HW_ID {
@@ -79,22 +86,11 @@ typedef struct _VPU_HW_IP_CTX_ {
 	struct class *dev_class;
 	dev_t vpu_devt;
 	struct mutex vpu_mutex;
-#ifdef CONFIG_PM_SLEEP
-	TEEC_Context context;
-	TEEC_Session session;
-	bool session_opened;
-	bool suspended;
-#endif
-} VPU_HW_IP_CTX;
+	struct device *dev;
 
-#define VDEC_SUSPEND		44
-#define VDEC_RESUME			45
-#define VENC_SUSPEND		46
-#define VENC_RESUME			47
-static const TEEC_UUID TAVmeta_UUID = {0x1316a183, 0x894d, 0x43fe, \
-	{0x98, 0x93, 0xbb, 0x94, 0x6a, 0xe1, 0x03, 0xf0}};
-static int tz_vpu_initialize(VPU_HW_IP_CTX *pVpuHwCtx);
-static void tz_vpu_finalize(VPU_HW_IP_CTX *pVpuHwCtx);
+	struct completion power_transaction;
+	struct notifier_block pm_notifier;
+} VPU_HW_IP_CTX;
 
 /*******************************************************************************
   Module internal function
@@ -158,8 +154,10 @@ static int vpu_driver_mmap(struct file *file, struct vm_area_struct *vma)
 static long vpu_driver_ioctl_unlocked(struct file *filp, unsigned int cmd,
 				      unsigned long arg)
 {
-	int rc = S_OK;
+	int rc = 0;
 	VPU_HW_IP_CTX *pVpuHwCtx = (VPU_HW_IP_CTX*)filp->private_data;
+	long timeout;
+	int retry;
 
 	switch (cmd) {
 	case VDEC_IOCTL_POLL_INT:
@@ -225,11 +223,55 @@ static long vpu_driver_ioctl_unlocked(struct file *filp, unsigned int cmd,
 			up(&pVpuHwCtx->vdec_sem);
 			break;
 		}
+	case VPU_IOCTL_ENTRY_CRITICAL:
+		retry = 0;
+		do {
+			timeout =
+				wait_for_completion_interruptible_timeout
+				(&pVpuHwCtx->power_transaction,
+				msecs_to_jiffies(VPU_POWER_TRANS_TIMEOUT));
+			if (timeout > 0)
+				return 0;
 
+			if (-ERESTARTSYS == timeout)
+				try_to_freeze();
+			else
+				retry++;
+		} while (retry < VPU_POWER_TRANS_RETRY);
+
+		return -EBUSY;
+		break;
+	case VPU_IOCTL_EXIT_CRITICAL:
+		complete(&pVpuHwCtx->power_transaction);
+		break;
 	default:
 		break;
 	}
 	return 0;
+}
+
+static int vpu_pm_notifier(struct notifier_block *notifier,
+			   unsigned long pm_event, void *unused)
+{
+	VPU_HW_IP_CTX *vpu =
+		container_of(notifier, VPU_HW_IP_CTX, pm_notifier);
+
+	switch (pm_event) {
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		complete(&vpu->power_transaction);
+		break;
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		dev_info(vpu->dev, "prevents system sleeping\n");
+		wait_for_completion(&vpu->power_transaction);
+		dev_info(vpu->dev, "could continue to sleep\n");
+		/* fallthrough */
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
 }
 
 static int vpu_driver_open(struct inode *inode, struct file *filp)
@@ -275,6 +317,8 @@ static int vpu_driver_release(struct inode *inode, struct file *filp)
 		pVpuHwCtx->irq_state = 0;
 	}
 
+	if (!completion_done(&pVpuHwCtx->power_transaction))
+		complete(&pVpuHwCtx->power_transaction);
 exit:
 	mutex_unlock(&pVpuHwCtx->vpu_mutex);
 	return 0;
@@ -344,6 +388,7 @@ static int berlin_vpu_probe(struct platform_device *pdev)
 	if (!pVpuHwCtx)
 		return -ENOMEM;
 
+	pVpuHwCtx->dev = &pdev->dev;
 	pVpuHwCtx->hw_name = pNameId->hw_name;
 	pVpuHwCtx->hw_id = pNameId->hw_id;
 	vpu_trace("find vpu device %s\n",pVpuHwCtx->hw_name);
@@ -402,6 +447,11 @@ static int berlin_vpu_probe(struct platform_device *pdev)
 		goto err_prob_device_3;
 	}
 
+	init_completion(&pVpuHwCtx->power_transaction);
+	complete(&pVpuHwCtx->power_transaction);
+	pVpuHwCtx->pm_notifier.notifier_call = vpu_pm_notifier;
+	register_pm_notifier(&pVpuHwCtx->pm_notifier);
+
 	platform_set_drvdata(pdev, pVpuHwCtx);
 
 	vpu_trace("vpu:%s probe ok\n", pVpuHwCtx->hw_name);
@@ -450,255 +500,10 @@ static int berlin_vpu_remove(struct platform_device *pdev)
 	if (!IS_ERR(pVpuHwCtx->vpuclk))
 		clk_disable_unprepare(pVpuHwCtx->vpuclk);
 
-#ifdef CONFIG_PM_SLEEP
-	tz_vpu_finalize(pVpuHwCtx);
-#endif
-
+	unregister_pm_notifier(&pVpuHwCtx->pm_notifier);
 	vpu_trace("vpu:%s remove ok\n", pVpuHwCtx->hw_name);
 	return 0;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int tz_vpu_retcode_translate(TEEC_Result result)
-{
-	int ret;
-
-	switch (result) {
-	case TEEC_SUCCESS:
-		ret = 0;
-		break;
-	case TEEC_ERROR_ACCESS_DENIED:
-		ret = -ENOTSUPP;
-		break;
-	case TEEC_ERROR_BAD_PARAMETERS:
-		ret = -EINVAL;
-		break;
-	default:
-		ret = -EPERM;
-		break;
-	}
-	return ret;
-}
-
-static int tz_vpu_initialize(VPU_HW_IP_CTX *pVpuHwCtx)
-{
-	TEEC_Result result;
-
-	if (pVpuHwCtx->session_opened)
-		return 0;
-
-	/* [1] Connect to TEE */
-	result = TEEC_InitializeContext(
-				NULL,
-				&pVpuHwCtx->context);
-	if (result != TEEC_SUCCESS) {
-		vpu_error("TEEC_InitializeContext ret=0x%08x\n", result);
-		goto cleanup;
-	}
-
-	/* [2] Open session with TEE application */
-	result = TEEC_OpenSession(
-			&pVpuHwCtx->context,
-			&pVpuHwCtx->session,
-			&TAVmeta_UUID,
-			TEEC_LOGIN_USER,
-			NULL,    /* No connection data needed for TEEC_LOGIN_USER. */
-			NULL,    /* No payload, and do not want cancellation. */
-			NULL);
-	if (result != TEEC_SUCCESS) {
-		vpu_error("TEEC_OpenSession ret=0x%08x\n", result);
-		goto cleanup1;
-	}
-
-	pVpuHwCtx->session_opened = 1;
-
-	return 0;
-
-cleanup1:
-	TEEC_FinalizeContext(&pVpuHwCtx->context);
-cleanup:
-	return tz_vpu_retcode_translate(result);
-}
-
-static void tz_vpu_finalize(VPU_HW_IP_CTX *pVpuHwCtx)
-{
-	if (pVpuHwCtx->session_opened) {
-		TEEC_CloseSession(&pVpuHwCtx->session);
-		TEEC_FinalizeContext(&pVpuHwCtx->context);
-		pVpuHwCtx->session_opened = 0;
-	}
-}
-
-static int tz_vpu_suspend(VPU_HW_IP_CTX *pVpuHwCtx)
-{
-	TEEC_Result result;
-	TEEC_Operation operation;
-	int cmd, dret, ret;
-
-	if (!pVpuHwCtx->session_opened) {
-		ret = tz_vpu_initialize(pVpuHwCtx);
-		if (ret) {
-			vpu_error("TZ VPU initialize failed.\n");
-			return ret;
-		}
-	}
-
-	if (pVpuHwCtx->hw_id == VPU_V2G) {
-		cmd = VDEC_SUSPEND;
-	} else if (pVpuHwCtx->hw_id == VPU_H1_0) {
-		cmd = VENC_SUSPEND;
-	} else {
-		vpu_error("invalid hw id %d, return\n", pVpuHwCtx->hw_id);
-		return -EINVAL;
-	}
-
-	operation.paramTypes = TEEC_PARAM_TYPES(
-			TEEC_VALUE_OUTPUT,
-			TEEC_NONE,
-			TEEC_NONE,
-			TEEC_NONE);
-
-	result = TEEC_InvokeCommand(
-			&pVpuHwCtx->session,
-			cmd,
-			&operation,
-			NULL);
-	if (result != TEEC_SUCCESS) {
-		vpu_error("[%d: %s]VPU_SUSPEND error: 0x%x\n",
-			pVpuHwCtx->hw_id, pVpuHwCtx->hw_name, result);
-		return tz_vpu_retcode_translate(result);
-	}
-
-	dret = operation.params[0].value.a;
-	if (dret < 0) {
-		result = TEEC_ERROR_CANCEL;
-	}
-
-	return tz_vpu_retcode_translate(result);
-}
-
-static int tz_vpu_resume(VPU_HW_IP_CTX *pVpuHwCtx)
-{
-	TEEC_Result result;
-	TEEC_Operation operation;
-	int cmd, dret, ret;
-
-	if (!pVpuHwCtx->session_opened) {
-		ret = tz_vpu_initialize(pVpuHwCtx);
-		if (ret) {
-			vpu_error("TZ VPU initialize failed.\n");
-			return ret;
-		}
-	}
-
-	if (pVpuHwCtx->hw_id == VPU_V2G) {
-		cmd = VDEC_RESUME;
-	} else if (pVpuHwCtx->hw_id == VPU_H1_0) {
-		cmd = VENC_RESUME;
-	} else {
-		vpu_error("invalid hw id %d, return\n", pVpuHwCtx->hw_id);
-		return -EINVAL;
-	}
-
-	operation.paramTypes = TEEC_PARAM_TYPES(
-			TEEC_VALUE_OUTPUT,
-			TEEC_NONE,
-			TEEC_NONE,
-			TEEC_NONE);
-
-	result = TEEC_InvokeCommand(
-			&pVpuHwCtx->session,
-			cmd,
-			&operation,
-			NULL);
-	if (result != TEEC_SUCCESS) {
-		vpu_error("[%d: %s]VPU_RESUME error: 0x%x\n",
-			pVpuHwCtx->hw_id, pVpuHwCtx->hw_name, result);
-		return tz_vpu_retcode_translate(result);
-	}
-
-	dret = operation.params[0].value.a;
-	if (dret < 0) {
-		result = TEEC_ERROR_CANCEL;
-	}
-
-	return tz_vpu_retcode_translate(result);
-}
-
-static int berlin_vpu_suspend(struct device *dev)
-{
-	int timeout = 0, ret;
-	VPU_HW_IP_CTX *pVpuHwCtx;
-
-	pVpuHwCtx = dev_get_drvdata(dev);
-
-	/* nothing to do if HW inactive */
-	if (!pVpuHwCtx->vdec_enable_int_cnt)
-		return 0;
-
-	/* wait VPU IRQ */
-	while (pVpuHwCtx->irq_state && timeout < 500) {
-		usleep_range(1000, 1200);
-		timeout++;
-	}
-
-	if (timeout >= 500) {
-		vpu_error("[%d: %s]irq_state: %d, waiting timeout: %d, return -EBUSY\n",
-			pVpuHwCtx->hw_id, pVpuHwCtx->hw_name, pVpuHwCtx->irq_state, timeout);
-		return -EBUSY;
-	}
-
-	/* disable IRQ */
-	disable_irq_nosync(pVpuHwCtx->irq_num);
-
-	/* Notify VPU to suspend */
-	ret = tz_vpu_suspend(pVpuHwCtx);
-	if (ret) {
-		vpu_error("[%d: %s]vpu suspend error(%d), return\n",
-			pVpuHwCtx->hw_id, pVpuHwCtx->hw_name, ret);
-		goto cleanup;
-	}
-
-	pVpuHwCtx->vdec_enable_int_cnt = 0;
-	pVpuHwCtx->vdec_int_cnt = 0;
-	pVpuHwCtx->suspended = true;
-
-	return 0;
-
-cleanup:
-	enable_irq(pVpuHwCtx->irq_num);
-	return ret;
-}
-
-static int berlin_vpu_resume(struct device *dev)
-{
-	int ret = 0;
-	VPU_HW_IP_CTX *pVpuHwCtx;
-
-	pVpuHwCtx = dev_get_drvdata(dev);
-
-	if (pVpuHwCtx->suspended) {
-
-		/* enable IRQ */
-		enable_irq(pVpuHwCtx->irq_num);
-
-		/* Notify VPU to resume */
-		ret = tz_vpu_resume(pVpuHwCtx);
-		if (ret) {
-			vpu_error("[%d: %s]vpu resume error(%d), return\n",
-				pVpuHwCtx->hw_id, pVpuHwCtx->hw_name, ret);
-		}
-		pVpuHwCtx->suspended = false;
-	}
-
-	return ret;
-
-}
-
-static SIMPLE_DEV_PM_OPS(berlin_vpu_pmops, berlin_vpu_suspend,
-			 berlin_vpu_resume);
-
-#endif
 
 static struct platform_driver berlin_vpu_driver = {
 	.probe = berlin_vpu_probe,
@@ -706,9 +511,6 @@ static struct platform_driver berlin_vpu_driver = {
 	.driver = {
 		   .name = "marvell,berlin-vpu",
 		   .of_match_table = vpu_match,
-#ifdef CONFIG_PM_SLEEP
-		   .pm = &berlin_vpu_pmops,
-#endif
 	},
 };
 module_platform_driver(berlin_vpu_driver);

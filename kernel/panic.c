@@ -218,7 +218,8 @@ void panic(const char *fmt, ...)
 	 * Avoid nested stack-dumping if a panic occurs during oops processing
 	 */
 	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
-		dump_stack();
+		trigger_all_cpu_backtrace();
+		//dump_stack();
 #endif
 
 	/*

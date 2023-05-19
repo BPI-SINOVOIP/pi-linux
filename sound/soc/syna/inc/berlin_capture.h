@@ -9,7 +9,8 @@
 void berlin_capture_set_ch_mode(struct snd_pcm_substream *substream,
 				u32 ch_num, u32 *chid, u32 mode,
 				bool enable_mic_mute, bool interleaved_mode,
-				bool dummy_data, u32 channel_map);
+				bool dummy_data, u32 channel_map,
+				bool ch_shift_check);
 int berlin_capture_hw_free(struct snd_pcm_substream *substream);
 int berlin_capture_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params);

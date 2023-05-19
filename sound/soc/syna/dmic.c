@@ -267,6 +267,8 @@ static int dmic_pdm_startup(struct snd_pcm_substream *ss,
 static void dmic_pdm_shutdown(struct snd_pcm_substream *ss,
 				struct snd_soc_dai *dai)
 {
+	struct dmic_data *dmic = snd_soc_dai_get_drvdata(dai);
+	aio_i2s_clk_sync_reset(dmic->aio_handle, AIO_ID_PDM_RX);
 	snd_printd("%s: end 0x%p 0x%p\n", __func__, ss, dai);
 }
 
@@ -290,13 +292,14 @@ static int dmic_pdm_hw_params(struct snd_pcm_substream *ss,
 	dmic->ch_num = params_channels(params);
 
 	/* dmic clock source initilization */
-	aio_i2s_set_clock(dmic->aio_handle, AIO_ID_PDM_RX, 1, 0, 4, AIO_APLL_0, 1);
+	aio_i2s_set_clock(dmic->aio_handle, AIO_ID_PDM_RX, 1, AIO_CLK_D3_SWITCH_NOR,
+						AIO_CLK_SEL_D8, AIO_APLL_0, 1);
 
 	/* dmic register setting */
 	ret = dmic_get_clk_config_index(fs, &apllclk, &config_index);
-	if (ret != 0) {
+	if (ret != 0)
 		return ret;
-	}
+
 	dmic_set_interface_clk(dmic->aio_handle, apllclk, dmic_clk_table[config_index].div_m,
 					dmic_clk_table[config_index].div_n, dmic_clk_table[config_index].div_p);
 	dmic_set_dpath_clk(dmic->aio_handle, dmic_clk_table[config_index].div_core);
@@ -362,6 +365,7 @@ static int dmic_pdm_hw_params(struct snd_pcm_substream *ss,
 	ssparams.irq = dmic->irq;
 	ssparams.dev_name = dmic->dev_name;
 	ssparams.channel_map = dmic->channel_map;
+	ssparams.ch_shift_check = dmic->ch_shift_check;
 	ret = berlin_pcm_request_dma_irq(ss, &ssparams);
 
 	if (ret == 0)
@@ -510,7 +514,7 @@ static struct snd_soc_dai_driver dmic_pdm_dai = {
 };
 
 static const struct snd_soc_component_driver dmic_pdm_component = {
-	.name = "pdm-pdm",
+	.name = "dmic_pdm",
 };
 
 static int dmic_pdm_probe(struct platform_device *pdev)
@@ -573,23 +577,22 @@ static int dmic_pdm_probe(struct platform_device *pdev)
 		}
 	}
 
-	/*
-	      pdmc_sel  pdm_clk_sel  pdm_sel
-	PDMC    1         N/A         N/A
-	PDMA    0         xxx         0xF
-	PDMB    0         xxx         0x0
-
-			clk-pin                         data-pin
-	PDMC    I2S2_MCLK / ISS2_BCLKIO                  SPDIFI
-	PDMA    I2S2_MCLK / I2S2_BCLKIO  I2S2_DI3, I2S2_DI2, I2S2_DI1, I2S2_DI0
-	PDMB    I2S2_MCLK / I2S2_BCLKIO  I2S2_DI3, I2S2_DI2, I2S1_DO3, I2S1_DO2
-	000: Clock A Master Mode and PDM_CLK_SEL(clock)
-	001: Clock A Slave Mode and PDMA_CLKIO_DI_2mux (from PinMux) (clock)
-	010: Clock B Master Mode and PDMB_CLKIO_DO_FB
-	011: Clock B Slave Mode and PDMB_CLKIO_DI_2mux (from PinMux) (clock)
-	1xx: I2S2 BCLK Cross feed and I2S2_BCLKIO_DI_2module
-	     (After I2S2BCLK Final clock mux) (clock)
-	*/
+	/*       pdmc_sel  pdm_clk_sel  pdm_sel
+	 * PDMC    1         N/A         N/A
+	 * PDMA    0         xxx         0xF
+	 * PDMB    0         xxx         0x0
+	 *
+	 *			clk-pin						data-pin
+	 * PDMC  I2S2_MCLK / ISS2_BCLKIO		SPDIFI
+	 * PDMA  I2S2_MCLK / I2S2_BCLKIO  I2S2_DI3, I2S2_DI2, I2S2_DI1, I2S2_DI0
+	 * PDMB  I2S2_MCLK / I2S2_BCLKIO  I2S2_DI3, I2S2_DI2, I2S1_DO3, I2S1_DO2
+	 * 000: Clock A Master Mode and PDM_CLK_SEL(clock)
+	 * 001: Clock A Slave Mode and PDMA_CLKIO_DI_2mux (from PinMux) (clock)
+	 * 010: Clock B Master Mode and PDMB_CLKIO_DO_FB
+	 * 011: Clock B Slave Mode and PDMB_CLKIO_DI_2mux (from PinMux) (clock)
+	 * 1xx: I2S2 BCLK Cross feed and I2S2_BCLKIO_DI_2module
+	 *		(After I2S2BCLK Final clock mux) (clock)
+	 */
 	ret = of_property_read_u32(np, "pdm-type", &dmic->pdm_type);
 	if (ret != 0)
 		dmic->pdm_type = PDM_C;
@@ -601,10 +604,10 @@ static int dmic_pdm_probe(struct platform_device *pdev)
 	dmic->pdm_data_sel_gpio
 		= devm_gpiod_get_optional(dev, "pdm-data-sel", GPIOD_OUT_LOW);
 	/*
-	when return -EBUSY, it means this gpio is already
-	opened by another devcie, so set desc to NULL,
-	dont return error, keep probe going on;
-	*/
+	 *	when return -EBUSY, it means this gpio is already
+	 *	opened by another devcie, so set desc to NULL,
+	 *	dont return error, keep probe going on;
+	 */
 	if (IS_ERR(dmic->pdm_data_sel_gpio)) {
 		if (PTR_ERR(dmic->pdm_data_sel_gpio) == -EBUSY)
 			dmic->pdm_data_sel_gpio = NULL;
@@ -619,6 +622,14 @@ static int dmic_pdm_probe(struct platform_device *pdev)
 
 	dmic->disable_mic_mute = of_property_read_bool(np, "disablemicmute");
 	dmic->enable_dc_filter = of_property_read_bool(np, "enable-dc-filter");
+	dmic->ch_shift_check = of_property_read_bool(np, "ch-shift-check");
+
+	snd_printk("%s: disable_mic_mute %d, enable_dc_filter %d, ch_shift_check %d\n",
+				__func__,
+				dmic->disable_mic_mute,
+				dmic->enable_dc_filter,
+				dmic->ch_shift_check);
+
 	dev_set_drvdata(dev, dmic);
 
 	ret = devm_snd_soc_register_component(dev,

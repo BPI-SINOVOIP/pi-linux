@@ -209,6 +209,6 @@ static void __exit ion_cma_heap_exit(void)
 	}
 }
 
-module_init(ion_cma_heap_init);
+subsys_initcall(ion_cma_heap_init);
 module_exit(ion_cma_heap_exit);
 MODULE_LICENSE("GPL v2");

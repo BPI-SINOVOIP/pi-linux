@@ -1,0 +1,18 @@
+Conexant/Synaptics CX9000 Smart Amplifier
+
+The devices supports the I2C bus.
+
+Required properties:
+
+  - compatible: One of "cnxt,cx9000".
+  - reg: The I2C address of the device for I2C, it should be <0x33>
+
+CODEC output pins:
+  "Speaker"	- Speaker output
+
+Example:
+
+codec_i2c: cx9000@33 {
+	compatible = "cnxt,cx9000";
+	reg = <0x33>;
+};

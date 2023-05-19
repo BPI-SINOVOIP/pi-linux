@@ -19,6 +19,12 @@
 #include "aio_hal.h"
 #include "avio_dhub_drv.h"
 
+/* Enable the buffer status debugging. As some debug function may be called from isr, in case printk console log
+ * level is high, isr would be waiting in console driver which would make the underrun situation more worst.
+ * Enable it only when needed.
+ */
+//#define BUF_STATE_DEBUG
+
 #define CIC_MAX_DECIMATION_FACTOR	128
 #define CIC_MAX_ORDER			5
 /* For every 32 bit PCM sample there are |decimation| PDM bits. Since
@@ -28,12 +34,17 @@
  * snd_pcm_lib_preallocate_pages_for_all() in pcm.c.
  */
 #define PCM_SAMPLE_BITS			32
-#define PDM_MAX_DMA_BUFFER_SIZE		(MAX_CHID * 8192)
-#define PDM_MAX_BUFFER_SIZE		(MAX_CHID * 16 * 4096)
+#define PDM_MAX_DMA_BUFFER_SIZE		(MAX_CHID * 1024 * 256)
+#define PDM_MAX_BUFFER_SIZE		(MAX_CHID * 1024 * 1024 * 2)
+
+/* PCM_DMA_BUFFER_SIZE = PDM_MAX_DMA_BUFFER_SIZE / 4 */
 #define PCM_DMA_BUFFER_SIZE		\
 	(PDM_MAX_DMA_BUFFER_SIZE / \
 	 (CIC_MAX_DECIMATION_FACTOR / PCM_SAMPLE_BITS))
-#define PCM_DMA_MIN_SIZE		(PCM_DMA_BUFFER_SIZE >> 1)
+
+#define PCM_DMA_MIN_SIZE		(1024)
+
+/* PCM_MAX_BUFFER_SIZE = PDM_MAX_BUFFER_SIZE / 4 */
 #define PCM_MAX_BUFFER_SIZE		\
 	(PDM_MAX_BUFFER_SIZE / \
 	 (CIC_MAX_DECIMATION_FACTOR / PCM_SAMPLE_BITS))
@@ -123,6 +134,7 @@ struct berlin_capture {
 	/* capture status */
 	bool capturing;
 	bool enable_mic_mute;
+	bool ch_shift_check; /* for dmic multi-channel shift check */
 
 	struct snd_pcm_substream *ss;
 	struct cic_decimator cic[MAX_CHANNELS];
@@ -159,17 +171,23 @@ static void start_dma_if_needed(struct snd_pcm_substream *ss)
 	assert_spin_locked(&bc->lock);
 
 	if (!bc->capturing) {
+#ifdef BUF_STATE_DEBUG
 		snd_printd("%s: capturing: %u\n", __func__, bc->capturing);
+#endif
 		return;
 	}
 
 	if (bc->dma_pending) {
+#ifdef BUF_STATE_DEBUG
 		snd_printd("%s: DMA pending. Skipping DMA start.\n", __func__);
+#endif
 		return;
 	}
 
 	if (bc->cnt > (bc->dma_bytes_ch - bc->dma_period_ch)) {
-		snd_printk("%s: overrun: PCM conversion too slow.\n", __func__);
+#ifdef BUF_STATE_DEBUG
+		snd_printd("%s: overrun: PCM conversion too slow.\n", __func__);
+#endif
 		return;
 	}
 
@@ -284,7 +302,7 @@ static const struct snd_pcm_hardware berlin_capture_hw = {
 	.buffer_bytes_max	= PCM_MAX_BUFFER_SIZE,
 	.period_bytes_min	= PCM_DMA_MIN_SIZE,
 	.period_bytes_max	= PCM_DMA_BUFFER_SIZE,
-	.periods_min		= PCM_MAX_BUFFER_SIZE / PCM_DMA_BUFFER_SIZE,
+	.periods_min		= 2,
 	.periods_max		= PCM_MAX_BUFFER_SIZE / PCM_DMA_MIN_SIZE,
 	.fifo_size		= 0
 };
@@ -538,6 +556,46 @@ static int cic_decimation_factor_from_rate(int sample_rate)
 		break;
 	}
 	return 0;
+}
+
+static u32 update_channel_map(const u64 *src, u32 pre_map, const u32 ch_num)
+{
+	const u32 *dat;
+	u32 new_map;
+	int i, retry;
+	u32 new_ch_num;
+	const u32 *dat_dump;
+
+	new_map = 0;
+	new_ch_num = 0;
+	retry = 3;
+	dat = (u32 *) src;
+	dat_dump = (u32 *) src;
+	while (retry > 0) {
+		for (i = 0; i < MAX_CHANNELS; i++) {
+			if (*dat++) {
+				new_map |= (1 << i);
+				new_ch_num++;
+				if (ch_num == new_ch_num)
+					break;
+			}
+		}
+		if (ch_num == new_ch_num)
+			break;
+		retry--;
+		new_map = 0;
+		new_ch_num = 0;
+	}
+	if (ch_num != new_ch_num) {
+#ifdef BUF_STATE_DEBUG
+		snd_printd("capture new_map: %08x, pre_map: %08x\n", new_map, pre_map);
+		snd_printd("(%08x)(%08x)(%08x)(%08x)(%08x)(%08x)(%08x)(%08x)",
+				*dat_dump, *(dat_dump+1),  *(dat_dump+2), *(dat_dump+3),
+				*(dat_dump+4), *(dat_dump+5), *(dat_dump+6), *(dat_dump+7));
+#endif
+		new_map = pre_map;
+	}
+	return new_map;
 }
 
 /*
@@ -803,6 +861,10 @@ static void dmic_copy(struct snd_pcm_substream *ss)
 	check_mic_mute_state(bc, (u32 *)src, bc->dma_period_ch);
 	/* copy data */
 	samples_pcm_dma_ch = samples_pcm_dma_ch / MAX_CHID;
+	/* If ch_shift_check is enabled, do channel map update at run-time */
+	if (bc->ch_shift_check)
+		bc->channel_map = update_channel_map(src, bc->channel_map, bc->channel_num);
+
 	for (i = 0; i < samples_pcm_dma_ch; i++) {
 		ch_num = 0;
 		for (j = 0; j < MAX_CHANNELS; j++) {
@@ -863,7 +925,8 @@ static void spdif_copy(struct snd_pcm_substream *ss)
 void berlin_capture_set_ch_mode(struct snd_pcm_substream *ss,
 				u32 chid_num, u32 *chid, u32 mode,
 				bool enable_mic_mute, bool interleaved_mode,
-				bool dummy_data, u32 channel_map)
+				bool dummy_data, u32 channel_map,
+				bool ch_shift_check)
 {
 	struct snd_pcm_runtime *runtime = ss->runtime;
 	struct berlin_capture *bc = runtime->private_data;
@@ -879,6 +942,7 @@ void berlin_capture_set_ch_mode(struct snd_pcm_substream *ss,
 		bc->dummy_data = dummy_data;
 		bc->enable_mic_mute = enable_mic_mute;
 		bc->channel_map = channel_map;
+		bc->ch_shift_check = ch_shift_check;
 		snd_printd(
 			"capture chnum %d mode %d interleaved %d dummy_data %d\n",
 			chid_num, mode, interleaved_mode, dummy_data);
@@ -992,7 +1056,7 @@ int berlin_capture_hw_params(struct snd_pcm_substream *ss,
 	berlin_capture_hw_free(ss);
 	err = snd_pcm_lib_malloc_pages(ss, pcm_buffer_size_bytes);
 	if (err < 0) {
-		snd_printd("fail to alloc pages for buffers %d\n", err);
+		snd_printk("fail to alloc pages for buffers %d\n", err);
 		return err;
 	}
 	bc->pages_allocated = true;

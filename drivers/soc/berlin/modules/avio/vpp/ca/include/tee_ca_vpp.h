@@ -21,8 +21,8 @@ extern "C" {
 
 int VPP_CA_InitVPPS(UINT32 vpp_addr, UINT32 ta_heapHandle);
 int VPP_CA_GetCPCBOutputResolution(int cpcbID, int *resID);
-int VPP_CA_GetResolutionDescription(VPP_RESOLUTION_DESCRIPTION *pResDesc,
-		VPP_SHM_ID AddrId, unsigned int Size, unsigned int ResId);
+int VppGetResDescription(void *pOutBuffer, VPP_SHM_ID shmCmdId,
+						unsigned int sOutBufferSize, unsigned int ResId);
 int VPP_CA_GetCurrentHDCPVersion(int *pHDCPVersion);
 int VPP_CA_PassVbufInfo(void *Vbuf, unsigned int VbufSize,
 						 void *Clut, unsigned int ClutSize,
@@ -54,6 +54,11 @@ int VPP_CA_Destroy(void);
 int VPP_CA_IsrHandler(unsigned int MsgId, unsigned int IntSts);
 
 int VPP_CA_SemOper(int cmd_id, int sem_id, int *pParam);
+int VPP_CA_EnableHdmiAudioFmt(int enable);
+int VppGetCPCBOutputPixelClock(int resID,  int *pixel_clock);
+int VPP_PassShm_InBuffer(void *pBuffer, unsigned int shmCmdId, unsigned int sInBufferSize);
+int VPP_PassShm_InOutBuffer(void *pInBuffer, void *pOutBuffer,
+				VPP_SHM_ID shmCmdId, UINT32 sInBufferSize, UINT32 sOutBufferSize);
 #ifdef __cplusplus
 }
 #endif

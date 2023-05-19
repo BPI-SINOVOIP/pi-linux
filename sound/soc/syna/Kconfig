@@ -22,19 +22,26 @@ config SND_SOC_BERLIN_PCM
 	help
 	  Say Y if you want to add Synaptics Berlin PCM driver.
 
-config SND_SOC_BERLIN_OUTDAI
-	tristate "Berlin output dai driver"
+config SND_SOC_BERLIN_PRI
+	tristate "Berlin primary outdai driver"
 	select BERLIN_AVIO
 	select SND_SOC_BERLIN_PCM
 	help
-	  Say Y if you want to enable Synaptics Berlin playback driver.
+	  Say Y if you want to enable Synaptics Berlin Pri playback driver.
 
 config SND_SOC_BERLIN_SEC
-	tristate "Berlin secondary dai driver"
+	tristate "Berlin secondary outdai driver"
 	select BERLIN_AVIO
 	select SND_SOC_BERLIN_PCM
 	help
 	  Say Y if you want to enable Synaptics Berlin Sec playback driver.
+
+config SND_SOC_BERLIN_SPDIFO
+	tristate "Berlin spdif out dai driver"
+	select BERLIN_AVIO
+	select SND_SOC_BERLIN_PCM
+	help
+	  Say Y if you want to enable Synaptics Berlin spdif playback driver.
 
 config SND_SOC_BERLIN_PDMI
 	tristate "Berlin PDM input dai driver"

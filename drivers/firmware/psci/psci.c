@@ -27,6 +27,8 @@
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
 
+#include <trace/hooks/psci.h>
+
 /*
  * While a 64-bit OS can make calls with SMC32 calling conventions, for some
  * calls it is necessary to use SMC64 to pass or return 64-bit values.
@@ -49,6 +51,12 @@ static int resident_cpu = -1;
 
 bool psci_tos_resident_on(int cpu)
 {
+	bool resident = false;
+
+	trace_android_vh_psci_tos_resident_on(cpu, &resident);
+	if (resident)
+		return resident;
+
 	return cpu == resident_cpu;
 }
 
@@ -56,6 +64,21 @@ struct psci_operations psci_ops = {
 	.conduit = PSCI_CONDUIT_NONE,
 	.smccc_version = SMCCC_VERSION_1_0,
 };
+
+enum arm_smccc_conduit arm_smccc_1_1_get_conduit(void)
+{
+	if (psci_ops.smccc_version < SMCCC_VERSION_1_1)
+		return SMCCC_CONDUIT_NONE;
+
+	switch (psci_ops.conduit) {
+	case PSCI_CONDUIT_SMC:
+		return SMCCC_CONDUIT_SMC;
+	case PSCI_CONDUIT_HVC:
+		return SMCCC_CONDUIT_HVC;
+	default:
+		return SMCCC_CONDUIT_NONE;
+	}
+}
 
 typedef unsigned long (psci_fn)(unsigned long, unsigned long,
 				unsigned long, unsigned long);
@@ -158,6 +181,11 @@ static int psci_cpu_suspend(u32 state, unsigned long entry_point)
 {
 	int err;
 	u32 fn;
+	bool deny = false;
+
+	trace_android_vh_psci_cpu_suspend(state, &deny);
+	if (deny)
+		return -EPERM;
 
 	fn = psci_function_id[PSCI_FN_CPU_SUSPEND];
 	err = invoke_psci_fn(fn, state, entry_point, 0);

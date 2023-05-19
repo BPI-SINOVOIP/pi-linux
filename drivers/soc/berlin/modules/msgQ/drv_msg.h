@@ -20,6 +20,7 @@ typedef struct {
 	unsigned int m_Param2;
 } MV_CC_MSG_t, *pMV_CC_MSG_t;
 
+#ifndef E_SUC
 #define E_SUC               ( 0x00000000 )
 #define E_ERR               ( 0x80000000 )
 
@@ -37,7 +38,7 @@ typedef struct {
 #define E_GENERIC_BASE          ( 0x0000 << 16 )
 #define E_SYSTEM_BASE           ( 0x0001 << 16 )
 #define E_DEBUG_BASE            ( 0x0002 << 16 )
-
+#endif
 
 typedef struct amp_message_queue {
 	u32 q_length;

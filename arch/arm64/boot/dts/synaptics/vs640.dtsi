@@ -239,6 +239,7 @@
 			reg = <0xf7448000 0x418>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			#address-cells = <0>;
 		};
 
 		aout: aout@f7474000 {
@@ -259,12 +260,20 @@
 			status = "disabled";
 		};
 
-		i2s_spdif: i2s-spdif {
-			compatible = "syna,vs640-i2s-spdif";
+		i2s_pri: i2s-pri {
+			compatible = "syna,vs640-i2s-pri";
 			status = "disabled";
 			interrupt-parent = <&dhubctr_a>;
-			interrupts = <0>, <14>;
-			interrupt-names = "pri", "spdifo";
+			interrupts = <0>;
+			interrupt-names = "pri";
+		};
+
+		spdif_out: spdif-out {
+			compatible = "syna,vs640-spdifo";
+			status = "disabled";
+			interrupt-parent = <&dhubctr_a>;
+			interrupts = <14>;
+			interrupt-names = "spdifo";
 		};
 
 		i2s_sec: i2s-sec {
@@ -347,6 +356,7 @@
 		gic: interrupt-controller@f7901000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
+			#address-cells = <0>;
 			interrupt-controller;
 			reg = <0xf7901000 0x1000>,
 			      <0xf7902000 0x2000>,
@@ -505,6 +515,7 @@
 			status = "disabled";
 			compatible = "syna,berlin-ifcp";
 			reg = <0xf7ce1000 0x20>;
+			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		xhci0: xhci@f7d00000 {
@@ -658,6 +669,7 @@
 					reg = <0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;
+					#address-cells = <0>;
 					interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 				};
 			};
@@ -676,6 +688,7 @@
 					reg = <0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;
+					#address-cells = <0>;
 					interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
 				};
 			};
@@ -740,6 +753,7 @@
 					reg = <0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;
+					#address-cells = <0>;
 					interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
 				};
 			};
@@ -832,6 +846,7 @@
 				reg = <0x1000 0x30>;
 				interrupt-controller;
 				#interrupt-cells = <1>;
+				#address-cells = <0>;
 				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
 			};
@@ -974,8 +989,6 @@
 		fb: fb {
 			compatible = "marvell,berlin-fb";
 			frame-size-ndx = <1>;
-			disp-res-ndx = <1>;
-			frame-rate = <60>;
 			status = "disabled";
 		};
 	};

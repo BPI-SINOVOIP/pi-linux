@@ -1,0 +1,55 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			firmware {
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&avio_pinctrl>;
+		__overlay__ {
+			falcon_gpio_pmux: falcon_gpio-pmux {
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2s1_pmux>;
+		__overlay__ {
+			groups = "I2S1_BCLKIO", "I2S1_LRCKIO", "I2S1_DO0", "I2S1_DO1", "I2S1_DO2", "I2S1_MCLK";
+		};
+	};
+
+	fragment@3 {
+		target = <&i2c0>;
+		__overlay__ {
+			falcon: cx9000@33 {
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&aout>;
+		__overlay__ {
+			pinctrl-0 = <&i2s1_pmux>;
+			pinctrl-names = "default";
+		};
+	};
+
+	fragment@5 {
+		target = <&vs680_asoc>;
+		__overlay__ {
+			soc_i2so1: soc-i2so1 {
+				codec-name = "snd-soc-dummy";
+				codec-dai-name = "snd-soc-dummy-dai";
+			};
+		};
+	};
+};

@@ -24,6 +24,8 @@
 #define AVIO_DHUB_DESC_OVRDQOS		1
 #define AVIO_DHUB_DESC_QOSSEL		1
 
+#define IS_SINGLE_DISPLAY()         1
+
 typedef struct DHUB_channel_config {
 	SIGN32 chanId;
 	UNSG32 chanCmdBase;

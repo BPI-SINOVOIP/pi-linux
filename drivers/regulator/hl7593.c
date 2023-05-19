@@ -25,6 +25,10 @@
 #define HL7593_MONITOR		5
 #define HL7593_MAX		(HL7593_MONITOR + 1)
 
+#define HL7593_DISCHARGE_MASK	(1<<7)
+#define HL7593_DISCHARGE_ENABLE	(1<<7)
+#define HL7593_DISCHARGE_DISABLE	0
+
 #define HL7593_NVOLTAGES	128
 #define HL7593_VSELMIN		600000
 #define HL7593_VSELSTEP		6250
@@ -82,6 +86,7 @@ static const struct regulator_ops hl7593_regulator_ops = {
 	.is_enabled = regulator_is_enabled_regmap,
 	.set_mode = hl7593_set_mode,
 	.get_mode = hl7593_get_mode,
+	.set_active_discharge = regulator_set_active_discharge_regmap,
 };
 
 static int hl7593_regulator_register(struct hl7593_device_info *di,
@@ -102,6 +107,10 @@ static int hl7593_regulator_register(struct hl7593_device_info *di,
 	rdesc->vsel_reg = di->vsel_reg;
 	rdesc->vsel_mask = rdesc->n_voltages - 1;
 	rdesc->vsel_step = di->vsel_step;
+	rdesc->active_discharge_reg = HL7593_CTRL;
+	rdesc->active_discharge_mask = HL7593_DISCHARGE_MASK;
+	rdesc->active_discharge_on = HL7593_DISCHARGE_ENABLE;
+	rdesc->active_discharge_off = HL7593_DISCHARGE_DISABLE;
 	rdesc->owner = THIS_MODULE;
 
 	rdev = devm_regulator_register(di->dev, &di->desc, config);

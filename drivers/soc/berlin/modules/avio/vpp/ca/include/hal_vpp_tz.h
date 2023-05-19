@@ -45,7 +45,11 @@ int TZ_MV_VPPOBJ_Reset(void);
 int TZ_MV_VPPOBJ_Destroy(void);
 int TZ_MV_VPPOBJ_IsrHandler(unsigned int MsgId, unsigned int IntSts);
 int TZ_MV_VPPOBJ_SemOper(int cmd_id, int sem_id, int *pParam);
-
+int TZ_MV_VPPOBJ_EnableHdmiAudioFmt(int enable);
+int TZ_MV_VPPOBJ_InvokePassShm_Helper(void *pBuffer, unsigned int shmCmdId,
+		unsigned int sBufferSize);
+int TZ_MV_VPPOBJ_GetCPCBOutputPixelClock(int resID, int *pixel_clock);
+int TZ_MV_VPPOBJ_GetDispOutParams(VPP_DISP_OUT_PARAMS *pdispParams, int size);
 #ifdef __cplusplus
 }
 #endif

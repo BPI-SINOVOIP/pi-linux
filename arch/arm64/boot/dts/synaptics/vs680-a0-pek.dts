@@ -221,7 +221,7 @@
 	status = "okay";
 };
 
-&i2s_spdif {
+&i2s_pri {
 	status = "okay";
 	pinctrl-0 = <&i2s1_pmux>;
 	pinctrl-names = "default";
@@ -245,10 +245,10 @@
 &vs680_asoc {
 	status = "okay";
 
-	dummy_i2si: dummy-i2si {
+	soc_i2si:soc-i2si2 {
 		status = "okay";
-		stream-name = "dummy-i2si";
-		link-name = "dummy-i2si";
+		stream-name = "soc-i2si2";
+		link-name = "soc-i2s2i";
 		format = "i2s";
 		cpu-node = <&i2s_mic1>;
 		codec-name = "snd-soc-dummy";
@@ -256,12 +256,12 @@
 		platform-node = <&vs680_pcm>;
 	};
 
-	dummy_i2so: dummy-i2so {
+	soc_i2so: soc-i2so1 {
 		status = "okay";
-		stream-name = "dummy-i2so";
-		link-name = "dummy-i2so";
+		stream-name = "soc-i2so1";
+		link-name = "soc-i2so1";
 		format = "i2s";
-		cpu-node = <&i2s_spdif>;
+		cpu-node = <&i2s_pri>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs680_pcm>;

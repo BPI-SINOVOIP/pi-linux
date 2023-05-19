@@ -38,7 +38,7 @@ int TZ_MV_VPPOBJ_GetResolutionDescription(int ResId, VPP_RESOLUTION_DESCRIPTION 
 	int retVal = 0;
 
 	if (pResDesc)
-		retVal = VPP_CA_GetResolutionDescription(pResDesc, VPP_GET_RES_DESCRIPTION, sizeof(VPP_RESOLUTION_DESCRIPTION), ResId);
+		retVal = VppGetResDescription(pResDesc, VPP_GET_RES_DESCRIPTION, sizeof(VPP_RESOLUTION_DESCRIPTION), ResId);
 
 	return retVal;
 }
@@ -432,3 +432,33 @@ int TZ_MV_VPPOBJ_SemOper(int cmd_id, int sem_id, int *pParam)
 
 	return Ret;
 }
+
+int TZ_MV_VPPOBJ_EnableHdmiAudioFmt(int enable)
+{
+	HRESULT Ret = MV_VPP_OK;
+
+	Ret = VPP_CA_EnableHdmiAudioFmt(enable);
+
+	return Ret;
+}
+
+int TZ_MV_VPPOBJ_InvokePassShm_Helper(void *pBuffer, unsigned int shmCmdId,
+		unsigned int sBufferSize)
+{
+	HRESULT Ret = MV_VPP_OK;
+
+	Ret = VPP_PassShm_InBuffer(pBuffer, shmCmdId, sBufferSize);
+
+	return Ret;
+}
+
+int TZ_MV_VPPOBJ_GetCPCBOutputPixelClock(int resID, int *pixel_clock)
+{
+	return VppGetCPCBOutputPixelClock(resID, pixel_clock);
+}
+
+int TZ_MV_VPPOBJ_GetDispOutParams(VPP_DISP_OUT_PARAMS *pdispParams, int size)
+{
+	return  VPP_PassShm_InOutBuffer(pdispParams, pdispParams, VPP_GET_DISP_VOUTPARAMS, size, size);
+}
+

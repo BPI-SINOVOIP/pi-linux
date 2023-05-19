@@ -24,9 +24,8 @@ static struct reg_item avio_gbl[] = {
 	_AVIO_GBL_REG_(RA_avioGbl_AVPLLA_CLK_EN, 0x4D),
 	/* enable I2S1_MCLK_OEN& PDM_CLK_OEN to output mclk
 	 * and PDM clock
-	 * enable I2S3_BCLK_OEN & I2S3_LRCLK_OEN for i2s3
 	 */
-	_AVIO_GBL_REG_(RA_avioGbl_CTRL1, 0x3C00),
+	_AVIO_GBL_REG_(RA_avioGbl_CTRL1, 0x2400),
 };
 
 struct aio_priv *get_aio(void)

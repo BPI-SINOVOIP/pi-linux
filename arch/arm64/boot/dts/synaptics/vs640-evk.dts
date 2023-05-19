@@ -79,8 +79,15 @@
 		bt-power-gpio = <&expander1 4 GPIO_ACTIVE_HIGH>;
 	};
 
+	bluesleep: bluesleep {
+		compatible = "syna,bluesleep";
+		bt-dev-wake-gpio = <&expander1 2 GPIO_ACTIVE_HIGH>;
+	};
+
 	dummy_label {
 		dummy1 = <&vcore1>;
+		dummy2 = <&vcpu1>;
+		dummy3 = <&vcore2>;
 	};
 };
 
@@ -139,6 +146,11 @@
 		function = "i2s1";
 	};
 
+	falcon_gpio_pmux: falcon_gpio-pmux {
+		groups = "I2S1_DO1";
+		function = "gpio";
+	};
+
 	i2s2_pmux: i2s2-pmux {
 		groups = "I2S2_BCLKIO", "I2S2_LRCKIO", "I2S2_DI0";
 		function = "i2s2";
@@ -166,7 +178,6 @@
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
 	dll-calibration;
 	dll-delay-offset = <300>;
 };
@@ -188,6 +199,17 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pmux>;
+
+	falcon: cx9000@33 {
+		compatible = "cnxt,cx9000";
+		pinctrl-names = "default";
+		pinctrl-0 = <&falcon_gpio_pmux>;
+
+		#sound-dai-cells = <0>;
+		reg = <0x33>;
+		enable-gpios = <&porta 17 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
 };
 
 &i2c1 {
@@ -202,9 +224,27 @@
 		regulator-max-microvolt = <987500>;
 		regulator-always-on;
 		regulator-boot-on;
+		regulator-active-discharge = <0>;
 		halo,vsel-state-high;
 		halo,vsel-step = <1>;
 		reg = <0x61>;
+	};
+
+	regulator@49 {
+		compatible = "ti,tps62868";
+		reg = <0x49>;
+		status = "disabled";
+		regulators {
+			vcpu1: SW {
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-active-discharge = <0>;
+				regulator-name = "vcpu";
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <987500>;
+				regulator-initial-mode = <0>;
+			};
+		};
 	};
 };
 
@@ -220,6 +260,7 @@
 		regulator-max-microvolt = <937500>;
 		regulator-always-on;
 		regulator-boot-on;
+		regulator-active-discharge = <0>;
 		halo,vsel-state-high;
 		halo,vsel-step = <1>;
 		reg = <0x61>;
@@ -231,10 +272,28 @@
 		regulator-name = "vcore";
 		regulator-min-microvolt = <700000>;
 		regulator-max-microvolt = <937500>;
+		regulator-active-discharge = <0>;
 		regulator-always-on;
 		regulator-boot-on;
 		silergy,vsel-step = <1>;
 		reg = <0x60>;
+	};
+
+	regulator@49 {
+		compatible = "ti,tps62868";
+		reg = <0x49>;
+		status = "disabled";
+		regulators {
+			vcore2: SW {
+				regulator-boot-on;
+				regulator-always-on;
+				regulator-active-discharge = <0>;
+				regulator-name = "vcore";
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <987500>;
+				regulator-initial-mode = <0>;
+			};
+		};
 	};
 };
 
@@ -436,39 +495,87 @@
 	status = "okay";
 };
 
-&i2s_spdif {
+&i2s_pri {
 	status = "okay";
-	pinctrl-0 = <&i2s1_pmux>, <&spdifo_pmux>;
+	pinctrl-0 = <&i2s1_pmux>;
+	pinctrl-names = "default";
+};
+
+&spdif_out {
+	status = "okay";
+	pinctrl-0 = <&spdifo_pmux>;
 	pinctrl-names = "default";
 };
 
 &i2s_mic2 {
 	status = "okay";
+	duplex;
+	disablemicmute;
 };
 
 &i2s_sec {
 	status = "okay";
 	pinctrl-0 = <&i2s3_pmux>;
 	pinctrl-names = "default";
+	duplex;
 };
 
 &vs640_asoc {
 	status = "okay";
 
-	dummy_dmic: dummy-dmic {
+	soc_i2so1: soc-i2so1 {
 		status = "okay";
-		stream-name = "dummy-dmic";
-		link-name = "dummy-dmic";
+		stream-name = "soc-i2so1";
+		link-name = "soc-i2so1";
+		format = "i2s";
+		continuous-clock;
+		bitclock-inversion;
+		frame-inversion;
+		bitclock-master;
+		frame-master;
+		cpu-node = <&i2s_pri>;
+		codec-name = "cx9000.0-0033";
+		codec-dai-name = "cx9000-amplifier";
+		platform-node = <&vs640_pcm>;
+	};
+
+	soc_i2so3: soc-i2so3 {
+		status = "okay";
+		stream-name = "soc-i2so3";
+		link-name = "soc-i2so3";
+		format = "dsp_a";
+		bitclock-master;
+		frame-master;
+		cpu-node = <&i2s_sec>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&vs640_pcm>;
+	};
+
+	soc_spdifo: soc-spdifo {
+		status = "okay";
+		stream-name = "soc-spdifo";
+		link-name = "soc-spdifo";
+		cpu-node = <&spdif_out>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&vs640_pcm>;
+	};
+
+	soc_dmic: soc-dmic {
+		status = "okay";
+		stream-name = "soc-dmic";
+		link-name = "soc-dmic";
 		cpu-node = <&dmic>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs640_pcm>;
 	};
 
-	dummy_i2si2: dummy-i2si2 {
+	soc_i2si2: soc-i2si2 {
 		status = "okay";
-		stream-name = "dummy-i2si2";
-		link-name = "dummy-i2si2";
+		stream-name = "soc-i2si2";
+		link-name = "soc-i2si2";
 		format = "i2s";
 		bitclock-inversion;
 		frame-inversion;
@@ -478,10 +585,10 @@
 		platform-node = <&vs640_pcm>;
 	};
 
-	dummy_i2s_pri_lpbk: dummy_i2s_pri_lpbk{
+	soc_i2s_pri_lpbk: soc-i2s-pri-lpbk {
 		status = "okay";
-		stream-name = "dummy_i2s_pri_lpbk";
-		link-name = "dummy_i2s_pri_lpbk";
+		stream-name = "soc-i2s-pri-lpbk";
+		link-name = "soc-i2s-pri-lpbk";
 		format = "i2s";
 		cpu-node = <&i2s_pri_lpbk>;
 		codec-name = "snd-soc-dummy";
@@ -489,10 +596,10 @@
 		platform-node = <&vs640_pcm>;
 	};
 
-	dummy_i2s_hdmi_lpbk: dummy_i2s_hdmi_lpbk{
+	soc_i2s_hdmi_lpbk: soc-i2s-hdmi-lpbk {
 		status = "okay";
-		stream-name = "dummy_i2s_hdmi_lpbk";
-		link-name = "dummy_i2s_hdmi_lpbk";
+		stream-name = "soc-i2s-hdmi-lpbk";
+		link-name = "soc-i2s-hdmi-lpbk";
 		format = "i2s";
 		cpu-node = <&i2s_hdmi_lpbk>;
 		codec-name = "snd-soc-dummy";
@@ -500,44 +607,14 @@
 		platform-node = <&vs640_pcm>;
 	};
 
-	dummy_i2so1: dummy-i2so1 {
+	soc_i2si3: soc-i2si3 {
 		status = "okay";
-		stream-name = "dummy-i2so1";
-		link-name = "dummy-i2so1";
-		format = "i2s";
-		continuous-clock;
-		bitclock-inversion;
-		frame-inversion;
-		cpu-node = <&i2s_spdif>;
-		codec-name = "snd-soc-dummy";
-		codec-dai-name = "snd-soc-dummy-dai";
-		platform-node = <&vs640_pcm>;
-	};
-
-	dummy_i2si3: dummy-i2si3 {
-		status = "okay";
-		stream-name = "dummy-i2si3";
-		link-name = "dummy-i2si3";
+		stream-name = "soc-i2si3";
+		link-name = "soc-i2si3";
 		format = "dsp_a";
-		bitclock-inversion;
 		bitclock-master;
 		frame-master;
 		cpu-node = <&i2s_mic2>;
-		codec-name = "snd-soc-dummy";
-		codec-dai-name = "snd-soc-dummy-dai";
-		platform-node = <&vs640_pcm>;
-	};
-
-	dummy_i2so3: dummy-i2so3 {
-		status = "okay";
-		stream-name = "dummy-i2so3";
-		link-name = "dummy-i2so3";
-		format = "dsp_a";
-		continuous-clock;
-		bitclock-inversion;
-		bitclock-master;
-		frame-master;
-		cpu-node = <&i2s_sec>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs640_pcm>;

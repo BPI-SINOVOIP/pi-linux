@@ -9,15 +9,16 @@
 #include <linux/proc_fs.h>
 
 #include "tee_ca_vpp.h"
+#include "tee_ca_common.h"
 
-#define bTST(x, b)      (((x) >> (b)) & 1)
+#define bTST(x, b) (((x) >> (b)) & 1)
 
 #define DEFAULT_SESSION_INDEX 0
 
 #undef VPP_CA_ENABLE_DIAG_PRT
 //#define VPP_CA_ENABLE_DIAG_PRT
 #ifdef VPP_CA_ENABLE_DIAG_PRT
-#define VPP_CA_DBG_PRINT(fmt, ...) pr_info("%d(%s:%d)--" fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define VPP_CA_DBG_PRINT(...) pr_info(__VA_ARGS__)
 #else
 #define VPP_CA_DBG_PRINT(fmt, ...) do {} while (0)
 #endif
@@ -27,9 +28,12 @@ typedef struct __VPP_CA_CONTEXT__ {
 	int initialized;
 	TEEC_Context context;
 } VPP_CA_CONTEXT;
+
 typedef struct __VPP_CA_SESSION__ {
 	int initialized;
 	TEEC_Session session;
+	TEEC_SharedMemory Shm;
+	struct mutex shm_mutex;
 } VPP_CA_SESSION;
 
 static VPP_CA_CONTEXT g_vppCaContext;
@@ -52,6 +56,7 @@ int VPP_CA_Initialize(ENUM_TA_UUID_TYPE uuidType)
 	int index;
 	TEEC_Result result;
 	TEEC_UUID TAVPP_CA_UUID;
+	TEEC_SharedMemory *pShm;
 
 	if (g_vppCaContext.initialized)
 		return TEEC_SUCCESS;
@@ -80,9 +85,11 @@ int VPP_CA_Initialize(ENUM_TA_UUID_TYPE uuidType)
 	 * ========================================================================
 	 */
 	for (index = 0; index < MAX_TAVPP_INSTANCE_NUM; index++) {
+
+
 		result = TEEC_OpenSession(&g_vppCaContext.context,
 					&(TAVPPInstance[index].session), &TAVPP_CA_UUID, TEEC_LOGIN_USER,
-					NULL,	/* No connection data needed for TEEC_LOGIN_USER. */
+					NULL,   /* No connection data needed for TEEC_LOGIN_USER. */
 					NULL,    /* No payload, and do not want cancellation. */
 					NULL);
 		pr_err("%s:%d: TEEC_OpenSession:%d result:%x\n", __func__, __LINE__, index, result);
@@ -90,11 +97,30 @@ int VPP_CA_Initialize(ENUM_TA_UUID_TYPE uuidType)
 			pr_err("%s:%d: result:%x\n", __func__, __LINE__, result);
 			goto cleanup2;
 		}
+
+		pShm = &(TAVPPInstance[index].Shm);
+		memset(pShm, 0, sizeof(TEEC_SharedMemory));
+		pShm->size = TAVPP_PASS_SHMSIZE;
+		pShm->flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+
+		result = TEEC_AllocateSharedMemory(&g_vppCaContext.context, pShm);
+		VPP_TEEC_LOGIFERROR(result);
+		if (result) {
+			pr_err("%s:%d: TEEC_AllocateSharedMemory: %d result:%x\n",
+				__func__, __LINE__, index, result);
+			goto cleanup3;
+		}
+
+		mutex_init(&(TAVPPInstance[index].shm_mutex));
 		TAVPPInstance[index].initialized = true;
 	}
 
 	return TEEC_SUCCESS;
-
+cleanup3:
+	for (index = 0; index < MAX_TAVPP_INSTANCE_NUM; index++) {
+		pShm = &(TAVPPInstance[index].Shm);
+		TEEC_ReleaseSharedMemory(pShm);
+	}
 cleanup2:
 	TEEC_FinalizeContext(&g_vppCaContext.context);
 cleanup1:
@@ -112,6 +138,7 @@ void VPP_CA_Finalize(void)
 
 	for (index = 0; index < MAX_TAVPP_INSTANCE_NUM; index++) {
 		if (TAVPPInstance[index].initialized) {
+			TEEC_ReleaseSharedMemory(&(TAVPPInstance[index].Shm));
 			TEEC_CloseSession(&(TAVPPInstance[index].session));
 			memset(&TAVPPInstance[index], 0, sizeof(TAVPPInstance[index]));
 			TAVPPInstance[index].initialized = false;
@@ -204,40 +231,54 @@ int VPP_CA_GetCPCBOutputResolution(int cpcbID, int *pResID)
 	return operation.params[1].value.b;
 }
 
-int VPP_CA_GetResolutionDescription(VPP_RESOLUTION_DESCRIPTION *pResDesc_PhyAddr,
-		VPP_SHM_ID AddrId, unsigned int Size, unsigned int ResId)
+int VppGetResDescription(void *pOutBuffer, VPP_SHM_ID shmCmdId,
+						unsigned int sOutBufferSize, unsigned int ResId)
 {
 	int index;
 	TEEC_Session *pSession;
 	TEEC_Result result;
 	TEEC_Operation operation;
-	TEEC_SharedMemory TzShm;
+	TEEC_SharedMemory *pShm;
+
+	if (!pOutBuffer)
+		return MV_VPP_EBADPARAM;
 
 	index = VPP_CA_GetInstanceID();
 	pSession = &(TAVPPInstance[index].session);
 
-	memset(&TzShm, 0, sizeof(TEEC_SharedMemory));
-	//Need to pass the physical address instead of virtual address - use .phyAddr instead of .buffer
-	TzShm.phyAddr = pResDesc_PhyAddr;
-	TzShm.size = Size;
-	TzShm.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+	pShm = &(TAVPPInstance[index].Shm);
+	if (pShm && pShm->size < sOutBufferSize) {
+		pr_err("%s:%d: pShm->size %zu, sOutBufferSize %d\n",
+			__func__, __LINE__, pShm->size, sOutBufferSize);
+		return -EINVAL;
+	}
 
-	TEEC_RegisterSharedMemory(&g_vppCaContext.context, &TzShm);
+	mutex_lock(&(TAVPPInstance[index].shm_mutex));
 
 	operation.paramTypes = TEEC_PARAM_TYPES(
 			TEEC_VALUE_INPUT,
-			TEEC_MEMREF_WHOLE,
-			TEEC_VALUE_INOUT,
+			TEEC_MEMREF_PARTIAL_INOUT,
+			TEEC_VALUE_OUTPUT,
 			TEEC_NONE);
 
-	operation.params[0].value.a = AddrId;
-	operation.params[1].memref.parent = &TzShm;
-	operation.params[1].memref.size = TzShm.size;
+	operation.params[0].value.a = shmCmdId;
+	operation.params[1].memref.parent = pShm;
+	operation.params[1].memref.size = sOutBufferSize;
 	operation.params[1].memref.offset = 0;
 	operation.params[2].value.a = ResId;
 
 	operation.started = 1;
-	result = InvokeCommandHelper(index, pSession, VPP_PASSSHM, &operation, NULL);
+	result = InvokeCommandHelper(index,
+			pSession,
+			VPP_PASSSHM,
+			&operation,
+			NULL);
+	VPP_TEEC_LOGIFERROR(result);
+
+	if (pOutBuffer)
+		memcpy(pOutBuffer, pShm->buffer, sOutBufferSize);
+
+	mutex_unlock(&(TAVPPInstance[index].shm_mutex));
 
 	return operation.params[2].value.a;
 }
@@ -325,7 +366,7 @@ int VPP_CA_PassVbufInfo(void *Vbuf_phyAddr, unsigned int VbufSize,
 	pSession = &(TAVPPInstance[index].session);
 
 	VPP_CA_DBG_PRINT("%s:%d: vbuf_info:%p, VbufSize:%x, Clut:%p, ClutSize:%x, PlaneID:%d, ClutValid:%d\n",
-		__func__, __LINE__, Vbuf, VbufSize, Clut, ClutSize, PlaneID, ClutValid);
+		__func__, __LINE__, Vbuf_phyAddr, VbufSize, Clut_phyAddr, ClutSize, PlaneID, ClutValid);
 
 	memset(&operation, 0, sizeof(TEEC_Operation));
 	/* register Vbuf info*/
@@ -1090,6 +1131,165 @@ int VPP_CA_SemOper(int cmd_id, int sem_id, int *pParam)
 
 	if (pParam)
 		*pParam = operation.params[1].value.a;
+
+	return operation.params[1].value.b;
+}
+
+int VPP_CA_EnableHdmiAudioFmt(int enable)
+{
+	TEEC_Result result;
+	TEEC_Operation operation;
+	int index;
+	TEEC_Session *pSession;
+
+	index = VPP_CA_GetInstanceID();
+	pSession = &(TAVPPInstance[index].session);
+
+	operation.paramTypes = TEEC_PARAM_TYPES(
+			TEEC_VALUE_INOUT,
+			TEEC_NONE,
+			TEEC_NONE,
+			TEEC_NONE);
+
+	operation.params[0].value.a = enable;
+
+	/* clear result */
+	operation.params[0].value.b = 0xdeadbeef;
+
+	operation.started = 1;
+	result = InvokeCommandHelper(index,
+			pSession,
+			VPP_HDMIENABLEAUDIOFMT,
+			&operation,
+			NULL);
+	VPP_TEEC_LOGIFERROR(result);
+
+	return operation.params[0].value.b;
+}
+
+static int VppPassShm(void *pBuffer, unsigned int shmCmdId, unsigned int sBufferSize)
+{
+	int index;
+	TEEC_Session *pSession;
+	TEEC_Result result;
+	TEEC_Operation operation;
+	TEEC_SharedMemory *pShm = (TEEC_SharedMemory *)pBuffer;
+
+	index = VPP_CA_GetInstanceID();
+	pSession = &(TAVPPInstance[index].session);
+
+	operation.paramTypes = TEEC_PARAM_TYPES(
+			TEEC_VALUE_INPUT,
+			TEEC_MEMREF_WHOLE,
+			TEEC_VALUE_OUTPUT,
+			TEEC_NONE);
+
+	operation.params[0].value.a = shmCmdId;
+	operation.params[1].memref.parent = pShm;
+	operation.params[1].memref.size = pShm->size;
+	operation.params[1].memref.offset = 0;
+
+	/* clear result */
+	operation.params[2].value.a = 0xdeadbeef;
+
+	operation.started = 1;
+	result = InvokeCommandHelper(index,
+			pSession,
+			VPP_PASSSHM,
+			&operation,
+			NULL);
+	VPP_TEEC_LOGIFERROR(result);
+
+	return operation.params[2].value.a;
+}
+
+int VPP_PassShm_InBuffer(void *pBuffer, unsigned int shmCmdId, unsigned int sInBufferSize)
+{
+	int index;
+	int Ret;
+	TEEC_SharedMemory *pShm;
+
+	index = VPP_CA_GetInstanceID();
+
+	pShm = &(TAVPPInstance[index].Shm);
+	if (pShm && pShm->size < sInBufferSize) {
+		pr_err("%s:%d: pShm->size %zu, sInBufferSize %d\n",
+			__func__, __LINE__, pShm->size, sInBufferSize);
+		return -EINVAL;
+	}
+
+	mutex_lock(&(TAVPPInstance[index].shm_mutex));
+	memcpy(pShm->buffer, pBuffer, sInBufferSize);
+	Ret = VppPassShm(pShm, shmCmdId, sInBufferSize);
+
+	mutex_unlock(&(TAVPPInstance[index].shm_mutex));
+	return Ret;
+}
+
+int VPP_PassShm_InOutBuffer(void *pInBuffer, void *pOutBuffer,
+				VPP_SHM_ID shmCmdId, UINT32 sInBufferSize, UINT32 sOutBufferSize)
+{
+	int index;
+	int Ret;
+	TEEC_SharedMemory *pShm;
+
+	if (!pOutBuffer)
+		return MV_VPP_EBADPARAM;
+
+	index = VPP_CA_GetInstanceID();
+
+	pShm = &(TAVPPInstance[index].Shm);
+	if (pShm && pShm->size < sInBufferSize) {
+		pr_err("%s:%d: pShm->size %zu, sInBufferSize %d\n",
+			__func__, __LINE__, pShm->size, sInBufferSize);
+		return -EINVAL;
+	}
+
+	mutex_lock(&(TAVPPInstance[index].shm_mutex));
+
+	if (pInBuffer)
+		memcpy(pShm->buffer, pInBuffer, sInBufferSize);
+	else
+		memset(pShm->buffer, 0, sInBufferSize);
+
+	Ret = VppPassShm(pShm, shmCmdId, sOutBufferSize);
+	if (pOutBuffer)
+		memcpy(pOutBuffer, pShm->buffer, sOutBufferSize);
+
+	mutex_unlock(&(TAVPPInstance[index].shm_mutex));
+
+	return Ret;
+}
+
+int VppGetCPCBOutputPixelClock(int resID,  int *pixel_clock)
+{
+	TEEC_Result result;
+	TEEC_Operation operation;
+	int index;
+	TEEC_Session *pSession;
+	index = VPP_CA_GetInstanceID();
+	pSession = &(TAVPPInstance[index].session);
+
+	operation.paramTypes = TEEC_PARAM_TYPES(
+			TEEC_VALUE_INPUT,
+			TEEC_VALUE_OUTPUT,
+			TEEC_NONE,
+			TEEC_NONE);
+
+	operation.params[0].value.a = resID;
+
+	/* clear result */
+	operation.params[1].value.a = 0xdeadbeef;
+	operation.params[1].value.b = 0xdeadbeef;
+
+	operation.started = 1;
+	result = InvokeCommandHelper(index,
+			pSession,
+			VPP_GETCPCBOUTPIXELCLOCK,
+			&operation,
+			NULL);
+	VPP_TEEC_LOGIFERROR(result);
+	*pixel_clock = operation.params[1].value.a;
 
 	return operation.params[1].value.b;
 }

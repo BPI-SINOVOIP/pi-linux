@@ -344,7 +344,7 @@ static int ivtv_g_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *f
 	pixfmt->colorspace = V4L2_COLORSPACE_SMPTE170M;
 	pixfmt->field = V4L2_FIELD_INTERLACED;
 	if (id->type == IVTV_ENC_STREAM_TYPE_YUV) {
-		pixfmt->pixelformat = V4L2_PIX_FMT_HM12;
+		pixfmt->pixelformat = V4L2_PIX_FMT_NV12_16L16;
 		/* YUV size is (Y=(h*720) + UV=(h*(720/2))) */
 		pixfmt->sizeimage = pixfmt->height * 720 * 3 / 2;
 		pixfmt->bytesperline = 720;
@@ -422,7 +422,7 @@ static int ivtv_g_fmt_vid_out(struct file *file, void *fh, struct v4l2_format *f
 			pixfmt->field = V4L2_FIELD_ANY;
 			break;
 		}
-		pixfmt->pixelformat = V4L2_PIX_FMT_HM12;
+		pixfmt->pixelformat = V4L2_PIX_FMT_NV12_16L16;
 		pixfmt->bytesperline = 720;
 		pixfmt->width = itv->yuv_info.v4l2_src_w;
 		pixfmt->height = itv->yuv_info.v4l2_src_h;
@@ -443,7 +443,7 @@ static int ivtv_g_fmt_vid_out_overlay(struct file *file, void *fh, struct v4l2_f
 	struct ivtv_stream *s = &itv->streams[fh2id(fh)->type];
 	struct v4l2_window *winfmt = &fmt->fmt.win;
 
-	if (!(s->caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
+	if (!(s->vdev.device_caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
 		return -EINVAL;
 	if (!itv->osd_video_pbase)
 		return -EINVAL;
@@ -554,7 +554,7 @@ static int ivtv_try_fmt_vid_out_overlay(struct file *file, void *fh, struct v4l2
 	u32 chromakey = fmt->fmt.win.chromakey;
 	u8 global_alpha = fmt->fmt.win.global_alpha;
 
-	if (!(s->caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
+	if (!(s->vdev.device_caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
 		return -EINVAL;
 	if (!itv->osd_video_pbase)
 		return -EINVAL;
@@ -921,7 +921,7 @@ static int ivtv_enum_fmt_vid_cap(struct file *file, void *fh, struct v4l2_fmtdes
 {
 	static const struct v4l2_fmtdesc hm12 = {
 		0, V4L2_BUF_TYPE_VIDEO_CAPTURE, 0,
-		"HM12 (YUV 4:2:0)", V4L2_PIX_FMT_HM12,
+		"HM12 (YUV 4:2:0)", V4L2_PIX_FMT_NV12_16L16,
 		{ 0, 0, 0, 0 }
 	};
 	static const struct v4l2_fmtdesc mpeg = {
@@ -947,7 +947,7 @@ static int ivtv_enum_fmt_vid_out(struct file *file, void *fh, struct v4l2_fmtdes
 {
 	static const struct v4l2_fmtdesc hm12 = {
 		0, V4L2_BUF_TYPE_VIDEO_OUTPUT, 0,
-		"HM12 (YUV 4:2:0)", V4L2_PIX_FMT_HM12,
+		"HM12 (YUV 4:2:0)", V4L2_PIX_FMT_NV12_16L16,
 		{ 0, 0, 0, 0 }
 	};
 	static const struct v4l2_fmtdesc mpeg = {
@@ -1386,7 +1386,7 @@ static int ivtv_g_fbuf(struct file *file, void *fh, struct v4l2_framebuffer *fb)
 		0,
 	};
 
-	if (!(s->caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
+	if (!(s->vdev.device_caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
 		return -ENOTTY;
 	if (!itv->osd_video_pbase)
 		return -ENOTTY;
@@ -1453,7 +1453,7 @@ static int ivtv_s_fbuf(struct file *file, void *fh, const struct v4l2_framebuffe
 	struct ivtv_stream *s = &itv->streams[fh2id(fh)->type];
 	struct yuv_playback_info *yi = &itv->yuv_info;
 
-	if (!(s->caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
+	if (!(s->vdev.device_caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
 		return -ENOTTY;
 	if (!itv->osd_video_pbase)
 		return -ENOTTY;
@@ -1473,7 +1473,7 @@ static int ivtv_overlay(struct file *file, void *fh, unsigned int on)
 	struct ivtv *itv = id->itv;
 	struct ivtv_stream *s = &itv->streams[fh2id(fh)->type];
 
-	if (!(s->caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
+	if (!(s->vdev.device_caps & V4L2_CAP_VIDEO_OUTPUT_OVERLAY))
 		return -ENOTTY;
 	if (!itv->osd_video_pbase)
 		return -ENOTTY;

@@ -14,7 +14,7 @@
 #include "vs680-a0.dtsi"
 
 / {
-	model = "Banana Pi BPI-M6 Synaptics VS680 (20221208)";
+	model = "Synaptics VS680 EVK";
 	compatible = "syna,vs680-evk", "syna,vs680";
 
 	aliases {
@@ -53,9 +53,9 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pmux>;
 		pwms = <&pwm0 1 1000000 0>;
-		brightness-levels = <0 4 8 16 32 64 128 255>;
+		brightness-levels = <0 36 72 108 144 180 212 255>;
 		default-brightness-level = <6>;
-		//enable-gpio = <&expander3 2 GPIO_ACTIVE_HIGH>;
+		enable-gpio = <&expander3 2 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
@@ -80,7 +80,7 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-name = "vmmc_sdio";
 			enable-active-high;
-			//gpio = <&expander3 1 GPIO_ACTIVE_HIGH>;
+			gpio = <&expander3 1 GPIO_ACTIVE_HIGH>;
 		};
 
 		reg_usb0_vbus: usb0_vbus {
@@ -88,7 +88,7 @@
 			regulator-name = "usb0_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
-			//gpio = <&expander2 3 GPIO_ACTIVE_HIGH>;
+			gpio = <&expander2 3 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 
@@ -97,7 +97,7 @@
 			regulator-name = "xhci0_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
-			//gpio = <&expander2 2 GPIO_ACTIVE_HIGH>;
+			gpio = <&expander2 2 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 	};
@@ -266,10 +266,16 @@
 		function = "pdm";
 	};
 
+	spdifo_pmux: spdifo-pmux {
+		groups = "SPDIFO";
+		function = "spdifo";
+	};
+
 	spdifi_pmux: spdifi-pmux {
 		groups = "SPDIFI";
 		function = "spdifi";
 	};
+
 };
 
 &sdhci0 {
@@ -278,8 +284,9 @@
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
 	dll-calibration;
+	pad-sp = /bits/ 8 <14>;
+	pad-sn = /bits/ 8 <14>;
 };
 
 &sdhci1 {
@@ -288,7 +295,6 @@
 	pinctrl-names = "default";
 	no-sdio;
 	no-mmc;
-	non-removable;
 	disable-wp;
 	sdclkdl-dc = /bits/ 8 <75>;
 	pad-sp = /bits/ 8 <12>;
@@ -310,7 +316,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pmux>;
 	no-irq-suspend;
-/*
+
 	falcon: cx9000@33 {
 		compatible = "cnxt,cx9000";
 		pinctrl-names = "default";
@@ -348,6 +354,7 @@
 		interrupts = <23 IRQ_TYPE_NONE>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		#address-cells = <0>;
 	};
 
 	fts_ts@38 {
@@ -361,7 +368,7 @@
 		focaltech,display-coords = <0 0 799 1279>;
 		focaltech,max-touch-number = <5>;
 	};
-*/
+
 	backlight@2c {
 		compatible = "ti,lp8556";
 		reg = <0x2c>;
@@ -392,6 +399,7 @@
 		regulator-boot-on;
 		enable-gpios = <&expander0 1 GPIO_ACTIVE_LOW>;
 		mps,fb-voltage-divider = <80 240>;
+		regulator-active-discharge = <0>;
 		mps,switch-frequency-hz = <1500000>;
 		mps,vsel-step = <1>;
 		reg = <0x62>;
@@ -405,6 +413,7 @@
 		regulator-max-microvolt = <987500>;
 		regulator-always-on;
 		regulator-boot-on;
+		regulator-active-discharge = <0>;
 		enable-gpios = <&expander0 1 GPIO_ACTIVE_LOW>;
 		silergy,vsel-step = <1>;
 		reg = <0x60>;
@@ -425,6 +434,7 @@
 		regulator-boot-on;
 		enable-gpios = <&expander0 0 GPIO_ACTIVE_LOW>;
 		mps,fb-voltage-divider = <80 240>;
+		regulator-active-discharge = <0>;
 		mps,switch-frequency-hz = <1250000>;
 		mps,vsel-step = <1>;
 		regulator-ramp-delay = <40000>;
@@ -439,6 +449,7 @@
 		regulator-max-microvolt = <937500>;
 		regulator-always-on;
 		regulator-boot-on;
+		regulator-active-discharge = <0>;
 		enable-gpios = <&expander0 0 GPIO_ACTIVE_LOW>;
 		silergy,vsel-step = <1>;
 		reg = <0x60>;
@@ -508,13 +519,13 @@
 
 &isp {
 	status = "okay";
-	enable-gpios = <&expander1 7 GPIO_ACTIVE_HIGH>;
+	enable-gpios = <&expander2 7 GPIO_ACTIVE_HIGH>;
 	i2c-bus = <&i2c3>;
 	dev-addr = <112>;
 };
 
 &vpp {
-        status = "okay";
+	status = "okay";
 };
 
 &fb {
@@ -548,8 +559,8 @@
 &avio {
 	status = "okay";
 	vpp {
-		hdtx5v-gpio = <&portb 6 GPIO_ACTIVE_HIGH>;
-		//mipirst-gpio = <&expander3 5 GPIO_ACTIVE_LOW>;
+		hdtx5v-gpio = <&portd 16 GPIO_ACTIVE_HIGH>;
+		mipirst-gpio = <&expander3 5 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -573,13 +584,19 @@
 	status = "okay";
 	pinctrl-0 = <&hrx5v_pmux>;
 	pinctrl-names = "default";
-	hrxhpd-gpio = <&portb 23 GPIO_ACTIVE_HIGH>;
+	hrxhpd-gpio = <&expander1 4 GPIO_ACTIVE_HIGH>;
 	hrx5v-gpio = <&portd 21 GPIO_ACTIVE_HIGH>;
 };
 
-&i2s_spdif {
+&i2s_pri {
 	status = "okay";
-	pinctrl-0 = <&i2s1_pmux>;
+	pinctrl-0 = <&i2s1_pmux>, <&spdifo_pmux>;
+	pinctrl-names = "default";
+};
+
+&spdif_out {
+	status = "okay";
+	pinctrl-0 = <&spdifo_pmux>;
 	pinctrl-names = "default";
 };
 
@@ -594,7 +611,7 @@
 	status = "okay";
 	pinctrl-0 = <&pdm_pmux>;
 	pinctrl-names = "default";
-	//pdm-data-sel-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
+	pdm-data-sel-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
 	pdm-type = <1>;
 	pdm-clk-sel = <2>;
 };
@@ -623,8 +640,8 @@
 	status = "okay";
 	pinctrl-0 = <&spdifi_pmux>;
 	pinctrl-names = "default";
-	//gate-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
-	//enable-gpio = <&expander3 7 GPIO_ACTIVE_LOW>;
+	gate-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
+	enable-gpio = <&expander3 7 GPIO_ACTIVE_LOW>;
 	dynamic-src-ctrl;
 };
 
@@ -634,33 +651,47 @@
 
 &vs680_asoc {
 	status = "okay";
-/*
-	dummy_dmic: dummy-dmic {
+
+	soc_i2so1: soc-i2so1 {
 		status = "okay";
-		stream-name = "dummy-dmic";
-		link-name = "dummy-dmic";
+		stream-name = "soc-i2so1";
+		link-name = "soc-i2so1";
+		format = "i2s";
+		continuous-clock;
+		bitclock-inversion;
+		frame-inversion;
+		bitclock-master;
+		frame-master;
+		cpu-node = <&i2s_pri>;
+		codec-name = "cx9000.0-0033";
+		codec-dai-name = "cx9000-amplifier";
+		platform-node = <&vs680_pcm>;
+	};
+
+	soc_spdifo: soc-spdifo {
+		status = "okay";
+		stream-name = "soc-spdifo";
+		link-name = "soc-spdifo";
+		cpu-node = <&spdif_out>;
+		codec-name = "snd-soc-dummy";
+		codec-dai-name = "snd-soc-dummy-dai";
+		platform-node = <&vs680_pcm>;
+	};
+
+	soc_dmic: soc-dmic {
+		status = "okay";
+		stream-name = "soc-dmic";
+		link-name = "soc-dmic";
 		cpu-node = <&dmic>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs680_pcm>;
 	};
 
-	outdai_falcon: outdai-falcon {
-		status = "disabled";
-		stream-name = "outdai-falcon";
-		link-name = "outdai-falcon";
-		format = "i2s";
-		continuous-clock;
-		cpu-node = <&i2s_spdif>;
-		codec-node = <&falcon>;
-		codec-dai-name = "cx9000-amplifier";
-		platform-node = <&vs680_pcm>;
-	};
-
-	dummy_i2si: dummy-i2si {
+	soc_i2si: soc-i2si2 {
 		status = "okay";
-		stream-name = "dummy-i2si";
-		link-name = "dummy-i2si";
+		stream-name = "soc-i2si2";
+		link-name = "soc-i2si2";
 		format = "i2s";
 		cpu-node = <&i2s_mic1>;
 		codec-name = "snd-soc-dummy";
@@ -668,21 +699,10 @@
 		platform-node = <&vs680_pcm>;
 	};
 
-	dummy_i2so: dummy-i2so {
+	soc_i2si3: soc-i2si3 {
 		status = "okay";
-		stream-name = "dummy-i2so";
-		link-name = "dummy-i2so";
-		format = "i2s";
-		cpu-node = <&i2s_spdif>;
-		codec-name = "snd-soc-dummy";
-		codec-dai-name = "snd-soc-dummy-dai";
-		platform-node = <&vs680_pcm>;
-	};
-
-	dummy_i2si3: dummy-i2si3 {
-		status = "okay";
-		stream-name = "dummy-i2si3";
-		link-name = "dummy-i2si3";
+		stream-name = "soc-i2si3";
+		link-name = "soc-i2si3";
 		format = "i2s";
 		cpu-node = <&i2s_mic2>;
 		codec-name = "snd-soc-dummy";
@@ -690,10 +710,10 @@
 		platform-node = <&vs680_pcm>;
 	};
 
-	dummy_i2s_pri_lpbk: dummy_i2s_pri_lpbk{
+	soc_i2s_pri_lpbk: soc-i2s-pri-lpbk {
 		status = "okay";
-		stream-name = "dummy_i2s_pri_lpbk";
-		link-name = "dummy_i2s_pri_lpbk";
+		stream-name = "soc-i2s-pri-lpbk";
+		link-name = "soc-i2s-pri-lpbk";
 		format = "i2s";
 		cpu-node = <&i2s_pri_lpbk>;
 		codec-name = "snd-soc-dummy";
@@ -701,10 +721,10 @@
 		platform-node = <&vs680_pcm>;
 	};
 
-	dummy_i2s_hdmi_lpbk: dummy_i2s_hdmi_lpbk{
+	soc_i2s_hdmi_lpbk: soc-i2s-hdmi-lpbk {
 		status = "okay";
-		stream-name = "dummy_i2s_hdmi_lpbk";
-		link-name = "dummy_i2s_hdmi_lpbk";
+		stream-name = "soc-i2s-hdmi-lpbk";
+		link-name = "soc-i2s-hdmi-lpbk";
 		format = "i2s";
 		cpu-node = <&i2s_hdmi_lpbk>;
 		codec-name = "snd-soc-dummy";
@@ -712,27 +732,28 @@
 		platform-node = <&vs680_pcm>;
 	};
 
-	dummy_spdifi: dummy-spdifi {
+	soc_spdifi: soc-spdifi {
 		status = "okay";
-		stream-name = "dummy-spdifi";
-		link-name = "dummy-spdifi";
+		stream-name = "soc-spdifi";
+		link-name = "soc-spdifi";
 		cpu-node = <&vs680_spdifi>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs680_pcm>;
 	};
 
-	dummy_i2s_earc: dummy-i2s-earc {
+	soc_i2s_earc: soc-i2s-earc {
 		status = "okay";
-		stream-name = "dummy-i2s-earc";
-		link-name = "dummy-i2s-earc";
+		stream-name = "soc-i2s-earc";
+		link-name = "soc-i2s-earc";
 		format = "i2s";
+		bitclock-master;
+		frame-master;
 		cpu-node = <&i2s_mic6>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs680_pcm>;
 	};
-*/
 };
 
 &ovp {

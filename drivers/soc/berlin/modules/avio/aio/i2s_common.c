@@ -6,6 +6,9 @@
 #include "aio_common.h"
 #include "avioDhub.h"
 
+
+bool aio_ch_en[AIO_ID_MAX_NUM];
+
 enum aio_ch_operation {
 	AIO_CH_EN,
 	AIO_CH_MUTE,
@@ -124,9 +127,23 @@ EXPORT_SYMBOL(aio_get_aud_ch_en);
 
 void aio_set_aud_ch_en(void *hd, u32 id, u32 tsd, bool enable)
 {
+	/* This enable FSYNC/LRCK on the audio port */
 	aio_set_audch_ctrl(hd, id, tsd, AIO_CH_EN, enable);
+	pr_debug("%s: id:%d, tsd:%d, enable:%d\n", __func__, id, tsd, enable);
 }
 EXPORT_SYMBOL(aio_set_aud_ch_en);
+
+void aio_set_i2s_ch_en(u32 id, bool enable)
+{
+	aio_ch_en[id] = enable;
+}
+EXPORT_SYMBOL(aio_set_i2s_ch_en);
+
+bool aio_get_i2s_ch_en(u32 id)
+{
+	return aio_ch_en[id];
+}
+EXPORT_SYMBOL(aio_get_i2s_ch_en);
 
 void aio_set_aud_ch_mute(void *hd, u32 id, u32 tsd, u32 mute)
 {
@@ -229,6 +246,7 @@ void aio_set_data_fmt(void *hd, u32 id, u32 data_fmt)
 }
 EXPORT_SYMBOL(aio_set_data_fmt);
 
+/* TCF: half period of FSYNC (sampling rate) in terms of number of bit-clocks */
 void aio_set_width_word(void *hd, u32 id, u32 width_word)
 {
 	struct aio_priv *aio = hd_to_aio(hd);
@@ -243,6 +261,7 @@ void aio_set_width_word(void *hd, u32 id, u32 width_word)
 }
 EXPORT_SYMBOL(aio_set_width_word);
 
+/* TDM: channel resolution (number of valid bits in a half period of FSYNC) */
 void aio_set_width_sample(void *hd, u32 id, u32 width_sample)
 {
 	struct aio_priv *aio = hd_to_aio(hd);
@@ -529,13 +548,13 @@ int aio_set_pdmmicsel(void *hd, u32 sel)
 
 	/*
 	 * ctrl.b0: 1 if MIC1 1-2 Channel is active,
-	 * 			0 if PDM 1-2 Channel is active
+	 *			0 if PDM 1-2 Channel is active
 	 * ctrl.b1: 1 if MIC1 1-2 Channel is active,
-	 * 			0 if PDM 1-2 Channel is active
+	 *			0 if PDM 1-2 Channel is active
 	 * ctrl.b2: 1 if MIC1 1-2 Channel is active,
-	 * 			0 if PDM 1-2 Channel is active
+	 *			0 if PDM 1-2 Channel is active
 	 * ctrl.b3: 1 if MIC1 1-2 Channel is active,
-	 * 			0 if PDM 1-2 Channel is active
+	 *			0 if PDM 1-2 Channel is active
 	 */
 	reg.u32 = aio_read(aio, address);
 	reg.uPDM_MIC_SEL_CTRL = sel;
@@ -555,8 +574,8 @@ static void aio_set_aud_ctrl(struct aio_priv *aio, u32 address, struct aud_ctrl 
 	reg.uCTRL_INVCLK = ctrl->invbclk;
 	reg.uCTRL_INVFS = ctrl->invfs;
 	reg.uCTRL_TLSB = !ctrl->msb;
-	reg.uCTRL_TDM = ctrl->width_sample;
-	reg.uCTRL_TCF = ctrl->width_word;
+	reg.uCTRL_TDM = ctrl->sample_resolution;
+	reg.uCTRL_TCF = ctrl->sample_period_in_bclk;
 	reg.uCTRL_TFM = ctrl->data_fmt;
 	reg.uCTRL_TDMMODE = ctrl->istdm;
 	if (ctrl->istdm) {
@@ -757,6 +776,41 @@ int aio_set_mic1_mm_mode(void *hd, u32 en)
 	return 0;
 }
 EXPORT_SYMBOL(aio_set_mic1_mm_mode);
+
+
+/* WS (Fsync/LRCK) period setting when receiver is set to Master Mode and WS generator
+ * acts as a standalone generator.
+ *
+ *  highP: High Cycle value for the FSYNC generation. writing 31 to this means the FSYNC
+ *         is high for 32 BCLK
+ *
+ *  totalP: Total FSYNC Period. Writing 63 to this means the total FSYNC Period is 64 BCLK
+ *
+ *  wsInv:  To invert the FSYNC
+ *      0 : Left Channel is High, Right Channel Low (LJ/RJ/TDM)
+ *      1 : Right Channel is High, Left Channel Low (I2S)
+ *
+ */
+int aio_set_mic1_ws_prd(void *hd, u32 highP, u32 totalP, u32 wsInv)
+{
+	struct aio_priv *aio = hd_to_aio(hd);
+	u32 address;
+	T32MIC1_MM_MODE reg;
+
+	if (aio == NULL)
+		return -EINVAL;
+
+	address = RA_AIO_MIC1 + RA_MIC1_MM_MODE;
+	reg.u32 = aio_read(aio, address);
+	reg.uMM_MODE_WS_HIGH_PRD = highP;
+	reg.uMM_MODE_WS_TOTAL_PRD = totalP;
+	reg.uMM_MODE_WS_INV = wsInv;
+	aio_write(aio, address, reg.u32);
+
+	return 0;
+}
+EXPORT_SYMBOL(aio_set_mic1_ws_prd);
+
 
 int aio_set_mic_intlmode(void *hd, u32 id, u32 tsd, u32 en)
 {

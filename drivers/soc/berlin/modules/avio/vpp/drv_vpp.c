@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2019-2020 Synaptics Incorporated */
+#include <linux/delay.h>
+
 #include "drv_vpp.h"
 #include "drv_vpp_cfg.h"
 #include "avio_dhub_drv.h"
@@ -22,7 +24,19 @@
 #define VPP_MODULE_RETURN_WITH_EFAULT() \
 	AVIO_MODULE_STORE_AND_RETURN(retVal, -EFAULT, 1);
 
+#define IS_DSI_SINGLE_DISPLAY_MODE()     (vpp_ctx.display_mode == VPP_VOUT_SINGLE_MODE_SEC)
+
+#define IS_VALID_DISPLAY_MODE(MODE) ((MODE >= VPP_VOUT_SINGLE_MODE_PRI) &&\
+									(MODE < VPP_VOUT_MODE_MAX))
+
+#define VPP_VSYNC_SEM(VPP_TG_SEM, VPP_TG1_SEM) \
+		IS_SINGLE_DISPLAY() ? VPP_TG_SEM : \
+		(IS_DSI_SINGLE_DISPLAY_MODE() ? \
+		VPP_TG1_SEM : VPP_TG_SEM)
+
 #ifdef CONFIG_IRQ_LATENCY_PROFILE
+#define VPP_IRQ_PROFILE_STORE_CLOCK_IN_PTR(ptr) \
+	*ptr = cpu_clock(smp_processor_id())
 #define VPP_IRQ_PROFILE_STORE_CLOCK(VAR) \
 	hVppCtx->avio_irq_profiler.##VAR = cpu_clock(smp_processor_id())
 #define VPP_IRQ_PROFILE_DIFF_CLOCK(VAR1, VAR2)     \
@@ -38,12 +52,37 @@ static struct proc_dir_entry *avio_driver_state;
 static struct proc_dir_entry *avio_driver_detail;
 
 static VPP_CTX vpp_ctx;
+static bool bIsDisplayModeSwitchSignal;
 
 void __weak drv_vpp_read_vpp_cfg(VPP_CTX *hVppCtx, void *dev) { }
 static int drv_vpp_init(void *h_vpp_ctx);
 
-HRESULT wait_vpp_vsync(void) {
-	return down_interruptible(&vpp_ctx.vsync_sem);
+HRESULT wait_vpp_primary_vsync(void) {
+	struct semaphore *pSem;
+	HRESULT hres;
+
+	pSem = VPP_VSYNC_SEM(&vpp_ctx.vsync_sem, &vpp_ctx.vsync1_sem);
+
+	hres = down_interruptible(pSem);
+
+	if (bIsDisplayModeSwitchSignal) {
+		bIsDisplayModeSwitchSignal = 0;
+		hres = wait_vpp_primary_vsync();
+	}
+
+	return hres;
+};
+
+static void signal_vpp_primary_false_vsync(void) {
+	struct semaphore *pSem;
+
+	pSem = VPP_VSYNC_SEM(&vpp_ctx.vsync_sem, &vpp_ctx.vsync1_sem);
+
+	/* Trigger False VSYNC only if there is a pending signal */
+	if (!pSem->count) {
+		bIsDisplayModeSwitchSignal = 1;
+		up(pSem);
+	}
 };
 
 //Various clocks controlled by the AVIO module
@@ -101,6 +140,39 @@ static void avio_devices_vpp_release_gpio(VPP_CTX *hVppCtx)
 	gpiod_set_value_cansleep(hVppCtx->gpio_mipirst, 1);
 }
 
+static void avio_devices_vpp_process_msg(VPP_CTX *hVppCtx, MV_CC_MSG_t *pMsg)
+{
+	if (pMsg->m_MsgID == VPP_CC_MSG_TYPE_VPP) {
+		if (bTST(pMsg->m_Param1, hVppCtx->vsync_intr_num)) {
+			/* Drop redundant/duplicate CPCB0-VBI
+			 * Send only latest CPCB0-VBI */
+			if (atomic_dec_return(&hVppCtx->vsync_cnt)) {
+				bCLR(pMsg->m_Param1, hVppCtx->vsync_intr_num);
+				avio_trace("[vpp isr] Dropped CPCB0-VBI : %d\n",
+					atomic_read(&hVppCtx->vsync_cnt));
+			}
+		}
+		if (bTST(pMsg->m_Param1, hVppCtx->vde_intr_num)) {
+			/* Drop redundant/duplicate CPCB0-VDE
+			 * Send only latest CPCB0-VDE */
+			if (atomic_dec_return(&hVppCtx->vde_cnt)) {
+				bCLR(pMsg->m_Param1, hVppCtx->vde_intr_num);
+				avio_trace("[vpp isr] Dropped CPCB0-VDE : %d\n",
+					atomic_read(&hVppCtx->vde_cnt));
+			}
+		}
+		if (bTST(pMsg->m_Param1, hVppCtx->vsync1_intr_num)) {
+			/* Drop redundant/duplicate CPCB1-VBI
+			 * Send only latest CPCB1-VBI */
+			if (atomic_dec_return(&hVppCtx->vsync1_cnt)) {
+				bCLR(pMsg->m_Param1, hVppCtx->vsync1_intr_num);
+				avio_trace("[vpp isr] Dropped CPCB1-VBI : %d\n",
+					atomic_read(&hVppCtx->vsync1_cnt));
+			}
+		}
+	}
+}
+
 HRESULT avio_devices_vpp_post_msg(VPP_CTX *hVppCtx, unsigned int msgId,
 	unsigned int param1, unsigned int param2)
 {
@@ -118,6 +190,11 @@ HRESULT avio_devices_vpp_post_msg(VPP_CTX *hVppCtx, unsigned int msgId,
 	if (ret == S_OK) {
 		up(&hVppCtx->vpp_sem);
 	} else {
+#ifdef CONFIG_IRQ_LATENCY_PROFILE
+		//Process(Decrement count) dropped message
+		avio_devices_vpp_process_msg(hVppCtx, &msg);
+#endif
+
 		if (!atomic_read(&hVppCtx->vpp_isr_msg_err_cnt))
 			avio_error("[vpp isr] MsgQ full\n");
 
@@ -158,6 +235,56 @@ static void vpp_drv_update_interrupt_time(VPP_CTX *hVppCtx, int intr_type)
 	}
 }
 
+static void vpp_drv_record_intr(VPP_CTX *hVppCtx, int intr_type, int intr_num)
+{
+#ifdef CONFIG_IRQ_LATENCY_PROFILE
+	unsigned long long *pintr_curr = NULL;
+#endif
+	struct semaphore *psem = NULL;
+	atomic_t *pcounter = NULL;
+	int record_intr = 1;
+
+	if (intr_type == VPP_INTR_TYPE_VBI) {
+		psem = &hVppCtx->vsync_sem;
+		pcounter = &hVppCtx->vsync_cnt;
+#ifdef CONFIG_IRQ_LATENCY_PROFILE
+		pintr_curr = &hVppCtx->avio_irq_profiler.vppCPCB0_intr_curr;
+#endif
+	} else if (intr_type == VPP_INTR_TYPE_VDE) {
+		pcounter = &hVppCtx->vde_cnt;
+	} else if (intr_type == VPP_INTR_TYPE_CPCB1_VBI) {
+		psem = &hVppCtx->vsync1_sem;
+		pcounter = &hVppCtx->vsync1_cnt;
+#ifdef CONFIG_IRQ_LATENCY_PROFILE
+		pintr_curr = &hVppCtx->avio_irq_profiler.vppCPCB1_intr_curr;
+#endif
+	}
+
+	//counter & semaphore operation for only periodic CPCB/TG interrupts
+	if (pcounter) {
+		vpp_drv_update_interrupt_time(hVppCtx, intr_type);
+
+#ifdef CONFIG_IRQ_LATENCY_PROFILE
+		if (pintr_curr)
+			VPP_IRQ_PROFILE_STORE_CLOCK_IN_PTR(pintr_curr);
+		//queue duplicate interrupt for profiling purposes
+		atomic_inc(pcounter);
+#else
+		if (!atomic_read(pcounter)) {
+			atomic_inc(pcounter);
+		} else {
+			//No need to queue duplicate interrupt, if no profiling
+			record_intr = 0;
+		}
+#endif
+		if (psem && !psem->count)
+			up(psem);
+	}
+
+	if (record_intr)
+		hVppCtx->vpp_intr |= bSETMASK(intr_num);
+}
+
 static int vpp_drv_check_and_clear_interrupt(VPP_CTX *hVppCtx, int intr_num_ndx)
 {
 	HRESULT ret = S_OK;
@@ -168,23 +295,9 @@ static int vpp_drv_check_and_clear_interrupt(VPP_CTX *hVppCtx, int intr_num_ndx)
 
 	if (bTST(hVppCtx->instat, intr_num) &&
 			(hVppCtx->vpp_intr_status[intr_num])) {
-		hVppCtx->vpp_intr |= bSETMASK(intr_num);
 		bSET(hVppCtx->instat_used, intr_num);
 		bCLR(hVppCtx->instat, intr_num);
-
-		if (intr_type == VPP_INTR_TYPE_VBI) {
-			vpp_drv_update_interrupt_time(hVppCtx, intr_type);
-#ifdef CONFIG_IRQ_LATENCY_PROFILE
-			VPP_IRQ_PROFILE_STORE_CLOCK(vppCPCB0_intr_curr);
-#endif
-			if (hVppCtx->vsync_sem.count == 0)
-				up(&hVppCtx->vsync_sem);
-		}
-		if (intr_type == VPP_INTR_TYPE_CPCB1_VBI) {
-			vpp_drv_update_interrupt_time(hVppCtx, intr_type);
-			if (hVppCtx->vsync1_sem.count == 0)
-				up(&hVppCtx->vsync1_sem);
-		}
+		vpp_drv_record_intr(hVppCtx, intr_type, intr_num);
 	}
 	return ret;
 }
@@ -311,6 +424,8 @@ static int drv_vpp_open(void *h_vpp_ctx)
 			  hVppCtx, avio_devices_vpp_isr);
 	}
 
+	hVppCtx->display_mode = VPP_VOUT_SINGLE_MODE_PRI;
+
 	/* Clear the Reset line to make the device to normal functional state */
 	gpiod_set_value_cansleep(hVppCtx->gpio_mipirst, 0);
 
@@ -360,6 +475,7 @@ static int drv_vpp_ioctl_unlocked(void *h_vpp_ctx, unsigned int cmd,
 	VPP_CTX *hVppCtx = (VPP_CTX *)h_vpp_ctx;
 	UINT64 aviointrtime;
 	int processedFlag = 1;
+	MV_CC_MSG_t msg;
 
 	if (!retVal)
 		return 0;
@@ -388,10 +504,11 @@ static int drv_vpp_ioctl_unlocked(void *h_vpp_ctx, unsigned int cmd,
 #endif //VPP_DRV_RETAIN_UNUSED_CODE
 		break;
 		}
+
 	case VPP_IOCTL_GET_MSG:
-		{
+		//Loop until valid interrupt message is retrieved from the queue
+		do {
 			unsigned long flags;
-			MV_CC_MSG_t msg = { 0 };
 			HRESULT rc = S_OK;
 
 			rc = down_interruptible(&hVppCtx->vpp_sem);
@@ -401,6 +518,7 @@ static int drv_vpp_ioctl_unlocked(void *h_vpp_ctx, unsigned int cmd,
 #ifdef CONFIG_IRQ_LATENCY_PROFILE
 			VPP_IRQ_PROFILE_STORE_CLOCK(vpp_task_sched_last);
 #endif
+			memset(&msg, 0, sizeof(MV_CC_MSG_t));
 			// check fullness, clear message queue once.
 			// only send latest message to task.
 			if (AMPMsgQ_Fullness(&hVppCtx->hVPPMsgQ) <= 0) {
@@ -412,13 +530,17 @@ static int drv_vpp_ioctl_unlocked(void *h_vpp_ctx, unsigned int cmd,
 			AMPMsgQ_DequeueRead(&hVppCtx->hVPPMsgQ, &msg);
 			spin_unlock_irqrestore(&hVppCtx->vpp_msg_spinlock, flags);
 
+			//Process(Decrement count) pop'ed message
+			avio_devices_vpp_process_msg(hVppCtx, &msg);
+
 			if (!atomic_read(&hVppCtx->vpp_isr_msg_err_cnt))
 				atomic_set(&hVppCtx->vpp_isr_msg_err_cnt, 0);
-			if (copy_to_user((void __user *) arg, &msg,
-					sizeof(MV_CC_MSG_t)))
-				VPP_MODULE_RETURN_WITH_EFAULT();
-			break;
-		}
+		} while (!msg.m_Param1);
+
+		if (copy_to_user((void __user *) arg, &msg, sizeof(MV_CC_MSG_t)))
+			VPP_MODULE_RETURN_WITH_EFAULT();
+		break;
+
 	case VPP_IOCTL_START_BCM_TRANSACTION:
 		{
 			break;
@@ -451,7 +573,7 @@ static int drv_vpp_ioctl_unlocked(void *h_vpp_ctx, unsigned int cmd,
 				2 * sizeof(unsigned int)))
 				VPP_MODULE_RETURN_WITH_EFAULT();
 
-			wrap_MV_VPP_InitVPPS(vpp_init_param);
+			wrap_MV_VPP_InitVPPS(TA_UUID_VPP, vpp_init_param);
 
 			avio_trace("vpp init param info:%x %x\n",
 				vpp_init_param[0], vpp_init_param[1]);
@@ -595,6 +717,29 @@ static int drv_vpp_ioctl_unlocked(void *h_vpp_ctx, unsigned int cmd,
 		{
 			avio_trace("setting HDMI 5V to %d\n", (int)arg);
 			gpiod_set_value_cansleep(hVppCtx->gpio_hdmitx_5v, ((int)arg?1:0));
+			break;
+		}
+
+	case VPP_IOCTL_SET_DISPLAY_MODE:
+		{
+			VOUT_DISP_MODE display_mode = (int)arg;
+
+			if (!IS_VALID_DISPLAY_MODE(display_mode))
+				VPP_MODULE_RETURN_WITH_EFAULT();
+
+			if (hVppCtx->display_mode != display_mode) {
+				signal_vpp_primary_false_vsync();
+				hVppCtx->display_mode = display_mode;
+
+				/* Apply MIPI reset if the current mode is Single primary to avoid
+				* display residue in MIPI panels
+				*/
+				if (hVppCtx->display_mode == VPP_VOUT_SINGLE_MODE_PRI) {
+					drv_mipi_reset(h_vpp_ctx, 1);
+					msleep(VPP_MIPI_PANEL_RESET_DELAY_MS);
+					drv_mipi_reset(h_vpp_ctx, 0);
+				}
+			}
 			break;
 		}
 
@@ -798,24 +943,42 @@ void drv_vpp_add_vpp_interrupt_num(VPP_CTX *hVppCtx,
 
 		if (intr_type == VPP_INTR_TYPE_VBI)
 			hVppCtx->vsync_intr_num = intr_num;
+		if (intr_type == VPP_INTR_TYPE_CPCB1_VBI)
+			hVppCtx->vsync1_intr_num = intr_num;
 		if (intr_type == VPP_INTR_TYPE_HPD)
 			hVppCtx->hpd_intr_num = intr_num;
+		if (intr_type == VPP_INTR_TYPE_VDE)
+			hVppCtx->vde_intr_num = intr_num;
 	}
 }
 
-static int drv_vpp_suspend(void *hVppCtx)
+static int drv_vpp_suspend(void *h_vpp_ctx)
 {
 	int ret;
-	VPP_CTX *h_vpp_ctx = (VPP_CTX *)hVppCtx;
+	VPP_CTX *hVppCtx = (VPP_CTX *)h_vpp_ctx;
 
 	/* During Suspend set the mipi reset line */
-	gpiod_set_value_cansleep(h_vpp_ctx->gpio_mipirst, 1);
+	gpiod_set_value_cansleep(hVppCtx->gpio_mipirst, 1);
 
 	ret = wrap_MV_VPPOBJ_Suspend(1);
 	if (ret != MV_VPP_OK) {
 		avio_error("%s VPP Suspend failed\n", __func__);
 		return -1;
 	}
+
+#ifndef CONFIG_IRQ_LATENCY_PROFILE
+	/* Remove any stale intr messages */
+	while (AMPMsgQ_Fullness(&hVppCtx->hVPPMsgQ) > 0) {
+		MV_CC_MSG_t msg;
+
+		AMPMsgQ_DequeueRead(&hVppCtx->hVPPMsgQ, &msg);
+
+		avio_trace("%s VPP Suspend Dropped-intr : 0x%x\n", __func__, msg.m_Param1);
+
+		//Process(Decrement count) pop'ed message
+		avio_devices_vpp_process_msg(hVppCtx, &msg);
+	}
+#endif //CONFIG_IRQ_LATENCY_PROFILE
 
 	return 0;
 }
@@ -864,5 +1027,16 @@ int avio_module_drv_vpp_probe(struct platform_device *dev)
 	spin_lock_init(&hVppCtx->vpp_msg_spinlock);
 	spin_lock_init(&hVppCtx->bcm_spinlock);
 
+	atomic_set(&hVppCtx->vsync_cnt, 0);
+	atomic_set(&hVppCtx->vsync1_cnt, 0);
+	atomic_set(&hVppCtx->vde_cnt, 0);
+
 	return 0;
+}
+
+void drv_mipi_reset(void *h_vpp_ctx, int enable)
+{
+	VPP_CTX *hVppCtx = (VPP_CTX *)h_vpp_ctx;
+
+	gpiod_set_value_cansleep(hVppCtx->gpio_mipirst, enable);
 }

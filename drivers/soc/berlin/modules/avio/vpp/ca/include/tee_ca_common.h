@@ -14,7 +14,7 @@ extern "C"
 #define VPP_TEEC_LOGIFERROR(result) \
 		do { \
 			if (result != TEEC_SUCCESS) \
-				pr_err("TEEC Error ret=0x%08x\n", result); \
+				pr_err("%s:TEEC Error ret=0x%08x\n", __func__, result); \
 		} while (0)
 
 
@@ -26,6 +26,8 @@ enum {
 #endif //TAVPP_USE_SEPARATE_ISR_INSTANCE
 	MAX_TAVPP_INSTANCE_NUM,
 };
+
+#define TAVPP_PASS_SHMSIZE (1024*4)
 
 #ifdef __cplusplus
 }

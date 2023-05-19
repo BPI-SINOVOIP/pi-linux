@@ -11,8 +11,9 @@
 #define APLL0_RATE_2 (22579200 * 8)
 #define APLL0_RATE_3 (24576000 * 8)
 
+unsigned long apll_rate[AIO_APLL_NUM] = {0, 0};
 
-int berlin_set_pll(void *aio_handle, u32 fs)
+int berlin_set_pll(void *aio_handle, u32 apll_id, u32 fs)
 {
 	unsigned long apll;
 
@@ -40,7 +41,22 @@ int berlin_set_pll(void *aio_handle, u32 fs)
 		break;
 	}
 
-	return aio_set_clk_rate(aio_handle, AIO_APLL_0, apll);
+	if (apll_id >= AIO_APLL_NUM) {
+		pr_err("apll%d not supported", apll_id);
+		return 0;
+	}
+
+	if (apll_rate[apll_id] != apll) {
+		apll_rate[apll_id] = apll;
+		aio_clk_enable(aio_handle, apll_id, false);
+		aio_set_clk_rate(aio_handle, apll_id, apll);
+		aio_clk_enable(aio_handle, apll_id, true);
+		pr_info("set apll%d to %lu, fs %d", apll_id, apll, fs);
+	} else {
+		pr_info("apll%d already set %lu, fs %d", apll_id, apll, fs);
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(berlin_set_pll);
 
@@ -78,7 +94,10 @@ u32 berlin_get_div(u32 fs)
 }
 EXPORT_SYMBOL(berlin_get_div);
 
-u32 berlin_get_dfm(u32 word_w)
+/*
+ * Get the channel resolution (number of valid bits in a half period of FSYNC)
+ */
+u32 berlin_get_sample_resolution(u32 word_w)
 {
 	u32 dfm;
 
@@ -97,9 +116,12 @@ u32 berlin_get_dfm(u32 word_w)
 
 	return dfm;
 }
-EXPORT_SYMBOL(berlin_get_dfm);
+EXPORT_SYMBOL(berlin_get_sample_resolution);
 
-u32 berlin_get_cfm(u32 word_s)
+/*
+ * Get the half period of FSYNC (sampling rate) in terms of number of bit-clocks
+ */
+u32 berlin_get_sample_period_in_bclk(u32 word_s)
 {
 	u32 cfm;
 
@@ -118,4 +140,4 @@ u32 berlin_get_cfm(u32 word_s)
 
 	return cfm;
 }
-EXPORT_SYMBOL(berlin_get_cfm);
+EXPORT_SYMBOL(berlin_get_sample_period_in_bclk);

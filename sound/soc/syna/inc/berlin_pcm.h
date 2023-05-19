@@ -55,6 +55,7 @@ struct berlin_ss_params {
 	bool interleaved;
 	bool dummy_data;
 	bool enable_mic_mute;
+	bool ch_shift_check; /* for dmic multi-channel shift check */
 	unsigned int *irq;
 	const char *dev_name;
 };

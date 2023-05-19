@@ -4490,6 +4490,8 @@ void RGXCheckFirmwareCCB(PVRSRV_RGXDEV_INFO *psDevInfo)
 
 		case RGXFWIF_FWCCB_CMD_DEBUG_DUMP:
 		{
+	/* Getting triggered in the first time standby case which is leading to ~3sec freeze in secure playback case. */
+#if 0
 			PVRSRV_ERROR eError;
 			PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
 			OSAtomicWrite(&psDevInfo->psDeviceNode->eDebugDumpRequested, PVRSRV_DEVICE_DEBUG_DUMP_CAPTURE);
@@ -4499,6 +4501,7 @@ void RGXCheckFirmwareCCB(PVRSRV_RGXDEV_INFO *psDevInfo)
 				PVR_DPF((PVR_DBG_ERROR, "%s: Failed to signal FW Cmd debug dump event, dumping now instead", __func__));
 				PVRSRVDebugRequest(psDevInfo->psDeviceNode, DEBUG_REQUEST_VERBOSITY_MAX, NULL, NULL);
 			}
+#endif
 			break;
 		}
 

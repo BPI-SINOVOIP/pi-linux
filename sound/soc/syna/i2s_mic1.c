@@ -33,6 +33,10 @@ struct mic1_priv {
 	struct mic_common_cfg cfg;
 	bool use_pri_clk;/*mic1 has cross feed */
 	bool intlmode;/* mic1 has 4 data pin */
+	/*  sample_period: sample period in terms of bclk numbers.
+	 *  Typically 32 is used. For some pcm mono format, 16 may be used
+	 */
+	int  sample_period;
 	void *aio_handle;
 };
 
@@ -133,8 +137,7 @@ static void mic1_set_ctl(struct mic1_priv *mic1, struct aud_ctrl *ctrl)
 		snd_printk("%s, error(ret=%d)\n", __func__, ret);
 }
 
-static void mic1_set_bclk(struct mic1_priv *mic1,
-			  u8 bclk, bool inv)
+static void mic1_set_bclk(struct mic1_priv *mic1, u8 bclk, bool inv)
 {
 	int ret;
 
@@ -148,8 +151,7 @@ static void mic1_set_bclk(struct mic1_priv *mic1,
 		snd_printk("aio_set_bclk_inv(inv=%d), error(err=%d)\n", inv, ret);
 }
 
-static void mic1_set_fsync(struct mic1_priv *mic1,
-			  bool sel, bool inv)
+static void mic1_set_fsync(struct mic1_priv *mic1, bool sel, bool inv)
 {
 	int ret;
 
@@ -159,8 +161,7 @@ static void mic1_set_fsync(struct mic1_priv *mic1,
 			 sel, inv, ret);
 }
 
-static void mic1_set_mm_mode(struct mic1_priv *mic1,
-			     bool en)
+static void mic1_set_mm_mode(struct mic1_priv *mic1, bool en)
 {
 	int ret;
 
@@ -168,6 +169,16 @@ static void mic1_set_mm_mode(struct mic1_priv *mic1,
 	if (ret != 0)
 		snd_printk("aio_set_mic1_mm_mode(en=%d) error(ret=%d)\n",
 			 en, ret);
+}
+
+static void mic1_set_ws_prd(struct mic1_priv *mic1, u32 highP, u32 totalP, u32 wsInv)
+{
+	int ret;
+
+	ret = aio_set_mic1_ws_prd(mic1->aio_handle, highP, totalP, wsInv);
+	if (ret != 0)
+		snd_printk("aio_set_mic1_ws_prd(highP=%d, totalP=%d, wsInv=%d) error(ret=%d)\n",
+				 highP, totalP, wsInv, ret);
 }
 
 static struct snd_kcontrol_new i2s_mic1_ctrls[] = {
@@ -194,6 +205,7 @@ static void i2s_mic1_shutdown(struct snd_pcm_substream *ss,
 	snd_printd("%s: start %p %p\n", __func__, ss, dai);
 	mic1_ch_mute(mic1, 1);
 	mic1_ch_en(mic1, 0);
+	aio_i2s_clk_sync_reset(mic1->aio_handle, AIO_ID_MIC1_RX);
 }
 
 static int i2s_mic1_hw_params(struct snd_pcm_substream *ss,
@@ -201,28 +213,40 @@ static int i2s_mic1_hw_params(struct snd_pcm_substream *ss,
 				struct snd_soc_dai *dai)
 {
 	struct mic1_priv *mic1 = snd_soc_dai_get_drvdata(dai);
-	u32 dfm, cfm, chid_num, div, width;
+	u32 fs = params_rate(params);
+	u32 width = params_width(params);
+	u32 chnum = params_channels(params);
+	u32 dfm, cfm, chid_num, div, bclk;
+	struct aud_ctrl ctrl;
 	int ret;
 	struct berlin_ss_params ssparams;
-	/* 00: Master mode and I2S2_LRCKIO_DO_FB (clock)
-	 * 01: Slave mode and I2S2_LRCKIO_DI_2mux (from PinMux) (clock)
-	 * 10: Cross feed Master Mode and I2S1_LRCKIO_DO_FB (clock)
-	 * 11: Cross feed Slave Mode and I2S1_LRCKIO_DI_2mux
-	 *     (from PinMux) (clock)
-	 */
-	u32 xfeed = 0;
-	struct aud_ctrl ctrl;
+	u32 xfeed = 0; // Clock cross feed
 
-	width = params_width(params);
-	div = berlin_get_div(params_rate(params));
-	cfm = berlin_get_cfm((width == 24 ? 32 : width));
-	dfm = berlin_get_dfm((width == 24 ? 32 : width));
+	/* Change AIO_24DFM to AIO_32DFM */
+	dfm = berlin_get_sample_resolution((width == 24 ? 32 : width));
+
+	/* Alghough h/w supports AIO_24CFM, but 24 is not multiples of 2.
+	 * There could be some restriction on clock generation for certain
+	 * frequency with AIO_24CFM. Change AIO_24CFM to AIO_32CFG instead
+	 */
+	cfm = berlin_get_sample_period_in_bclk(mic1->sample_period == 24 ?
+						32 : mic1->sample_period);
+	if (mic1->cfg.is_tdm) {
+		/* TDM */
+		bclk = fs * mic1->sample_period * chnum;
+	} else {
+		/* i2s mode: each I2S_DI[0:3] supports 2 channels */
+		bclk = fs * mic1->sample_period * 2;
+	}
+
+	div = (24576000 * 8) / (8 * bclk);
+	div = ilog2(div);
 
 	mic1_sel_mic(mic1);
 
-	ctrl.chcnt	= params_channels(params);
-	ctrl.width_word	= cfm;
-	ctrl.width_sample	= dfm;
+	ctrl.chcnt	= chnum;
+	ctrl.sample_period_in_bclk	= cfm;
+	ctrl.sample_resolution	= dfm;
 	ctrl.data_fmt	= mic1->cfg.data_fmt;
 	ctrl.isleftjfy	= mic1->cfg.isleftjfy;
 	ctrl.invbclk	= mic1->cfg.invbclk;
@@ -233,19 +257,55 @@ static int i2s_mic1_hw_params(struct snd_pcm_substream *ss,
 	mic1_set_ctl(mic1, &ctrl);
 
 	/* mic1 clock source initilization */
-	aio_i2s_set_clock(mic1->aio_handle, AIO_ID_MIC_RX, 1, 0, 4, AIO_APLL_0, 1);
+	aio_i2s_set_clock(mic1->aio_handle, AIO_ID_MIC_RX, 1, AIO_CLK_D3_SWITCH_NOR,
+						AIO_CLK_SEL_D8, AIO_APLL_0, 1);
+
+	/* xfeed configuration
+	 * 00: Master mode and I2S2_LRCKIO_DO_FB (clock)
+	 * 01: Slave mode and I2S2_LRCKIO_DI_2mux (from PinMux) (clock)
+	 * 10: Cross feed Master Mode and I2S1_LRCKIO_DO_FB (clock)
+	 * 11: Cross feed Slave Mode and I2S1_LRCKIO_DI_2mux
+	 *     (from PinMux) (clock)
+	 *
+	 * mic1->use_pri_clk   => 0: None cross feed   1: Cross feed
+	 * mic1->cfg.is_master => 0: Slave mode        1: Master mode
+	 */
+
+	/* APLL setting. Both Master mode and cross feed from I2S1 required APLL setting
+	 * per fs.
+	 */
+	if (mic1->use_pri_clk || mic1->cfg.is_master)
+		berlin_set_pll(mic1->aio_handle, AIO_APLL_0, fs);
 
 	if (mic1->use_pri_clk) {
 		mic1_set_bclk(mic1, 2, mic1->cfg.invbclk);
+		mic1_set_fsync(mic1, 1, mic1->cfg.invfsync);
 		xfeed |= 2;
-		mic1_set_fsync(mic1,
-			 1, mic1->cfg.invfsync);
 	} else {
-		mic1_set_bclk(mic1, 0, mic1->cfg.invbclk);
+		if (mic1->cfg.is_tdm) {
+			if (!mic1->cfg.is_master)
+				mic1_set_bclk(mic1, 0, mic1->cfg.invbclk == 0 ? 1 : 0);
+			else
+				mic1_set_bclk(mic1, 1, mic1->cfg.invbclk);
+		} else {
+			if (!mic1->cfg.is_master)
+				mic1_set_bclk(mic1, 0, mic1->cfg.invbclk);
+			else
+				mic1_set_bclk(mic1, 1, mic1->cfg.invbclk);
+		}
 		mic1_set_fsync(mic1, 0, mic1->cfg.invfsync);
 	}
-
 	if (mic1->cfg.is_master) {
+		u32 period;
+		/* Basically supports period of 16 and 32 only */
+		period = mic1->sample_period == 24 ? 32 : mic1->sample_period;
+
+		if (mic1->cfg.is_tdm) {
+			mic1_set_ws_prd(mic1, 1, (ctrl.chcnt * period) - 1, 0);
+		} else {
+			/* i2s mode: each I2S_DI[0:3] supports 2 channels */
+			mic1_set_ws_prd(mic1, period - 1, (2 * period) - 1, 1);
+		}
 		mic1_set_mm_mode(mic1, 1);
 		mic1_set_clk_div(mic1, div);
 	} else {
@@ -293,25 +353,31 @@ static int i2s_mic1_set_dai_fmt(struct snd_soc_dai *dai,
 	struct mic1_priv *outdai = snd_soc_dai_get_drvdata(dai);
 	int ret = 0;
 
-	outdai->cfg.isleftjfy = true;
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		outdai->cfg.data_fmt  = 2;
+		outdai->cfg.is_tdm    = false;
+		outdai->cfg.isleftjfy = true;   /* don't care if data_fmt = 2 */
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
 		outdai->cfg.data_fmt  = 1;
+		outdai->cfg.is_tdm    = false;
+		outdai->cfg.isleftjfy = true;
 		break;
 	case SND_SOC_DAIFMT_RIGHT_J:
 		outdai->cfg.data_fmt  = 1;
+		outdai->cfg.is_tdm    = false;
 		outdai->cfg.isleftjfy = false;
 		break;
 	case SND_SOC_DAIFMT_DSP_A:
 		outdai->cfg.data_fmt  = 1;
 		outdai->cfg.is_tdm    = true;
+		outdai->cfg.isleftjfy = true;
 		break;
 	case SND_SOC_DAIFMT_DSP_B:
 		outdai->cfg.data_fmt  = 2;
 		outdai->cfg.is_tdm    = true;
+		outdai->cfg.isleftjfy = true;  /* don't care if data_fmt = 2 */
 		break;
 	default:
 		dev_err(dai->dev, "Unknown DAI format mask %x\n", fmt);
@@ -353,6 +419,14 @@ static int i2s_mic1_set_dai_fmt(struct snd_soc_dai *dai,
 		dev_err(dai->dev, "Do not support DAI master mask %x\n", fmt);
 		return -EINVAL;
 	}
+
+	snd_printd("%s: data_fmt: %d isleftjfy: %d is_tdm: %d is_master: %d invbclk: %d invfsync: %d\n",
+				__func__,
+				outdai->cfg.data_fmt, outdai->cfg.isleftjfy,
+				outdai->cfg.is_tdm, outdai->cfg.is_master,
+				outdai->cfg.invbclk, outdai->cfg.invfsync);
+
+	snd_printd("%s: sample_period: %d", __func__, outdai->sample_period);
 
 	return ret;
 }
@@ -471,14 +545,12 @@ static int i2s_mic1_probe(struct platform_device *pdev)
 		}
 	}
 
-	mic1->cfg.is_tdm = of_property_read_bool(np, "tdm");
-	mic1->cfg.is_master = of_property_read_bool(np, "master");
-	mic1->cfg.invbclk = of_property_read_bool(np, "invertbclk");
-	mic1->cfg.invfsync = of_property_read_bool(np, "invertfsync");
-	mic1->cfg.disable_mic_mute =
-		of_property_read_bool(np, "disablemicmute");
+	mic1->cfg.disable_mic_mute = of_property_read_bool(np, "disablemicmute");
 	mic1->use_pri_clk = of_property_read_bool(np, "use_pri_clk");
 	mic1->intlmode = of_property_read_bool(np, "intlmode");
+	ret = of_property_read_u32(np, "sample-period", &mic1->sample_period);
+	if (ret)
+		mic1->sample_period = 32;
 
 	mic1->dev_name = dev_name(dev);
 	mic1->pdev = pdev;
@@ -496,8 +568,7 @@ static int i2s_mic1_probe(struct platform_device *pdev)
 		snd_printk("failed to register DAI: %d\n", ret);
 		return ret;
 	}
-	snd_printd("%s: done irqc %d tdm %d master %d\n", __func__,
-		   mic1->irqc, mic1->cfg.is_tdm, mic1->cfg.is_master);
+	snd_printd("%s: done irqc %d\n", __func__, mic1->irqc);
 
 	return ret;
 }

@@ -14,6 +14,12 @@
 #include "avio_dhub_drv.h"
 #include "avio_common.h"
 
+/* Enable the buffer status debugging. As some debug function may be called from isr, in case printk console log
+ * level is high, isr would be waiting in console driver which would make the underrun situation more worst.
+ * Enable it only when needed.
+ */
+//#define BUF_STATE_DEBUG
+
 static struct berlin_chip *dev_to_berlin_chip(struct device *dev)
 {
 	struct snd_card *card = NULL;
@@ -42,7 +48,9 @@ static enum berlin_xrun_t berlin_xrun_string_to_type(const char *string)
 		return FIFO_UNDERRUN;
 	if (strcmp("irq_disable_us", string) == 0)
 		return IRQ_DISABLE;
-	snd_printk("%s: unrecognized xrun type: %s\n", __func__, string);
+#ifdef BUF_STATE_DEBUG
+	snd_printd("%s: unrecognized xrun type: %s\n", __func__, string);
+#endif
 	return XRUN_T_MAX;
 }
 
@@ -94,7 +102,9 @@ xrun_store(struct device *dev,
 		unsigned long flags;
 
 		local_irq_save(flags);
-		snd_printk("block for %lu us.\n", overruns);
+#ifdef BUF_STATE_DEBUG
+		snd_printd("block for %lu us.\n", overruns);
+#endif
 		udelay(overruns);
 		local_irq_restore(flags);
 	}
@@ -182,7 +192,8 @@ int berlin_pcm_request_dma_irq(struct snd_pcm_substream *substream,
 					   params->enable_mic_mute,
 					   params->interleaved,
 					   params->dummy_data,
-					   params->channel_map);
+					   params->channel_map,
+					   params->ch_shift_check);
 	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		berlin_playback_set_ch_mode(substream, chid_num, ch,
 					    params->mode);
@@ -199,7 +210,7 @@ void berlin_pcm_free_dma_irq(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		berlin_capture_set_ch_mode(substream, 0, 0, 0,
-					false, false, false, 0);
+					false, false, false, 0, 0);
 	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		berlin_playback_set_ch_mode(substream, 0, 0, 0);
 
@@ -223,8 +234,8 @@ static int berlin_pcm_open(struct snd_pcm_substream *substream)
 	struct device *dev = c->dev;
 	struct berlin_chip *chip = dev_get_drvdata(dev);
 
-	snd_printd(" %s stream %p\n", __func__, substream);
-
+	snd_printd("%s stream: %s (%p)\n", __func__,
+		substream->stream == SNDRV_PCM_STREAM_CAPTURE ? "capture" : "playback", substream);
 	/* get dhub handle */
 	if (mutex_lock_interruptible(&chip->dhub_lock) != 0)
 		return  -EINTR;
@@ -249,7 +260,8 @@ static int berlin_pcm_open(struct snd_pcm_substream *substream)
 
 static int berlin_pcm_close(struct snd_pcm_substream *substream)
 {
-	snd_printd(" %s stream %p\n", __func__, substream);
+	snd_printd("%s stream: %s (%p)\n", __func__,
+		substream->stream == SNDRV_PCM_STREAM_CAPTURE ? "capture" : "playback", substream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return berlin_capture_close(substream);
@@ -262,7 +274,8 @@ static int berlin_pcm_close(struct snd_pcm_substream *substream)
 static int berlin_pcm_hw_params(struct snd_pcm_substream *substream,
 			 struct snd_pcm_hw_params *params)
 {
-	snd_printd(" %s stream %p\n", __func__, substream);
+	snd_printd("%s stream: %s (%p)\n", __func__,
+		substream->stream == SNDRV_PCM_STREAM_CAPTURE ? "capture" : "playback", substream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return berlin_capture_hw_params(substream, params);
@@ -274,7 +287,9 @@ static int berlin_pcm_hw_params(struct snd_pcm_substream *substream,
 
 static int berlin_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	snd_printd(" %s stream %p\n", __func__, substream);
+	snd_printd("%s stream: %s (%p)\n", __func__,
+		substream->stream == SNDRV_PCM_STREAM_CAPTURE ? "capture" : "playback", substream);
+
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return berlin_capture_hw_free(substream);
 	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -285,7 +300,8 @@ static int berlin_pcm_hw_free(struct snd_pcm_substream *substream)
 
 static int berlin_pcm_prepare(struct snd_pcm_substream *substream)
 {
-	snd_printd(" %s stream %p\n", __func__, substream);
+	snd_printd("%s stream: %s (%p)\n", __func__,
+		substream->stream == SNDRV_PCM_STREAM_CAPTURE ? "capture" : "playback", substream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return berlin_capture_prepare(substream);
@@ -297,7 +313,10 @@ static int berlin_pcm_prepare(struct snd_pcm_substream *substream)
 
 static int berlin_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-	snd_printd(" %s stream %p\n", __func__, substream);
+	snd_printd("%s stream: %s %s (%p)\n", __func__,
+		substream->stream == SNDRV_PCM_STREAM_CAPTURE ? "capture" : "playback",
+		cmd == SNDRV_PCM_TRIGGER_START ? "start" : "stop",
+		substream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return berlin_capture_trigger(substream, cmd);
@@ -338,8 +357,8 @@ static const struct snd_pcm_ops berlin_pcm_ops = {
 	.ack		= berlin_pcm_ack,
 };
 
-#define PREALLOC_BUFFER (32 * 1024)
-#define PREALLOC_BUFFER_MAX (64 * 1024)
+#define PREALLOC_BUFFER (2 * 1024 * 1024)
+#define PREALLOC_BUFFER_MAX (2 * 1024 * 1024)
 static int berlin_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
@@ -356,7 +375,7 @@ static void berlin_pcm_free(struct snd_pcm *pcm)
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
 
-static struct snd_soc_component_driver berlin_pcm_component = {
+static const struct snd_soc_component_driver berlin_pcm_component = {
 	.name		= "syna-berlin-pcm",
 	.ops		= &berlin_pcm_ops,
 	.pcm_new	= berlin_pcm_new,
@@ -369,7 +388,7 @@ static int berlin_pcm_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret;
 
-	snd_printk("berlin-pcm probe %p\n", pdev);
+	snd_printd("berlin-pcm probe %p\n", pdev);
 
 	//Defer probe until dependent soc module/s are probed/initialized
 	if (!is_avio_driver_initialized())
@@ -389,9 +408,8 @@ static int berlin_pcm_probe(struct platform_device *pdev)
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&berlin_pcm_component,
 					NULL, 0);
-	if (ret < 0) {
+	if (ret < 0)
 		snd_printk("can not do snd soc register\n");
-	}
 
 	return ret;
 }

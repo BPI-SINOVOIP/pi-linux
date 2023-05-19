@@ -175,8 +175,9 @@
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
 	dll-calibration;
+	pad-sp = /bits/ 8 <14>;
+	pad-sn = /bits/ 8 <14>;
 };
 
 &pcie_phy0 {
@@ -205,6 +206,7 @@
 		interrupts = <23 IRQ_TYPE_NONE>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		#address-cells = <0>;
 	};
 };
 
@@ -222,6 +224,7 @@
 		regulator-max-microvolt = <987500>;
 		regulator-always-on;
 		regulator-boot-on;
+		regulator-active-discharge = <0>;
 		enable-gpios = <&portd 20 GPIO_ACTIVE_LOW>;
 		silergy,vsel-step = <1>;
 		reg = <0x60>;
@@ -241,6 +244,7 @@
 		regulator-always-on;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pmic_pmux>;
+		regulator-active-discharge = <0>;
 		enable-gpios = <&portd 20 GPIO_ACTIVE_LOW>;
 		regulator-boot-on;
 		silergy,vsel-step = <1>;
@@ -378,10 +382,10 @@
 &vs680_asoc {
 	status = "okay";
 
-	dummy_dmic: dummy-dmic {
+	soc_dmic: soc-dmic {
 		status = "okay";
-		stream-name = "dummy-dmic";
-		link-name = "dummy-dmic";
+		stream-name = "soc-dmic";
+		link-name = "soc-dmic";
 		cpu-node = <&dmic>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";

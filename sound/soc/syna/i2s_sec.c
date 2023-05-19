@@ -25,106 +25,73 @@ struct sec_priv {
 	struct aud_ctrl ctrl;
 	bool requested;
 	bool is_master;
-	bool bt_sco;
+	bool continuous_clk;
+	/*  duplex mode: playbck (I2S3_BCLK/I2S3_LRCK/I2S3_DO)
+	 *  and capture (I2S3_BCLK/I2S3_LRCK/I2S3_DI) at the same time
+	 */
+	bool duplex;
+	/*  sample_period: sample period in terms of bclk numbers.
+	 *  Typically 32 is used. For some pcm mono format, 16 may be used
+	 */
+	int  sample_period;
+	u32  apll_id;  /* APLL id being used. 0: AIO_APLL_0, 1: AIO_APLL_1 */
 	void *aio_handle;
 };
-
-static void sec_set_ctl(struct sec_priv *sec, struct aud_ctrl *ctrl)
-{
-	aio_set_ctl_ext(sec->aio_handle, AIO_ID_SEC_TX, ctrl);
-	aio_set_pcm_mono(sec->aio_handle, AIO_ID_SEC_TX, (ctrl->chcnt == 1));
-}
-
-static void sec_set_clk_div(struct sec_priv *sec, u32 div)
-{
-	aio_setclkdiv(sec->aio_handle, AIO_ID_SEC_TX, div);
-}
-
-static void sec_blrclk_oen(struct sec_priv *sec, bool en)
-{
-	//FIXME later Weizhao Jiang
-#if 0
-	u32 val;
-
-	//enable bclk and lrclk
-	val = aio_read(sec->soen);
-	SET32avioGbl_CTRL0_I2S3_BCLK_OEN(val, en);
-	SET32avioGbl_CTRL0_I2S3_LRCLK_OEN(val, en);
-	aio_write(sec->soen, val);
-#endif
-}
-
-static void sec_enable_port(struct sec_priv *sec, bool en)
-{
-	aio_enabletxport(sec->aio_handle, AIO_ID_SEC_TX, en);
-}
 
 static struct snd_kcontrol_new i2s_sec_ctrls[] = {
 	//TODO: add dai control here
 };
 
 /*
- * Applies output configuration of |berlin_pcm| to i2s.
+ * Apply output configuration of |berlin_pcm| to i2s.
  * Must be called with instance spinlock held.
  * Only one dai instance for playback, so no spin_lock needed
  */
-static void sec_set_aio(struct sec_priv *sec,
-			u32 fs, int width, int chnum)
+static void sec_set_aio_fmt(struct sec_priv *sec, u32 fs, int width, int chnum)
 {
 	unsigned int div, dfm, cfm, bclk;
 	struct aud_ctrl ctrl;
 
-	aio_set_aud_ch_mute(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
-	aio_set_aud_ch_en(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 0);
+	/* Change AIO_24DFM to AIO_32DFM */
+	dfm = berlin_get_sample_resolution((width == 24 ? 32 : width));
 
-	cfm = berlin_get_cfm((width == 24 ? 32 : width));
-	dfm = berlin_get_dfm((width == 24 ? 32 : width));
-
+	/* Alghough h/w supports AIO_24CFM, but 24 is not multiples of 2.
+	 * There could be some restriction on clock generation for certain
+	 * frequency with AIO_24CFM. Change AIO_24CFM to AIO_32CFG instead
+	 */
+	cfm = berlin_get_sample_period_in_bclk(sec->sample_period == 24 ?
+						32 : sec->sample_period);
 	if (sec->ctrl.istdm) {
 		/* TDM */
-		bclk = fs * (width == 24 ? 32 : width) * chnum;
+		bclk = fs * sec->sample_period * chnum;
 	} else {
-		/* i2s */
-		bclk = fs * 32 * 2;
-		cfm = AIO_32CFM;
+		/* i2s mode: each I2S_DO[0:3] supports 2 channels */
+		bclk = fs * sec->sample_period * 2;
 	}
+
 	div = (24576000 * 8) / (8 * bclk);
 	div = ilog2(div);
 
 	ctrl.chcnt	= chnum;
-	ctrl.width_word	= cfm;
-	ctrl.width_sample	= dfm;
+	ctrl.sample_period_in_bclk = cfm;
+	ctrl.sample_resolution	= dfm;
 	ctrl.data_fmt	= sec->ctrl.data_fmt;
 	ctrl.isleftjfy	= sec->ctrl.isleftjfy;
 	ctrl.invbclk	= sec->ctrl.invbclk;
 	ctrl.invfs	= sec->ctrl.invfs;
-	ctrl.msb	= sec->ctrl.msb;
+	ctrl.msb	= true;
 	ctrl.istdm	= (chnum == 1) ? 0 : sec->ctrl.istdm;
 	ctrl.islframe	= sec->ctrl.islframe;
 
-	sec_set_clk_div(sec, div);
-	sec_set_ctl(sec, &ctrl);
-	aio_set_aud_ch_en(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
-}
-
-// Set to slavemode, and sel bclk from external, invert CLK
-static void sec_set_slave_mode(struct sec_priv *sec,
-			       bool bset, u8 bsel)
-{
-	aio_set_slave_mode(sec->aio_handle, AIO_ID_SEC_TX, bset);
-	aio_set_bclk_sel(sec->aio_handle, AIO_ID_SEC_TX, bsel);
+	aio_setclkdiv(sec->aio_handle, AIO_ID_SEC_TX, div);
+	aio_set_ctl_ext(sec->aio_handle, AIO_ID_SEC_TX, &ctrl);
+	aio_set_pcm_mono(sec->aio_handle, AIO_ID_SEC_TX, (chnum == 1));
 }
 
 static int i2s_sec_startup(struct snd_pcm_substream *substream,
 			      struct snd_soc_dai *dai)
 {
-	struct sec_priv *sec = snd_soc_dai_get_drvdata(dai);
-
-	// Enable i2s channel without corresponding disable in close.
-	// This is intentional: Avoid SPDIF 'activation delay' problem.
-	aio_set_aud_ch_en(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
-	aio_set_aud_ch_mute(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
-
+	snd_printd("%s\n", __func__);
 	return 0;
 }
 
@@ -133,12 +100,34 @@ static void i2s_sec_shutdown(struct snd_pcm_substream *substream,
 {
 	struct sec_priv *sec = snd_soc_dai_get_drvdata(dai);
 
-	/*
-	 * Do not set aio_set_aud_ch_en to 0 for bt_sco application
-	 * It is the duplex transfer. Need to keep lrck of i2s3
-	 */
-	if (!sec->bt_sco)
-		aio_set_aud_ch_en(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 0);
+	snd_printd("%s\n", __func__);
+
+	/* Reset to master mode when i2s sec hw is free as i2s3 input needs the clock */
+	if (!sec->is_master) {
+		aio_set_slave_mode(sec->aio_handle, AIO_ID_SEC_TX, 0);
+		aio_set_bclk_sel(sec->aio_handle, AIO_ID_SEC_TX, 1);
+	}
+
+	if (sec->continuous_clk) {
+		aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_BCLK, 1);
+		aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_LRCK, 1);
+	} else {
+		if (!sec->duplex | !aio_get_i2s_ch_en(AIO_ID_MIC2_RX)) {
+			aio_enabletxport(sec->aio_handle, AIO_ID_SEC_TX, 0);
+			aio_set_aud_ch_mute(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
+			aio_set_aud_ch_flush(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
+			aio_set_aud_ch_en(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 0);
+			snd_printd("%s: aio_set_aud_ch_en(AIO_ID_SEC_TX): OFF\n", __func__);
+			aio_set_aud_ch_en(sec->aio_handle, AIO_ID_MIC2_RX, AIO_TSD0, 0);
+			snd_printd("%s: aio_set_aud_ch_en(AIO_ID_MIC2_RX): OFF\n", __func__);
+			aio_i2s_clk_sync_reset(sec->aio_handle, AIO_ID_MIC2_RX);
+			aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_BCLK, 0);
+			aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_LRCK, 0);
+			aio_i2s_clk_sync_reset(sec->aio_handle, AIO_ID_SEC_TX);
+		}
+	}
+
+	aio_set_i2s_ch_en(AIO_ID_SEC_TX, 0);
 }
 
 static int i2s_sec_setfmt(struct snd_soc_dai *dai, unsigned int fmt)
@@ -146,26 +135,31 @@ static int i2s_sec_setfmt(struct snd_soc_dai *dai, unsigned int fmt)
 	struct sec_priv *outdai = snd_soc_dai_get_drvdata(dai);
 	int ret = 0;
 
-	outdai->ctrl.isleftjfy = true;
-	outdai->ctrl.msb       = true;
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		outdai->ctrl.data_fmt  = 2;
+		outdai->ctrl.istdm    = false;
+		outdai->ctrl.isleftjfy = true;   /* don't care if data_fmt = 2 */
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
 		outdai->ctrl.data_fmt  = 1;
+		outdai->ctrl.istdm    = false;
+		outdai->ctrl.isleftjfy = true;
 		break;
 	case SND_SOC_DAIFMT_RIGHT_J:
 		outdai->ctrl.data_fmt  = 1;
+		outdai->ctrl.istdm    = false;
 		outdai->ctrl.isleftjfy = false;
 		break;
 	case SND_SOC_DAIFMT_DSP_A:
 		outdai->ctrl.data_fmt  = 1;
-		outdai->ctrl.istdm     = true;
+		outdai->ctrl.istdm    = true;
+		outdai->ctrl.isleftjfy = true;
 		break;
 	case SND_SOC_DAIFMT_DSP_B:
 		outdai->ctrl.data_fmt  = 2;
-		outdai->ctrl.istdm     = true;
+		outdai->ctrl.istdm    = true;
+		outdai->ctrl.isleftjfy = true;  /* don't care if data_fmt = 2 */
 		break;
 	default:
 		dev_err(dai->dev, "Unknown DAI format mask %x\n", fmt);
@@ -208,6 +202,33 @@ static int i2s_sec_setfmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
+	switch (fmt & SND_SOC_DAIFMT_CLOCK_MASK) {
+	case SND_SOC_DAIFMT_CONT:
+		outdai->continuous_clk = true;
+		break;
+	case SND_SOC_DAIFMT_GATED:
+		outdai->continuous_clk = false;
+		break;
+	default:
+		dev_err(dai->dev, "Do not support DAI clock mask 0x%x\n", fmt);
+		return -EINVAL;
+	}
+
+	snd_printd("%s: data_fmt: %d isleftjfy: %d istdm: %d is_master: %d invbclk: %d invfs: %d continuous clk: %d\n",
+				__func__,
+				outdai->ctrl.data_fmt, outdai->ctrl.isleftjfy,
+				outdai->ctrl.istdm, outdai->is_master,
+				outdai->ctrl.invbclk, outdai->ctrl.invfs,
+				outdai->continuous_clk);
+
+	snd_printd("%s: sample_period: %d", __func__, outdai->sample_period);
+
+	if (outdai->continuous_clk) {
+		aio_set_aud_ch_en(outdai->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
+		aio_set_i2s_clk_enable(outdai->aio_handle, AIO_I2S_I2S3_BCLK, 1);
+		aio_enabletxport(outdai->aio_handle, AIO_ID_SEC_TX, 1);
+	}
+
 	return ret;
 }
 
@@ -219,6 +240,8 @@ static int i2s_sec_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	u32 fs = params_rate(params);
 	struct berlin_ss_params ssparams;
+
+	snd_printd("%s\n", __func__);
 
 	ssparams.irq_num = 1;
 	ssparams.chid_num = 1;
@@ -233,18 +256,35 @@ static int i2s_sec_hw_params(struct snd_pcm_substream *substream,
 
 	if (sec->is_master) {
 		/* pll */
-		aio_clk_enable(sec->aio_handle, AIO_APLL_0, true);
-		berlin_set_pll(sec->aio_handle, fs);
-
+		berlin_set_pll(sec->aio_handle, sec->apll_id, fs);
 		/* mclk */
-		aio_i2s_set_clock(sec->aio_handle, AIO_ID_SEC_TX,
-			1, 0, 4, AIO_APLL_0, 1);
+		aio_i2s_set_clock(sec->aio_handle, AIO_ID_SEC_TX, 1, AIO_CLK_D3_SWITCH_NOR,
+							AIO_CLK_SEL_D8, sec->apll_id, 1);
+		/* Set bclk master mode */
+		aio_set_slave_mode(sec->aio_handle, AIO_ID_SEC_TX, 0);
+		aio_set_bclk_sel(sec->aio_handle, AIO_ID_SEC_TX, 1);
 	} else {
-		sec_set_slave_mode(sec, 1, 0);
-		sec_blrclk_oen(sec, 0);
+		/* Set slave mode and bclk from external */
+		aio_set_slave_mode(sec->aio_handle, AIO_ID_SEC_TX, 1);
+		aio_set_bclk_sel(sec->aio_handle, AIO_ID_SEC_TX, 0);
 	}
 
-	sec_set_aio(sec, fs, params_width(params), params_channels(params));
+	aio_set_aud_ch_mute(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
+	aio_set_aud_ch_flush(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 0);
+
+	sec_set_aio_fmt(sec, fs, params_width(params), params_channels(params));
+
+	if (sec->is_master) {
+		aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_BCLK, 1);
+		aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_LRCK, 1);
+	} else {
+		aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_BCLK, 0);
+		aio_set_i2s_clk_enable(sec->aio_handle, AIO_I2S_I2S3_LRCK, 0);
+	}
+
+	aio_set_aud_ch_en(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
+	aio_enabletxport(sec->aio_handle, AIO_ID_SEC_TX, 1);
+	aio_set_i2s_ch_en(AIO_ID_SEC_TX, 1);
 
 	return ret;
 }
@@ -254,8 +294,7 @@ static int i2s_sec_hw_free(struct snd_pcm_substream *substream,
 {
 	struct sec_priv *sec = snd_soc_dai_get_drvdata(dai);
 
-	if (!sec->is_master)
-		sec_set_slave_mode(sec, 0, 1);
+	snd_printd("%s\n", __func__);
 
 	if (sec->requested && sec->irq >= 0) {
 		berlin_pcm_free_dma_irq(substream, 1, &sec->irq);
@@ -270,25 +309,24 @@ static int i2s_sec_trigger(struct snd_pcm_substream *substream,
 {
 	struct sec_priv *sec = snd_soc_dai_get_drvdata(dai);
 
+	snd_printd("%s (%d)\n", __func__, cmd);
+
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		sec_enable_port(sec, 1);
-		sec_blrclk_oen(sec, 1);
 		aio_set_aud_ch_mute(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 0);
+		aio_set_aud_ch_flush(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 0);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		aio_set_aud_ch_mute(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
-		/*
-		 * Do not set sec_enable_port to 0 for bt_sco application
-		 * It is the duplex transfer. Need to keep lrck of i2s3
+		aio_set_aud_ch_flush(sec->aio_handle, AIO_ID_SEC_TX, AIO_TSD0, 1);
+		/* FIXME, this is for duplex case, don't disable tx port in case rx
+		 * is still active as BCLK/FSYNC of RX relies on XFEED from tx
 		 */
-		if (!sec->bt_sco)
-			sec_enable_port(sec, 0);
-		sec_blrclk_oen(sec, 0);
+		//aio_enabletxport(sec->aio_handle, AIO_ID_SEC_TX, 0);
 		break;
 	default:
 		return -EINVAL;
@@ -299,6 +337,7 @@ static int i2s_sec_trigger(struct snd_pcm_substream *substream,
 
 static int i2s_sec_dai_probe(struct snd_soc_dai *dai)
 {
+	snd_printd("%s\n", __func__);
 	snd_soc_add_dai_controls(dai, i2s_sec_ctrls,
 				 ARRAY_SIZE(i2s_sec_ctrls));
 	return 0;
@@ -353,12 +392,13 @@ static int i2s_sec_probe(struct platform_device *pdev)
 
 	sec->irq = irq;
 	sec->chid = irqd_to_hwirq(irq_get_irq_data(irq));
-	sec->ctrl.istdm = of_property_read_bool(np, "tdm");
-	sec->bt_sco = of_property_read_bool(np, "hfp-bt-sco");
-	sec->is_master = of_property_read_bool(np, "master");
-	//revert bclk on slave mode
-	if (!sec->is_master)
-		sec->ctrl.invbclk = 1;
+	sec->duplex = of_property_read_bool(np, "duplex");
+	ret = of_property_read_u32(np, "sample-period", &sec->sample_period);
+	if (ret)
+		sec->sample_period = 32;
+	ret = of_property_read_u32(np, "apll-id", &sec->apll_id);
+	if (ret)
+		sec->apll_id = 0;
 
 	sec->dev_name = dev_name(dev);
 	sec->aio_handle = open_aio(sec->dev_name);
@@ -376,8 +416,7 @@ static int i2s_sec_probe(struct platform_device *pdev)
 		snd_printk("failed to register DAI: %d\n", ret);
 		return ret;
 	}
-	snd_printd("%s: done irq %d chid %d tdm %d master %d\n", __func__,
-		   sec->irq, sec->chid, sec->ctrl.istdm, sec->is_master);
+	snd_printd("%s: done irq %d chid %d\n", __func__, sec->irq, sec->chid);
 
 	return ret;
 }

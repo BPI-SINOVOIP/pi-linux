@@ -268,28 +268,29 @@ err_free_vbufinfo:
 	return MV_VPP_ENOMEM;
 }
 
-static void MV_VPP_GetInputFrameSize(int *width, int *height)
-{
-	MV_VPP_GetFrameSize(width, height);
-	if (vpp_config_param.disp_res_ndx >= MV_VPP_PANEL_RESOLUTION_NDX_START)
-		swap(*width, *height);
-}
-
 static void MV_VPP_GetOutResolutionSize(int *p_width, int *p_height)
 {
-	int max_frame_size_ndx;
-	mrvl_frame_size frame_size[] = {
-		{1280, 720},
-		{1920, 1080},
-		{800,  1280},
-		{1920, 1080},
-		{800,  1280}
-	};
-	max_frame_size_ndx = ARRAY_SIZE(frame_size);
-	vpp_config_param.disp_res_ndx = vpp_config_param.disp_res_ndx >= max_frame_size_ndx ? 0 : vpp_config_param.disp_res_ndx;
+	VPP_RESOLUTION_DESCRIPTION  ResDesc;
+	int res;
 
-	*p_width = frame_size[vpp_config_param.disp_res_ndx].width;
-	*p_height = frame_size[vpp_config_param.disp_res_ndx].height;
+	res = wrap_MV_VPPOBJ_GetResolutionDescription(vpp_config_param.disp_res_id, &ResDesc);
+	if (!res) {
+		*p_width = ResDesc.uiActiveWidth;
+		*p_height = ResDesc.uiActiveHeight;
+	} else {
+		/* Default values to FB size in case of failure */
+        MV_VPP_GetFrameSize(p_width, p_height);
+	}
+}
+
+static void MV_VPP_GetInputFrameSize(int *width, int *height)
+{
+	int res_width, res_height;
+
+	MV_VPP_GetFrameSize(width, height);
+	MV_VPP_GetOutResolutionSize(&res_width, &res_height);
+	if (res_width < res_height)
+		swap(*width, *height);
 }
 
 int create_global_desc_array(void)
@@ -460,37 +461,6 @@ int MV_VPP_SetHdmiTxControl(int enable)
 	return wrap_MV_VPPOBJ_SetHdmiTxControl(enable);
 }
 
-static void VPP_Clock_Get_Rate(unsigned int disp_res_ndx, int *display_primary_system, int *vpp_clk_rate)
-{
-	switch (disp_res_ndx)
-	{
-		case DISP_RES_HDMI_720P:
-			*display_primary_system = (vpp_config_param.frame_rate == 50)? RES_720P50 : RES_720P60;
-			*vpp_clk_rate = VPP_REC_CLK_RATE_720P;
-			break;
-		case DISP_RES_HDMI_1080P:
-			*display_primary_system = (vpp_config_param.frame_rate == 50)? RES_1080P50 : RES_1080P60;
-			*vpp_clk_rate = VPP_REC_CLK_RATE_1080P;
-			break;
-		case DISP_RES_MIPI_BOE:
-			*display_primary_system = RES_DSI_800x1280P60;
-			*vpp_clk_rate = VPP_REC_CLK_RATE_BOE;
-			break;
-		case DISP_RES_MIPI_WNC:
-			*display_primary_system = RES_DSI_WNC_800x1280P60;
-			*vpp_clk_rate = VPP_REC_CLK_RATE_WNC;
-			break;
-		case DISP_RES_MIPI_PANDA:
-			*display_primary_system = RES_DSI_1920x1080P5994;
-			*vpp_clk_rate = VPP_REC_CLK_RATE_PANDA;
-			break;
-		default:
-			pr_err("Invalid disp res ndx: Defaulting to 720P\n");
-			*display_primary_system = RES_720P60;
-			*vpp_clk_rate = VPP_REC_CLK_RATE_720P;
-	}
-}
-
 static int VPP_Clock_Init(int vpp_clk_rate)
 {
 	int res = -1;
@@ -520,28 +490,14 @@ static int VPP_Init_Recovery_fastlogo_ta(void)
 	int height;
 	int disp_width;
 	int disp_height;
-	int display_primary_system;
-	int display_primary_HDMI_BitDepth = OUTPUT_BIT_DEPTH_8BIT;
-	unsigned int vpp_clk_rate;
 	int res = 0;
 	int planeID=2;
-
-	/*Disable AutoPush enabled in bootlogo
-	*recovery mode: should be done here
-	*normal mode: Done by ampcore, alllowing bootlogo shown for longer time*/
-	wrap_DhubEnableAutoPush(false, true, vpp_config_param.frame_rate);
-
-	VPP_Clock_Get_Rate(vpp_config_param.disp_res_ndx, &display_primary_system, &vpp_clk_rate);
-
-	res = VPP_Clock_Init(vpp_clk_rate);
-	if (res) {
-		pr_err("VPP %s:%d Failed to set clock\n", __func__, __LINE__);
-		return res;
-	}
-	//Get the width and height of FB
-	MV_VPP_GetInputFrameSize(&width, &height);
-
-	MV_VPP_GetOutResolutionSize(&disp_width, &disp_height);
+	/* 0 - Magic number, 1- heap handle which is not used FL ta as of now */
+	unsigned int fl_init_param[2] = {VPP_CA_INIT_MAGIC_NUM, 0};
+	VPP_DISP_OUT_PARAMS pdispParams[MAX_NUM_CPCBS];
+	int pixel_clock;
+	VPP_DISP_OUT_PARAMS dispParams;
+	VPP_RESOLUTION_DESCRIPTION  ResDesc;
 
 	//Allocate memory for TA heap memory manager
 	res = VPP_Memory_for_ta(1, &vpp_init_parm.uiShmPA);
@@ -554,50 +510,90 @@ static int VPP_Init_Recovery_fastlogo_ta(void)
 	vpp_init_parm.iHDMIEnable = 1;  //Set zero to disable flushcache in VPP TA
 	vpp_init_parm.iVdacEnable = 0;
 	vpp_init_parm.uiShmSize=SHM_SHARE_SZ;
-	res = wrap_MV_VPP_Init(&vpp_init_parm);
+
+	res = wrap_MV_VPP_InitVPPS(TA_UUID_FASTLOGO, fl_init_param);
 	if (res != MV_VPP_OK) {
-		pr_err("wrap_MV_VPP_Init FAILED\n");
+		pr_err("wrap_MV_VPP_Init FAILED E[%d]\n", res);
 		goto EXIT;
 	}
+	/* Retrieve following details from bootloader
+	 * 1. dispout param - resid, display id/mode, TGID
+	 * 2. Clock - Get pixel clock for resid got from BL.
+	 * 3. Res Info - Get resInfo for resid got from BL.
+	 */
+	wrap_MV_VPPOBJ_GetDispOutParams(pdispParams, MAX_NUM_CPCBS * sizeof(VPP_DISP_OUT_PARAMS));
 
-	res = wrap_MV_VPPOBJ_Create(0, 0);
-	if (res != MV_VPP_OK)
-	{
-		pr_err("wrap_MV_VPPOBJ_Create FAILED, error: 0x%x\n", res);
-		res = MV_DISP_E_CREATE;
-		goto EXIT;
+	/* Override the params from DTS if available */
+	if (vpp_config_param.disp_res_id  == -1) {
+		dispParams.uiDispId = pdispParams[CPCB_1].uiDispId;
+		dispParams.uiDisplayMode = pdispParams[CPCB_1].uiDisplayMode;
+		dispParams.uiResId  = pdispParams[CPCB_1].uiResId;
+	} else {
+		dispParams.uiDispId = vpp_config_param.disp_out_type;
+		dispParams.uiDisplayMode = vpp_config_param.disp_out_type == 0 ? VOUT_HDMI :\
+                                                                         VOUT_DSI;
+		dispParams.uiResId  = vpp_config_param.disp_res_id;
+	}
+
+	if (dispParams.uiDispId == VOUT_DSI)
+		wrap_MV_VPP_MIPI_Reset(0);
+
+	vpp_config_param.disp_res_id  = dispParams.uiResId;
+	dispParams.uiBitDepth = OUTPUT_BIT_DEPTH_8BIT;
+	dispParams.uiColorFmt = OUTPUT_COLOR_FMT_RGB888;
+	dispParams.iPixelRepeat = 1;
+
+	/* Get and Configure clock here */
+	res = wrap_MV_VPPOBJ_GetCPCBOutputPixelClock(vpp_config_param.disp_res_id, &pixel_clock);
+	pr_debug("\nresID[%d]clock[%d]\n", vpp_config_param.disp_res_id, pixel_clock);
+
+	/* Convert to Hz */
+	pixel_clock *= 1000;
+
+	res = wrap_MV_VPPOBJ_GetResolutionDescription(vpp_config_param.disp_res_id, &ResDesc);
+	if (res != MV_VPP_OK) {
+		pr_err("wrap_MV_VPPOBJ_GetResolutionDescription FAILED, error: 0x%x\n", res);
+		res = MV_DISP_E_CFG;
+		goto EXIT_DESTROY;
+	}
+
+	vpp_config_param.frame_rate = pixel_clock / (ResDesc.uiHeight * ResDesc.uiWidth);
+
+	/* Disable AutoPush enabled in bootlogo
+	 * recovery mode: should be done here
+	 * normal mode: Done by ampcore, alllowing bootlogo shown for longer time */
+	wrap_DhubEnableAutoPush(false, true, vpp_config_param.frame_rate);
+
+	res = VPP_Clock_Init(pixel_clock);
+	if (res) {
+		pr_err("VPP %s:%d Failed to set clock\n", __func__, __LINE__);
+		return res;
 	}
 
 	res = wrap_MV_VPPOBJ_Reset();
-	if (res != MV_VPP_OK)
-	{
+	if (res != MV_VPP_OK) {
 		pr_err("wrap_MV_VPPOBJ_Reset FAILED, error: 0x%x\n", res);
 		res = MV_DISP_E_RST;
 		goto EXIT_DESTROY;
 	}
 
 	res = wrap_MV_VPPOBJ_Config(NULL, NULL, NULL, NULL);
-	if (res != MV_VPP_OK)
-	{
+	if (res != MV_VPP_OK) {
 		pr_err("wrap_MV_VPPOBJ_Config FAILED, error: 0x%x\n", res);
 		res = MV_DISP_E_CFG;
 		goto EXIT_DESTROY;
 	}
 
-	//Set the resolution
-	res = wrap_MV_VPPOBJ_SetCPCBOutputResolution(CPCB_1, display_primary_system, display_primary_HDMI_BitDepth);
-
+	res = wrap_MV_VPPOBJ_SetFormat(CPCB_1, &dispParams);
 	if (res != MV_VPP_OK) {
-		pr_err("%s:%d: SetCPCBOutputResolution FAILED, error: 0x%x\n", __func__, __LINE__, res);
+		pr_err("%s:%d: wrap_MV_VPPOBJ_SetFormat FAILED, error: 0x%x\n", __func__, __LINE__, res);
 		goto EXIT_DESTROY;
 	}
 
-	res = wrap_MV_VPPOBJ_SetHdmiVideoFmt(OUTPUT_COLOR_FMT_RGB888, display_primary_HDMI_BitDepth, 1);
-	if (res != MV_VPP_OK) {
-		pr_err("%s:%d SetHdmiVideoFmt FAILED, error: 0x%x\n", __func__, __LINE__, res);
-		goto EXIT_DESTROY;
-	}
+	//Get the width and height of FB
+	MV_VPP_GetInputFrameSize(&width, &height);
 
+	MV_VPP_GetOutResolutionSize(&disp_width, &disp_height);
 	fb_win.x = 0;
 	fb_win.y = 0;
 	fb_win.width  = width;
@@ -696,7 +692,7 @@ int MV_VPP_Config(void) {
 		vppInitParam[0] = VPP_CA_INIT_MAGIC_NUM;
 		vppInitParam[1] = 0;
 
-		ret = wrap_MV_VPP_InitVPPS(vppInitParam);
+		ret = wrap_MV_VPP_InitVPPS(TA_UUID_VPP, vppInitParam);
 
 		if (ret) {
 			pr_err("%s:%d InitVPPS FAILED, error: 0x%x\n", __func__, __LINE__, ret);

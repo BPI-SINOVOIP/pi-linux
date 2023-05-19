@@ -118,9 +118,10 @@
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
 	dll-calibration;
 	dll-delay-offset = <300>;
+	pad-sp = /bits/ 8 <14>;
+	pad-sn = /bits/ 8 <14>;
 };
 
 &sdhci1 {
@@ -168,6 +169,7 @@
 		regulator-max-microvolt = <987500>;
 		regulator-always-on;
 		regulator-boot-on;
+		regulator-active-discharge = <0>;
 		halo,vsel-state-high;
 		halo,vsel-step = <1>;
 		reg = <0x61>;
@@ -271,10 +273,10 @@
 &vs640_asoc {
 	status = "okay";
 
-	dummy_dmic: dummy-dmic {
+	soc_dmic: soc-dmic {
 		status = "okay";
-		stream-name = "dummy-dmic";
-		link-name = "dummy-dmic";
+		stream-name = "soc-dmic";
+		link-name = "soc-dmic";
 		cpu-node = <&dmic>;
 		codec-name = "snd-soc-dummy";
 		codec-dai-name = "snd-soc-dummy-dai";

@@ -29,6 +29,7 @@ struct dmic_data {
 	bool irq_requested;
 	bool disable_mic_mute;
 	bool enable_dc_filter;
+	bool ch_shift_check; /* for dmic multi-channel shift check */
 	u32 pdm_clk_sel;
 	u32 pdm_type;
 	struct gpio_desc *pdm_data_sel_gpio;

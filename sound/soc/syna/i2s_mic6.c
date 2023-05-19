@@ -122,6 +122,8 @@ static int i2s_mic6_startup(struct snd_pcm_substream *ss,
 static void i2s_mic6_shutdown(struct snd_pcm_substream *ss,
 				struct snd_soc_dai *dai)
 {
+	struct mic6_priv *mic6 = snd_soc_dai_get_drvdata(dai);
+	aio_i2s_clk_sync_reset(mic6->aio_handle, AIO_ID_MIC6_RX);
 	snd_printd("%s: start %p %p\n", __func__, ss, dai);
 }
 
@@ -139,14 +141,13 @@ static int i2s_mic6_hw_params(struct snd_pcm_substream *ss,
 
 	aio_earc_i2s_frord_sel(mic6->aio_handle, 0x7);
 	aio_earc_src_sel(mic6->aio_handle, 2);
-	aio_set_loopback_clk_gate(mic6->aio_handle,
-				AIO_LOOPBACK_CLK_GATE_MIC6, 0);
+	aio_set_loopback_clk_gate(mic6->aio_handle, AIO_LOOPBACK_CLK_GATE_MIC6, 0);
 
-	dfm = berlin_get_dfm(params_width(params));
+	dfm = berlin_get_sample_resolution(params_width(params));
 
 	ctrl.chcnt	= mic6->channels;
-	ctrl.width_word	= AIO_32CFM;
-	ctrl.width_sample	= dfm;
+	ctrl.sample_period_in_bclk	= AIO_32CFM;
+	ctrl.sample_resolution	= dfm;
 	ctrl.data_fmt	= mic6->cfg.data_fmt;
 	ctrl.isleftjfy	= mic6->cfg.isleftjfy;
 	ctrl.invbclk	= mic6->cfg.invbclk;
@@ -182,25 +183,31 @@ static int i2s_mic6_set_dai_fmt(struct snd_soc_dai *dai,
 	struct mic6_priv *outdai = snd_soc_dai_get_drvdata(dai);
 	int ret = 0;
 
-	outdai->cfg.isleftjfy = true;
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		outdai->cfg.data_fmt  = 2;
+		outdai->cfg.is_tdm    = false;
+		outdai->cfg.isleftjfy = true;   /* don't care if data_fmt = 2 */
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
 		outdai->cfg.data_fmt  = 1;
+		outdai->cfg.is_tdm    = false;
+		outdai->cfg.isleftjfy = true;
 		break;
 	case SND_SOC_DAIFMT_RIGHT_J:
 		outdai->cfg.data_fmt  = 1;
+		outdai->cfg.is_tdm    = false;
 		outdai->cfg.isleftjfy = false;
 		break;
 	case SND_SOC_DAIFMT_DSP_A:
 		outdai->cfg.data_fmt  = 1;
 		outdai->cfg.is_tdm    = true;
+		outdai->cfg.isleftjfy = true;
 		break;
 	case SND_SOC_DAIFMT_DSP_B:
 		outdai->cfg.data_fmt  = 2;
 		outdai->cfg.is_tdm    = true;
+		outdai->cfg.isleftjfy = true;  /* don't care if data_fmt = 2 */
 		break;
 	default:
 		dev_err(dai->dev, "Unknown DAI format mask %x\n", fmt);
@@ -242,6 +249,12 @@ static int i2s_mic6_set_dai_fmt(struct snd_soc_dai *dai,
 		dev_err(dai->dev, "Do not support DAI master mask %x\n", fmt);
 		return -EINVAL;
 	}
+
+	snd_printd("%s: data_fmt: %d isleftjfy: %d is_tdm: %d is_master: %d invbclk: %d invfsync: %d\n",
+				__func__,
+				outdai->cfg.data_fmt, outdai->cfg.isleftjfy,
+				outdai->cfg.is_tdm, outdai->cfg.is_master,
+				outdai->cfg.invbclk, outdai->cfg.invfsync);
 
 	return ret;
 }
@@ -349,12 +362,8 @@ static int i2s_mic6_probe(struct platform_device *pdev)
 		snd_printk("got invalid dhub chid %d\n", mic6->chid);
 		return -EINVAL;
 	}
-	snd_printd("got irq %d chid %d\n",
-		   mic6->irq, mic6->chid);
+	snd_printd("got irq %d chid %d\n", mic6->irq, mic6->chid);
 
-	mic6->cfg.is_tdm = of_property_read_bool(np, "tdm");
-	mic6->cfg.invbclk = of_property_read_bool(np, "invertbclk");
-	mic6->cfg.invfsync = of_property_read_bool(np, "invertfsync");
 	mic6->cfg.disable_mic_mute =
 			of_property_read_bool(np, "disablemicmute");
 	mic6->dummy_data = of_property_read_bool(np, "dummy_data");
@@ -374,8 +383,7 @@ static int i2s_mic6_probe(struct platform_device *pdev)
 		snd_printk("failed to register DAI: %d\n", ret);
 		return ret;
 	}
-	snd_printd("%s: done irq %d chid %d tdm %d invclk %d\n", __func__,
-		   mic6->irq, mic6->chid, mic6->cfg.is_tdm, mic6->cfg.invbclk);
+	snd_printd("%s: done irq %d chid %d\n", __func__, mic6->irq, mic6->chid);
 
 	return ret;
 }

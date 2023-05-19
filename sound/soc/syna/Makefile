@@ -32,8 +32,9 @@ snd-soc-berlin-pcm-objs    += berlin_pcm.o \
 			      berlin_playback.o \
 			      berlin_spdif.o
 snd-soc-berlin-dmic-objs   += dmic.o
-snd-soc-berlin-outdai-objs += i2s_spdif_outdai.o
+snd-soc-berlin-pri-objs    += i2s_pri.o
 snd-soc-berlin-sec-objs    += i2s_sec.o
+snd-soc-berlin-spdifo-objs += spdif_outdai.o
 snd-soc-berlin-pdmi-objs   += pdm_pdmi.o
 snd-soc-berlin-mic1-objs   += i2s_mic1.o
 snd-soc-berlin-mic2-objs   += i2s_mic2.o
@@ -44,7 +45,8 @@ snd-soc-berlin-hdmi-loopback-objs += i2s_hdmi_loopback.o
 
 obj-$(CONFIG_SND_SOC_BERLIN_PCM)    += snd-soc-berlin-pcm.o
 obj-$(CONFIG_SND_SOC_BERLIN_DMIC)   += snd-soc-berlin-dmic.o
-obj-$(CONFIG_SND_SOC_BERLIN_OUTDAI) += snd-soc-berlin-outdai.o
+obj-$(CONFIG_SND_SOC_BERLIN_PRI)    += snd-soc-berlin-pri.o
+obj-$(CONFIG_SND_SOC_BERLIN_SPDIFO) += snd-soc-berlin-spdifo.o
 obj-$(CONFIG_SND_SOC_BERLIN_SEC)    += snd-soc-berlin-sec.o
 obj-$(CONFIG_SND_SOC_BERLIN_PDMI)   += snd-soc-berlin-pdmi.o
 obj-$(CONFIG_SND_SOC_BERLIN_MIC1)   += snd-soc-berlin-mic1.o

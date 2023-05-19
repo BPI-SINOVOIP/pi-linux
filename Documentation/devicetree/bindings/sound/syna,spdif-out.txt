@@ -1,0 +1,28 @@
+Synaptics Berlin Sound Output
+
+This devices handle all sound stream related operations
+
+Required properties:
+
+  - compatible : should be one of:
+	{ .compatible = "syna,vs680-spdifo",  },
+	{ .compatible = "syna,vs640-spdifo",  },
+
+Optional properties:
+
+Example:
+	spdif_out: spdif-out {
+		compatible = "syna,vs680-spdifo";
+		status = "disabled";
+		interrupt-parent = <&dhubctr_a>;
+		interrupts = <14>;
+		interrupt-names = "spdifo";
+	};
+
+	spdif_out: spdif-out {
+		compatible = "syna,vs640-spdifo";
+		status = "disabled";
+		interrupt-parent = <&dhubctr_a>;
+		interrupts = <14>;
+		interrupt-names = "spdifo";
+	};

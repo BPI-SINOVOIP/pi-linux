@@ -13,6 +13,8 @@ struct aio_handle {
 
 int aio_read(struct aio_priv *aio, u32 offset);
 void aio_write(struct aio_priv *aio, u32 offset, u32 val);
+int aio_read_gbl(struct aio_priv *aio, u32 offset);
+void aio_write_gbl(struct aio_priv *aio, u32 offset, u32 val);
 struct aio_priv *hd_to_aio(void *hd);
 struct aio_priv *get_aio(void);
 #endif

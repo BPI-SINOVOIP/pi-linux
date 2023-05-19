@@ -176,6 +176,7 @@ int aio_i2s_set_clock(void *hd, u32 id, u32 clkSwitch,
 	struct aio_priv *aio = hd_to_aio(hd);
 	T32ACLK_ACLK_CTRL reg;
 	u32 address;
+	u32 val;
 
 	switch (id) {
 	case AIO_ID_PRI_TX:
@@ -205,21 +206,75 @@ int aio_i2s_set_clock(void *hd, u32 id, u32 clkSwitch,
 	}
 
 	reg.u32 = aio_read(aio, address);
+	val = reg.u32;
 	reg.uACLK_CTRL_clkSwitch = clkSwitch;
 	reg.uACLK_CTRL_clkD3Switch = clkD3Switch;
 	reg.uACLK_CTRL_clkSel = clkSel;
 	reg.uACLK_CTRL_src_sel = pllUsed;
 	reg.uACLK_CTRL_clk_Enable = en ? 1 : 0;
+
+	if (val != reg.u32) {
+		/* toggle sw_sync_rst bit to do reset */
+		reg.uACLK_CTRL_sw_sync_rst = 0;
+		aio_write(aio, address, reg.u32);
+		usleep_range(1000, 2000);
+		reg.uACLK_CTRL_sw_sync_rst = 1;
+		aio_write(aio, address, reg.u32);
+		pr_info("%s: %p@%08x --> %08x\n", __func__, aio->pbase, address, reg.u32);
+	} else {
+		pr_info("%s: %p@%08x already %08x\n", __func__, aio->pbase, address, reg.u32);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(aio_i2s_set_clock);
+
+int aio_i2s_clk_sync_reset(void *hd, u32 id)
+{
+	struct aio_priv *aio = hd_to_aio(hd);
+	T32ACLK_ACLK_CTRL reg;
+	u32 address;
+
+	switch (id) {
+	case AIO_ID_PRI_TX:
+		address = RA_AIO_MCLKPRI;
+		break;
+	case AIO_ID_SEC_TX:
+		address = RA_AIO_MCLKSEC;
+		break;
+	case AIO_ID_MIC_RX:
+		address = RA_AIO_MCLKMIC1;
+		break;
+	case AIO_ID_MIC2_RX:
+		address = RA_AIO_MCLKMIC2;
+		break;
+	case AIO_ID_HDMI_TX:
+		address = RA_AIO_MCLKHD;
+		break;
+	case AIO_ID_SPDIF_TX:
+		address = RA_AIO_MCLKSPF;
+		break;
+	case AIO_ID_PDM_RX:
+		address = RA_AIO_MCLKPDM;
+		break;
+	default:
+		pr_err("%s, id(%d) not supported\n", __func__, id);
+		return -EINVAL;
+	}
+
+	reg.u32 = aio_read(aio, address);
+
 	/* toggle sw_sync_rst bit to do reset */
 	reg.uACLK_CTRL_sw_sync_rst = 0;
 	aio_write(aio, address, reg.u32);
 	usleep_range(1000, 2000);
 	reg.uACLK_CTRL_sw_sync_rst = 1;
 	aio_write(aio, address, reg.u32);
+	pr_info("%s: %p@%08x --> %08x\n", __func__, aio->pbase, address, reg.u32);
 
 	return 0;
 }
-EXPORT_SYMBOL(aio_i2s_set_clock);
+EXPORT_SYMBOL(aio_i2s_clk_sync_reset);
 
 u32 aio_get_tsd_from_chid(void *hd, u32 chid)
 {
@@ -333,6 +388,8 @@ int aio_set_interleaved_mode(void *hd, u32 id, u32 src, u32 ch_map)
 			return -EINVAL;
 		}
 
+	pr_info("%s: id:%d src:%d ch_map:0x%08x\n", __func__, id, src, ch_map);
+
 	switch (id) {
 	case AIO_ID_PRI_TX:
 		aio_set_prisrc(hd, src, map_val);
@@ -368,36 +425,42 @@ static int aio_configure_pri_lpbk(struct aio_priv *aio,
 	TMIC4_RXDATA  reg_rxdata;
 	u32 address;
 
-	/* CLKDIV */
+	/* AIO_MIC4_MICCTRL_CLKDIV */
 	address = RA_AIO_MIC4 + RA_MIC4_MICCTRL + RA_PRIAUD_CLKDIV;
 	reg_clkdiv.uCLKDIV_SETTING = 0;
 	aio_write(aio, address, reg_clkdiv.u32);
-	aio_trace_reg(aio, "CLKDIV", address, reg_clkdiv.u32);
+	aio_trace_reg(aio, "AIO_MIC4_MICCTRL_CLKDIV", address, reg_clkdiv.u32);
 
-	/* read HDMI i2s configure */
+	/* Read AIO_PRI_PRIAUD_CTRL configuration */
 	address = RA_AIO_PRI + RA_PRI_PRIAUD + RA_PRIAUD_CTRL;
 	reg_prictrl.u32 = aio_read(aio, address);
-	aio_trace_reg(aio, "PRI ctrl", address, reg_prictrl.u32);
-	/* MICCTRL register*/
-	address = RA_AIO_MIC5 + RA_MIC4_MICCTRL + RA_PRIAUD_CTRL;
-	reg_mic4ctrl.u32 = aio_read(aio, address);
-	aio_trace_reg(aio, "MICCTRL", address, reg_mic4ctrl.u32);
-	reg_mic4ctrl.u32 = reg_prictrl.u32;
-	reg_mic4ctrl.uCTRL_INVCLK = 0;
-	reg_mic4ctrl.uCTRL_TDM = AIO_32DFM;
-	reg_mic4ctrl.uCTRL_TCF = AIO_32CFM;
-	reg_mic4ctrl.uCTRL_TDMMODE = 0;
-	aio_write(aio, address, reg_mic4ctrl.u32);
-	aio_trace_reg(aio, "MICCTRL", address, reg_mic4ctrl.u32);
+	aio_trace_reg(aio, "AIO_PRI_PRIAUD_CTRL", address, reg_prictrl.u32);
 
-	/* RxData register*/
+	/*	Update AIO_MIC4_MICCTRL_CTRL register. Clone AIO_PRI_PRIAUD_CTRL configuration
+	 *	as loopback should share the same configuration as primary I2S. Except for
+	 *	uCTRL_INVCLK and uCTRL_INVFS as playback and capture have different sample and
+	 *	latch polarity.
+	 */
+
+	reg_mic4ctrl.u32 = reg_prictrl.u32;
+	reg_mic4ctrl.uCTRL_INVCLK = reg_prictrl.uCTRL_INVCLK == 0 ? 1 : 0; /* Invert uCTRL_INVCLK */
+	reg_mic4ctrl.uCTRL_INVFS = reg_prictrl.uCTRL_INVFS == 0 ? 1 : 0; /* Invert uCTRL_INVFS */
+	reg_mic4ctrl.uCTRL_TDM = reg_prictrl.uCTRL_TDM;
+	reg_mic4ctrl.uCTRL_TCF = reg_prictrl.uCTRL_TCF;
+	reg_mic4ctrl.uCTRL_TDMMODE = reg_prictrl.uCTRL_TDMMODE;
+
+	address = RA_AIO_MIC4 + RA_MIC4_MICCTRL + RA_PRIAUD_CTRL;
+	aio_write(aio, address, reg_mic4ctrl.u32);
+	aio_trace_reg(aio, "AIO_MIC4_MICCTRL_CTRL", address, reg_mic4ctrl.u32);
+
+	/* AIO_MIC4_RXDATA register*/
 	reg_rxdata.uRXDATA_HBR = 0;
 	reg_rxdata.uRXDATA_TDM_HR = reg_mic4ctrl.uCTRL_TDMMODE;
 	address = RA_AIO_MIC4 + RA_MIC4_RXDATA;
 	aio_write(aio, address, reg_rxdata.u32[0]);
-	aio_trace_reg(aio, "RxData", address, reg_rxdata.u32[0]);
+	aio_trace_reg(aio, "AIO_MIC4_RXDATA", address, reg_rxdata.u32[0]);
 
-	/* INTLMODE */
+	/* AIO_MIC4_INTLMODE */
 	reg_prisrc.u32[0] = aio_read(aio, RA_AIO_PRISRC);
 	address = RA_AIO_MIC4 + RA_MIC4_INTLMODE;
 	reg_intlmode.u32 = 0;
@@ -433,9 +496,9 @@ static int aio_configure_pri_lpbk(struct aio_priv *aio,
 		reg_intlmode.uINTLMODE_PORT3_EN = 1;
 
 	aio_write(aio, address, reg_intlmode.u32);
-	aio_trace_reg(aio, "INTLMODE", address, reg_intlmode.u32);
+	aio_trace_reg(aio, "AIO_MIC4_INTLMODE", address, reg_intlmode.u32);
 
-	/* HBRDMAP */
+	/* AIO_MIC4_HBRDMAP */
 	address = RA_AIO_MIC4 + RA_MIC4_HBRDMAP;
 	reg_hbrmap.u32 = 0;
 	reg_hbrmap.uHBRDMAP_PORT3 = reg_prisrc.uPRISRC_L3DATAMAP;
@@ -443,7 +506,7 @@ static int aio_configure_pri_lpbk(struct aio_priv *aio,
 	reg_hbrmap.uHBRDMAP_PORT1 = reg_prisrc.uPRISRC_L1DATAMAP;
 	reg_hbrmap.uHBRDMAP_PORT0 = reg_prisrc.uPRISRC_L0DATAMAP;
 	aio_write(aio, address, reg_hbrmap.u32);
-	aio_trace_reg(aio, "HBRDMAP", address, reg_hbrmap.u32);
+	aio_trace_reg(aio, "AIO_MIC4_HBRDMAP", address, reg_hbrmap.u32);
 	return 0;
 }
 
@@ -458,20 +521,20 @@ static int aio_configure_hdmi_lpbk(struct aio_priv *aio,
 	TMIC5_RXDATA  reg_rxdata;
 	u32 address;
 
-	/* CLKDIV */
+	/* AIO_MIC5_MICCTRL_CLKDIV */
 	address = RA_AIO_MIC5 + RA_MIC5_MICCTRL + RA_PRIAUD_CLKDIV;
 	reg_clkdiv.uCLKDIV_SETTING = 0;
 	aio_write(aio, address, reg_clkdiv.u32);
-	aio_trace_reg(aio, "CLKDIV", address, reg_clkdiv.u32);
+	aio_trace_reg(aio, "AIO_MIC5_MICCTRL_CLKDIV", address, reg_clkdiv.u32);
 
-	/* read PRI i2s configure */
+	/* read HDMI i2s configure */
 	address = RA_AIO_HDMI + RA_HDMI_HDAUD + RA_PRIAUD_CTRL;
 	reg_hdmictrl.u32 = aio_read(aio, address);
-	aio_trace_reg(aio, "HDMI ctrl", address, reg_hdmictrl.u32);
-	/* MICCTRL register*/
+	aio_trace_reg(aio, "AIO_HDMI_HDAUD_CTRL", address, reg_hdmictrl.u32);
+	/* AIO_MIC5_MICCTRL_CTRL register*/
 	address = RA_AIO_MIC5 + RA_MIC5_MICCTRL + RA_PRIAUD_CTRL;
 	reg_mic5ctrl.u32 = aio_read(aio, address);
-	aio_trace_reg(aio, "MICCTRL", address, reg_mic5ctrl.u32);
+	aio_trace_reg(aio, "AIO_MIC5_MICCTRL_CTRL", address, reg_mic5ctrl.u32);
 	reg_mic5ctrl.u32 = reg_hdmictrl.u32;
 	reg_mic5ctrl.uCTRL_INVCLK = 0;/*noise without it*/
 	reg_mic5ctrl.uCTRL_TDM = AIO_32DFM;
@@ -479,16 +542,16 @@ static int aio_configure_hdmi_lpbk(struct aio_priv *aio,
 	reg_mic5ctrl.uCTRL_TDMMODE = 0;
 	/* make remain same as HDMI i2s configure*/
 	aio_write(aio, address, reg_mic5ctrl.u32);
-	aio_trace_reg(aio, "MICCTRL", address, reg_mic5ctrl.u32);
+	aio_trace_reg(aio, "AIO_MIC5_MICCTRL_CTRL", address, reg_mic5ctrl.u32);
 
-	/* RxData register*/
+	/* AIO_MIC5_RXDATA register*/
 	reg_rxdata.uRXDATA_HBR = 0;
 	reg_rxdata.uRXDATA_TDM_HR = 0;
 	address = RA_AIO_MIC5 + RA_MIC5_RXDATA;
 	aio_write(aio, address, reg_rxdata.u32[0]);
-	aio_trace_reg(aio, "RxData", address, reg_rxdata.u32[0]);
+	aio_trace_reg(aio, "AIO_MIC5_RXDATA", address, reg_rxdata.u32[0]);
 
-	/* INTLMODE */
+	/* AIO_MIC5_INTLMODE */
 	address = RA_AIO_MIC5 + RA_MIC5_INTLMODE;
 	reg_intlmode.u32 = 0;
 	if (dummy_data) {
@@ -522,9 +585,9 @@ static int aio_configure_hdmi_lpbk(struct aio_priv *aio,
 		reg_intlmode.uINTLMODE_PORT3_EN = 1;
 
 	aio_write(aio, address, reg_intlmode.u32);
-	aio_trace_reg(aio, "INTLMODE", address, reg_intlmode.u32);
+	aio_trace_reg(aio, "AIO_MIC5_INTLMODE", address, reg_intlmode.u32);
 
-	/* HBRDMAP */
+	/* AIO_MIC5_HBRDMAP */
 	address = RA_AIO_MIC5 + RA_MIC5_HBRDMAP;
 	reg_hbrmap.u32 = 0;
 
@@ -540,7 +603,7 @@ static int aio_configure_hdmi_lpbk(struct aio_priv *aio,
 		reg_hbrmap.uHBRDMAP_PORT3 = 3;
 
 	aio_write(aio, address, reg_hbrmap.u32);
-	aio_trace_reg(aio, "HBRDMAP", address, reg_hbrmap.u32);
+	aio_trace_reg(aio, "AIO_MIC5_HBRDMAP", address, reg_hbrmap.u32);
 
 	return 0;
 }

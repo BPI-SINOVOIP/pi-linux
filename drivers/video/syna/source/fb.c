@@ -281,15 +281,17 @@ static int mrvl_fb_probe(struct platform_device *dev)
 	if (!is_vpp_driver_initialized())
 		return -EPROBE_DEFER;
 
-	if (of_property_read_u32(np, "frame-rate", &vpp_config_param.frame_rate))
-		vpp_config_param.frame_rate = 60; //default is 60
-
-	if (of_property_read_u32(np, "frame-size-ndx", &vpp_config_param.frame_size_ndx)) {
+	if (of_property_read_u32(np, "frame-size-ndx", &vpp_config_param.frame_size_ndx))
 		vpp_config_param.frame_size_ndx = 0; //default is 'MV_SYSTEM_WIDTH_DEFAULT * MV_SYSTEM_HEIGHT_DEFAULT'
-	}
-	if (of_property_read_u32(np, "disp-res-ndx", &vpp_config_param.disp_res_ndx)) {
-		vpp_config_param.disp_res_ndx = 0; //default is 'MV_SYSTEM_WIDTH_DEFAULT * MV_SYSTEM_HEIGHT_DEFAULT'
-	}
+
+	if (of_property_read_u32(np, "disp-res-id", &vpp_config_param.disp_res_id))
+		vpp_config_param.disp_res_id = -1;
+
+	if (of_property_read_u32(np, "disp-type", &vpp_config_param.disp_out_type))
+		vpp_config_param.disp_out_type = 0;
+
+	vpp_config_param.frame_rate = 0;
+	pr_debug("mrvl_fb_probe %d> resID[%d]disptype[%d]\n", __LINE__, vpp_config_param.disp_res_id, vpp_config_param.disp_out_type);
 
 	of_node_put(np);
 

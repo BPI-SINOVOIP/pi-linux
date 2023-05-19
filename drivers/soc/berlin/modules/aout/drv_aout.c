@@ -51,6 +51,8 @@ struct function_table {
 };
 static int aout_help(struct aout_priv *aout);
 static u8 aout_irq_name[MAX_OUTPUT_AUDIO][64];
+static u32 spdif_apll_id = 1; /* APLL id being used. 0: AIO_APLL_0, 1: AIO_APLL_1 */
+static u32 hdmi_apll_id = 1;  /* APLL id being used. 0: AIO_APLL_0, 1: AIO_APLL_1 */
 
 #define FUNC_ITEM(func, num) \
 		{.name = (#func), .number = (num), .f = (void *)(func)}
@@ -691,8 +693,10 @@ static int user_aio_set_apll(struct aout_priv *aout, u32 id, u32 fs)
 		apll_id = AIO_APLL_0;
 		break;
 	case AIO_ID_SPDIF_TX:
+		apll_id = spdif_apll_id;
+		break;
 	case AIO_ID_HDMI_TX:
-		apll_id = AIO_APLL_1;
+		apll_id = hdmi_apll_id;
 		break;
 	}
 
@@ -840,6 +844,31 @@ static int user_aio_set_interleaved_mode(struct aout_priv *aout,
 	return 0;
 }
 
+static void set_aio_clock(struct aout_priv *aout, u32 path)
+{
+	switch (path) {
+	case MA0_PATH:
+		aio_i2s_set_clock(aout->aio_hd, AIO_ID_PRI_TX,
+			1, 0, 4, AIO_APLL_0, 1);
+		break;
+	case LoRo_PATH:
+		aio_i2s_set_clock(aout->aio_hd, AIO_ID_SEC_TX,
+			1, 0, 4, AIO_APLL_0, 1);
+		break;
+	case SPDIF_PATH:
+		aio_i2s_set_clock(aout->aio_hd, AIO_ID_SPDIF_TX,
+			1, 0, 4, spdif_apll_id, 1);
+		break;
+	case HDMI_PATH:
+		aio_i2s_set_clock(aout->aio_hd, AIO_ID_HDMI_TX,
+			1, 0, 4, hdmi_apll_id, 1);
+		break;
+	default:
+		pr_err("unsuported path id %d\n", path);
+		break;
+	}
+}
+
 static int user_aout_setpath(struct aout_priv *aout,
 		u32 p1, u32 p2, u32 p3, u32 p4)
 {
@@ -867,6 +896,7 @@ static int user_aout_setpath(struct aout_priv *aout,
 					path_name);
 				goto error;
 			}
+			set_aio_clock(aout, i);
 		}
 	}
 	return 0;
@@ -925,6 +955,18 @@ static int user_aio_spdifi_sel(struct aout_priv *aout,
 	return 0;
 }
 
+static int user_aio_spdifi_set_srm(struct aout_priv *aout, u32 idx, u32 margin)
+{
+	aio_spdifi_set_srm(idx, margin);
+	return 0;
+}
+
+static int user_aio_spdifi_sw_reset(struct aout_priv *aout)
+{
+	aio_spdifi_sw_reset(aout->aio_hd);
+	return 0;
+}
+
 static struct function_table f_table[] = {
 	FUNC_ITEM(user_aout_hal_cleardhubchannel, 2),
 	FUNC_ITEM(user_aout_hal_clearintr, 2),
@@ -962,6 +1004,8 @@ static struct function_table f_table[] = {
 	FUNC_ITEM(user_aio_get_audio_counter, 1),
 	FUNC_ITEM(user_aio_get_audio_timestamp, 1),
 	FUNC_ITEM(user_aio_spdifi_sel, 2),
+	FUNC_ITEM(user_aio_spdifi_set_srm, 2),
+	FUNC_ITEM(user_aio_spdifi_sw_reset, 0),
 	FUNC_ITEM(aout_help, 0),
 };
 
@@ -1124,13 +1168,6 @@ static int aio_init(struct aout_priv *aout)
 	aio_set_clk_rate(aout->aio_hd, AIO_APLL_0, APLL_RATE_48K);
 	aio_clk_enable(aout->aio_hd, AIO_APLL_1, true);
 	aio_set_clk_rate(aout->aio_hd, AIO_APLL_1, APLL_RATE_48K);
-
-	aio_i2s_set_clock(aout->aio_hd, AIO_ID_PRI_TX,
-		1, 0, 4, AIO_APLL_0, 1);
-	aio_i2s_set_clock(aout->aio_hd, AIO_ID_SPDIF_TX,
-		 1, 0, 4, AIO_APLL_1, 1);
-	aio_i2s_set_clock(aout->aio_hd, AIO_ID_HDMI_TX,
-		 1, 0, 4, AIO_APLL_1, 1);
 	return 0;
 }
 
@@ -1733,6 +1770,7 @@ static int aout_probe(struct platform_device *pdev)
 	int ret;
 	struct aout_priv *aout;
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	dev_t pedev;
 
 	//Defer probe until dependent soc module/s are probed/initialized
@@ -1753,6 +1791,14 @@ static int aout_probe(struct platform_device *pdev)
 	aout->dev_name = dev_name(dev);
 	aout_trace("aout device name is %s\n", dev_name(dev));
 	aout->fops = &aout_ops;
+
+	ret = of_property_read_u32(np, "spdif-apll-id", &spdif_apll_id);
+	if (ret)
+		spdif_apll_id = 1;
+
+	ret = of_property_read_u32(np, "hdmi-apll-id", &hdmi_apll_id);
+	if (ret)
+		hdmi_apll_id = 1;
 
 	ret = drv_aout_config(pdev);
 	if (ret < 0)

@@ -146,7 +146,7 @@ static int syna_gem_alloc_buf(struct syna_gem_object *syna_obj, bool alloc_kmap)
 	if (!alloc_kmap)
 		syna_obj->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
 
-	syna_obj->dma_buf = ion_alloc(obj->size, nonSecurePoolID, ION_CACHED);
+	syna_obj->dma_buf = ion_alloc(obj->size, nonSecurePoolID, ION_NONCACHED);
 	if (IS_ERR(syna_obj->dma_buf)) {
 		DRM_ERROR("%s %d  ion alloc failed!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -318,7 +318,7 @@ int syna_gem_dumb_map_offset(struct drm_file *file,
 		goto exit_obj_unref;
 
 	*offset = drm_vma_node_offset_addr(&obj->vma_node);
-	DRM_INFO("%s (PID:%d) map handle(%d) to %llx\n", __func__,
+	DRM_DEBUG_PRIME("%s (PID:%d) map handle(%d) to %llx\n", __func__,
 		 current->pid, handle, *offset);
 exit_obj_unref:
 	drm_gem_object_put_unlocked(obj);

@@ -32,6 +32,11 @@
 #define MP8869_STATUS		0x06
 #define MP8869_MAX		(MP8869_STATUS + 1)
 
+#define MP886X_SYSCNTLREG2	0x02
+#define MP886X_DISCHARGE_MASK	(1 << 3)
+#define MP886X_DISCHARGE_ENABLE	(1 << 3)
+#define MP886X_DISCHARGE_DISABLE	0
+
 struct mp886x_cfg_info {
 	const struct regulator_ops *rops;
 	const int slew_rates[8];
@@ -190,6 +195,7 @@ static const struct regulator_ops mp8869_regulator_ops = {
 	.set_mode = mp886x_set_mode,
 	.get_mode = mp886x_get_mode,
 	.set_ramp_delay = mp886x_set_ramp,
+	.set_active_discharge = regulator_set_active_discharge_regmap,
 };
 
 static int mp8867_set_voltage_sel(struct regulator_dev *rdev, unsigned int sel)
@@ -265,6 +271,7 @@ static const struct regulator_ops mp8867_regulator_ops = {
 	.set_mode = mp886x_set_mode,
 	.get_mode = mp886x_get_mode,
 	.set_ramp_delay = mp886x_set_ramp,
+	.set_active_discharge = regulator_set_active_discharge_regmap,
 };
 
 static int mp886x_regulator_register(struct mp886x_device_info *di,
@@ -285,6 +292,10 @@ static int mp886x_regulator_register(struct mp886x_device_info *di,
 	rdesc->vsel_reg = MP886X_VSEL;
 	rdesc->vsel_mask = 0x3f;
 	rdesc->vsel_step = di->vsel_step;
+	rdesc->active_discharge_reg = MP886X_SYSCNTLREG2;
+	rdesc->active_discharge_mask = MP886X_DISCHARGE_MASK;
+	rdesc->active_discharge_on = MP886X_DISCHARGE_ENABLE;
+	rdesc->active_discharge_off = MP886X_DISCHARGE_DISABLE;
 	rdesc->owner = THIS_MODULE;
 
 	rdev = devm_regulator_register(di->dev, &di->desc, config);

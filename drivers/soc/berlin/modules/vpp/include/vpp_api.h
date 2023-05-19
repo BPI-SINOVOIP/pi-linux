@@ -18,7 +18,8 @@ typedef void *SHM_HANDLE;
 typedef struct vpp_config_params {
 	u32 frame_rate;
 	u32 frame_size_ndx;
-	u32 disp_res_ndx;
+	int disp_res_id;
+	int disp_out_type;
 	u32 fb_count;
 	int enable_frame_buf_copy;
 	CallbackHandler callback;

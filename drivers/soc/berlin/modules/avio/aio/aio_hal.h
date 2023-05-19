@@ -20,6 +20,7 @@ enum aio_id {
 	AIO_ID_MIC5_RX = 7,
 	AIO_ID_MIC6_RX = 8,
 	AIO_ID_PDM_RX = 9,
+	AIO_ID_MAX_NUM = 10,
 };
 #define AIO_ID_MIC_RX (AIO_ID_MIC1_RX)
 
@@ -52,6 +53,7 @@ enum aio_div {
 	AIO_DIV128	= 0x7
 };
 
+/* Channel resolution (number of valid bits in a half period of FSYNC) */
 enum aio_dfm {
 	AIO_16DFM = 0,
 	AIO_18DFM,
@@ -61,6 +63,7 @@ enum aio_dfm {
 	AIO_8DFM,
 };
 
+/* Half period of FSYNC (sampling rate) in terms of number of bit-clocks */
 enum aio_cfm {
 	AIO_16CFM = 0,
 	AIO_24CFM,
@@ -71,6 +74,7 @@ enum aio_cfm {
 enum aio_apll {
 	AIO_APLL_0 = 0,
 	AIO_APLL_1,
+	AIO_APLL_NUM
 };
 
 enum aio_audio_time_stamp {
@@ -105,12 +109,38 @@ enum aio_sw_rst_option {
 	AIO_SW_RST_MIC6,
 };
 
+enum aio_i2s_clk_id {
+	AIO_I2S_I2S1_MCLK = 0,
+	AIO_I2S_I2S3_BCLK = 1,
+	AIO_I2S_I2S3_LRCK = 2,
+	AIO_PDM_CLK = 3,
+	AIO_I2S_MAX_NUM = 4,
+};
+
+/* AIO_XXX_ACLK_CTRL.clkSel */
+enum aio_clk_sel {
+	AIO_CLK_SEL_D2 = 1,
+	AIO_CLK_SEL_D4,
+	AIO_CLK_SEL_D6,
+	AIO_CLK_SEL_D8,
+	AIO_CLK_SEL_D12,
+};
+
+/* AIO_XXX_ACLK_CTRL.clkD3Switch */
+enum aio_clk_d3_switch {
+	AIO_CLK_D3_SWITCH_NOR = 0,
+	AIO_CLK_D3_SWITCH_ON = 1,
+};
+
 /* for I2S/TDM AUD_CTRL */
 struct aud_ctrl {
 	u32 chcnt;
 
-	u32 width_word;
-	u32 width_sample;
+	/* sample resolution (number of valid bits in a half period of FSYNC) */
+	u32 sample_resolution;
+
+	/* half period of FSYNC (sampling rate) in terms of number of bit-clocks */
+	u32 sample_period_in_bclk;
 
 	/* decide the delay cycles in bit clock for
 	 * data sent/received when fs is valid to transition.
@@ -132,9 +162,12 @@ void *open_aio(const char *name);
 int close_aio(void *hd);
 int aio_clk_enable(void *hd, u32 clk_idx, bool en);
 int aio_set_clk_rate(void *hd, u32 clk_idx, unsigned long rate);
+int aio_set_i2s_clk_enable(void *hd, u32 clk_idx, bool enable);
 unsigned long aio_get_clk_rate(void *hd, u32 clk_idx);
 bool aio_get_aud_ch_en(void *hd, u32 id, u32 tsd);
 void aio_set_aud_ch_en(void *hd, u32 id, u32 tsd, bool enable);
+void aio_set_i2s_ch_en(u32 id, bool enable);
+bool aio_get_i2s_ch_en(u32 id);
 void aio_set_aud_ch_mute(void *hd, u32 id, u32 tsd, u32 mute);
 void aio_set_aud_ch_flush(void *hd, u32 id, u32 tsd, u32 flush);
 void aio_set_ctl(void *hd, u32 id, u32 data_fmt,
@@ -158,12 +191,14 @@ int aio_selhdport(void *hd, u32 sel);
 int aio_setclkdiv(void *hd, u32 id, u32 div);
 int aio_i2s_set_clock(void *hd, u32 id, u32 clkSwitch,
 	 u32 clkD3Switch, u32 clkSel, u32 pllUsed, u32 en);
+int aio_i2s_clk_sync_reset(void *hd, u32 id);
 int aio_set_pdmmicsel(void *hd, u32 sel);
 int aio_set_ctl_ext(void *hd, u32 id, struct aud_ctrl *ctrl);
 int aio_set_bclk_sel(void *hd, u32 id, u32 sel);
 int aio_set_bclk_inv(void *hd, u32 id, u32 inv);
 int aio_set_fsync(void *hd, u32 id, u32 sel, u32 inv);
 int aio_set_mic1_mm_mode(void *hd, u32 en);
+int aio_set_mic1_ws_prd(void *hd, u32 highP, u32 TotalP, u32 wsInv);
 int aio_set_mic_intlmode(void *hd, u32 id, u32 tsd, u32 en);
 int aio_set_slave_mode(void *hd, u32 id, u32 mod);
 u32 aio_get_tsd_from_chid(void *hd, u32 chid);

@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/cpu.h>
 #include <linux/smp.h>
+#include <linux/nmi.h>
 #include <linux/seq_file.h>
 #include <linux/irq.h>
 #include <linux/irqchip/arm-gic-v3.h>
@@ -77,7 +78,8 @@ enum ipi_msg_type {
 	IPI_TIMER,
 	IPI_IRQ_WORK,
 	IPI_WAKEUP,
-	NR_IPI
+	IPI_CPU_BACKTRACE,
+	NR_IPI,
 };
 
 static int ipi_irq_base __read_mostly;
@@ -782,6 +784,7 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
 	S(IPI_TIMER, "Timer broadcast interrupts"),
 	S(IPI_IRQ_WORK, "IRQ work interrupts"),
 	S(IPI_WAKEUP, "CPU wake-up interrupts"),
+	S(IPI_CPU_BACKTRACE, "CPU dump trace interrupts"),
 };
 
 static void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
@@ -924,6 +927,12 @@ static void do_handle_IPI(int ipinr)
 			  cpu);
 		break;
 #endif
+
+	case IPI_CPU_BACKTRACE:
+		printk_nmi_enter();
+		nmi_cpu_backtrace(get_irq_regs());
+		printk_nmi_exit();
+		break;
 
 	default:
 		pr_crit("CPU%u: Unknown IPI message 0x%x\n", cpu, ipinr);
@@ -1119,4 +1128,12 @@ bool cpus_are_stuck_in_kernel(void)
 	bool smp_spin_tables = (num_possible_cpus() > 1 && !have_cpu_die());
 
 	return !!cpus_stuck_in_kernel || smp_spin_tables;
+}
+static void raise_nmi(cpumask_t *mask)
+{
+	__ipi_send_mask(ipi_desc[IPI_CPU_BACKTRACE], mask);
+}
+void arch_trigger_cpumask_backtrace(const cpumask_t *mask, bool exclude_self)
+{
+	nmi_trigger_cpumask_backtrace(mask, exclude_self, raise_nmi);
 }

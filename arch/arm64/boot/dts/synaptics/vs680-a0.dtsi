@@ -239,6 +239,7 @@
 			reg = <0xf74b8000 0x418>;
 			interrupt-controller;
 			#interrupt-cells = <1>;
+			#address-cells = <0>;
 		};
 
 		aout: aout@f74ac000 {
@@ -249,12 +250,12 @@
 			status = "disabled";
 		};
 
-		i2s_spdif: i2s-spidf {
-			compatible = "syna,vs680-i2s-spdif";
+		i2s_pri: i2s-pri {
+			compatible = "syna,vs680-i2s-pri";
 			status = "disabled";
 			interrupt-parent = <&dhubctr_a>;
-			interrupts = <0>, <14>;
-			interrupt-names = "pri", "spdifo";
+			interrupts = <0>;
+			interrupt-names = "pri";
 		};
 
 		i2s_sec: i2s-sec {
@@ -262,6 +263,14 @@
 			status = "disabled";
 			interrupt-parent = <&dhubctr_a>;
 			interrupts = <2>;
+		};
+
+		spdif_out: spdif-out {
+			compatible = "syna,vs680-spdifo";
+			status = "disabled";
+			interrupt-parent = <&dhubctr_a>;
+			interrupts = <14>;
+			interrupt-names = "spdifo";
 		};
 
 		i2s_mic1: i2s-mic1 {
@@ -373,6 +382,7 @@
 		gic: interrupt-controller@f7901000 {
 			compatible = "arm,gic-400";
 			#interrupt-cells = <3>;
+			#address-cells = <0>;
 			interrupt-controller;
 			reg = <0xf7901000 0x1000>,
 			      <0xf7902000 0x2000>,
@@ -688,6 +698,7 @@
 					reg = <0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;
+					#address-cells = <0>;
 					interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
 				};
 			};
@@ -706,6 +717,7 @@
 					reg = <0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;
+					#address-cells = <0>;
 					interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
 				};
 			};
@@ -779,6 +791,7 @@
 					reg = <0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;
+					#address-cells = <0>;
 					interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
 				};
 			};
@@ -879,6 +892,7 @@
 				reg = <0x1000 0x30>;
 				interrupt-controller;
 				#interrupt-cells = <1>;
+				#address-cells = <0>;
 				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
 			};
@@ -1015,8 +1029,6 @@
 		fb: fb {
 			compatible = "marvell,berlin-fb";
 			frame-size-ndx = <1>;
-			disp-res-ndx = <1>;
-			frame-rate = <60>;
 			status = "disabled";
 		};
 	};

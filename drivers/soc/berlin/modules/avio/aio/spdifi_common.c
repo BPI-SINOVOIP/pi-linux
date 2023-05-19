@@ -29,6 +29,13 @@ struct spdifi_sample_rate_margin *aio_spdifi_get_srm(u32 idx)
 }
 EXPORT_SYMBOL(aio_spdifi_get_srm);
 
+void aio_spdifi_set_srm(u32 idx, u32 margin)
+{
+	spdifi_srm[idx].config_value = margin;
+	pr_debug("%s: idx:%d, margin:0x%08x\n", __func__, idx, margin);
+}
+EXPORT_SYMBOL(aio_spdifi_set_srm);
+
 static u32 fs_map(u32 fs)
 {
 	switch (fs) {
@@ -266,7 +273,7 @@ int aio_spdifi_config(void *hd, u32 fs, u32 width)
 			i + 1, addr, aio_read(aio, addr));
 	}
 	/* follow diag code, wait clock lock */
-	ret = aio_spdifi_wait_lock(aio, 10000);
+	ret = aio_spdifi_wait_lock(aio, 2000);
 	return ret;
 }
 EXPORT_SYMBOL(aio_spdifi_config);
@@ -283,6 +290,23 @@ void aio_spdifi_config_reset(void *hd)
 	aio_spdifi_enable_sysclk(hd, false);
 }
 EXPORT_SYMBOL(aio_spdifi_config_reset);
+
+void aio_spdifi_sw_reset(void *hd)
+{
+	struct aio_priv *aio = hd_to_aio(hd);
+	u32 address;
+	T32AIO_SW_RST reg;
+
+	address = RA_AIO_SW_RST;
+	reg.u32 = aio_read(aio, address);
+	reg.uSW_RST_SPFRX = 0;
+	aio_write(aio, address, reg.u32);
+	usleep_range(1000, 1010);
+	reg.uSW_RST_SPFRX = 1;
+	aio_write(aio, address, reg.u32);
+	pr_debug("%s: reg: 0x%08x\n", __func__, aio_read(aio, address));
+}
+EXPORT_SYMBOL(aio_spdifi_sw_reset);
 
 void aio_spdifi_src_sel(void *hd, u32 clk_sel, u32 data_sel)
 {

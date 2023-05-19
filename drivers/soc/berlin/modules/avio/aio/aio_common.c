@@ -2,6 +2,7 @@
 /* Copyright (C) 2019-2020 Synaptics Incorporated */
 #include "aio_common.h"
 #include "aio_hal.h"
+#include "avioGbl.h"
 
 struct aio_priv *hd_to_aio(void *hd)
 {
@@ -38,6 +39,36 @@ void aio_write(struct aio_priv *aio, u32 offset, u32 val)
 		return;
 	}
 	writel_relaxed(val, aio->pbase + offset);
+}
+
+int aio_read_gbl(struct aio_priv *aio, u32 offset)
+{
+	if (unlikely(!aio->gbl_base)) {
+		pr_err("%s, aio->gbl_base NULL\n", __func__);
+		return 0;
+	}
+
+	if (unlikely(offset > resource_size(&aio->gbl_res))) {
+		pr_err("%s, aio glb address %x out of range %llx",
+			__func__, offset, resource_size(&aio->gbl_res));
+		return 0;
+	}
+	return readl_relaxed(aio->gbl_base + offset);
+}
+
+void aio_write_gbl(struct aio_priv *aio, u32 offset, u32 val)
+{
+	if (unlikely(!aio->gbl_base)) {
+		pr_err("%s, aio->gbl_base NULL\n", __func__);
+		return;
+	}
+
+	if (unlikely(offset > resource_size(&aio->gbl_res))) {
+		pr_err("%s, aio glb address %x out of range %llx",
+			__func__, offset, resource_size(&aio->gbl_res));
+		return;
+	}
+	writel_relaxed(val, aio->gbl_base + offset);
 }
 
 void *open_aio(const char *name)
@@ -142,6 +173,39 @@ int aio_set_clk_rate(void *hd, u32 clk_idx, unsigned long rate)
 	return 0;
 }
 EXPORT_SYMBOL(aio_set_clk_rate);
+
+int aio_set_i2s_clk_enable(void *hd, u32 clk_idx, bool enable)
+{
+	struct aio_handle *handle = hd;
+	struct aio_priv *aio = hd_to_aio(hd);
+	T32avioGbl_CTRL1 reg;
+
+	pr_info("%s: %s (clk_idx:%d, enable:%d)\n", handle->name, __func__, clk_idx, enable);
+
+	reg.u32 = aio_read_gbl(aio, RA_avioGbl_CTRL1);
+
+	switch (clk_idx) {
+	case AIO_I2S_I2S1_MCLK:
+		reg.uCTRL1_I2S1_MCLK_OEN = enable;
+		break;
+	case AIO_I2S_I2S3_BCLK:
+		reg.uCTRL1_I2S3_BCLK_OEN = enable;
+		break;
+	case AIO_I2S_I2S3_LRCK:
+		reg.uCTRL1_I2S3_LRCLK_OEN  = enable;
+		break;
+	case AIO_PDM_CLK:
+		reg.uCTRL1_PDM_CLK_OEN  = enable;
+		break;
+	default:
+		pr_err("clk_idx(%d) not support %s\n", clk_idx, __func__);
+		return -EINVAL;
+	}
+
+	aio_write_gbl(aio, RA_avioGbl_CTRL1, reg.u32);
+	return 0;
+}
+EXPORT_SYMBOL(aio_set_i2s_clk_enable);
 
 unsigned long aio_get_clk_rate(void *hd, u32 clk_idx)
 {

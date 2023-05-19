@@ -35,6 +35,7 @@
 #define VPP_IOCTL_SET_CLK_RATE              0xbeef0011
 #define VPP_IOCTL_GET_VSYNC1                0xbeef0012
 #define HDMITX_IOCTL_SET_5V_STATE           0xbeef0013
+#define VPP_IOCTL_SET_DISPLAY_MODE          0xbeef0014
 #define VPP_IOCTL_START                     VPP_IOCTL_VBI_DMA_CFGQ
 #define VPP_IOCTL_END                       HDMITX_IOCTL_SET_5V_STATE
 

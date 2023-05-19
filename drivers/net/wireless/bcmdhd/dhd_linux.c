@@ -2170,6 +2170,9 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	int intr_width = 0;
 #endif /* CUSTOM_INTR_WIDTH */
 #endif /* DYNAMIC_SWOOB_DURATION */
+#ifdef DHD_WOWL_IN_SUSPEND
+	int wowl_var = 0;
+#endif /* DHD_WOWL_IN_SUSPEND */
 
 #if defined(DHD_BCN_TIMEOUT_IN_SUSPEND) && defined(DHD_USE_EARLYSUSPEND)
 	/* CUSTOM_BCN_TIMEOUT_IN_SUSPEND in suspend, otherwise CUSTOM_BCN_TIMEOUT */
@@ -2240,6 +2243,24 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				 * one side effect is a chance to miss BC/MC packet.
 				 */
 				dhd_set_suspend_bcn_li_dtim(dhd, TRUE);
+
+#ifdef DHD_WOWL_IN_SUSPEND
+				wowl_var = 1;
+				ret = dhd_iovar(dhd, 0, "wowl", (char *)&wowl_var,
+						sizeof(wowl_var), NULL, 0, TRUE);
+				if (ret < 0) {
+					DHD_ERROR(("%s wowl_var failed %d\n", __FUNCTION__,
+						ret));
+				}
+				wowl_var = 1;
+				ret = dhd_iovar(dhd, 0, "wowl_activate", (char *)&wowl_var,
+						sizeof(wowl_var), NULL, 0, TRUE);
+				if (ret < 0) {
+					DHD_ERROR(("%s wowl_var failed %d\n", __FUNCTION__,
+						ret));
+				}
+#endif /* DHD_WOWL_IN_SUSPEND */
+
 #ifdef DHD_USE_EARLYSUSPEND
 #ifdef DHD_BCN_TIMEOUT_IN_SUSPEND
 				bcn_timeout = CUSTOM_BCN_TIMEOUT_IN_SUSPEND;
@@ -2399,6 +2420,24 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 #endif /* PASS_ALL_MCAST_PKTS */
 				/* restore pre-suspend setting for dtim_skip */
 				dhd_set_suspend_bcn_li_dtim(dhd, FALSE);
+
+#ifdef DHD_WOWL_IN_SUSPEND
+				wowl_var = 1;
+				ret = dhd_iovar(dhd, 0, "wowl_clear", (char *)&wowl_var,
+						sizeof(wowl_var), NULL, 0, TRUE);
+				if (ret < 0) {
+					DHD_ERROR(("%s wowl_var failed %d\n", __FUNCTION__,
+						ret));
+				}
+				wowl_var = 0;
+				ret = dhd_iovar(dhd, 0, "wowl", (char *)&wowl_var,
+						sizeof(wowl_var), NULL, 0, TRUE);
+				if (ret < 0) {
+					DHD_ERROR(("%s wowl_var failed %d\n", __FUNCTION__,
+						ret));
+				}
+#endif /* DHD_WOWL_IN_SUSPEND */
+
 #ifdef DHD_USE_EARLYSUSPEND
 #ifdef DHD_BCN_TIMEOUT_IN_SUSPEND
 				bcn_timeout = CUSTOM_BCN_TIMEOUT;
@@ -16872,6 +16911,11 @@ dhd_set_suspend_bcn_li_dtim(dhd_pub_t *dhd, bool set_suspend)
 #ifdef ENABLE_BCN_LI_BCN_WAKEUP
 	int bcn_li_bcn = 1;
 #endif /* ENABLE_BCN_LI_BCN_WAKEUP */
+
+#ifdef DHD_WOWL_IN_SUSPEND
+	/* WoWL Magic Frame is broadcast, so Skip dtim can't Rx WoWL frames. */
+	return BCME_OK;
+#endif /* DHD_WOWL_IN_SUSPEND */
 
 	if (set_suspend) {
 #ifdef WLTDLS

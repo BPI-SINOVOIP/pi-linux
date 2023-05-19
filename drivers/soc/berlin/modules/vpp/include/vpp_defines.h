@@ -319,6 +319,8 @@ typedef enum {
 	CPCB_INVALID	= -1,
 	FIRST_CPCB	= 0,
 	CPCB_1		= 0,
+	CPCB_2		= 1,
+
 	MAX_NUM_CPCBS
 } ENUM_CPCB_ID;
 /* definition of alpha polarity */

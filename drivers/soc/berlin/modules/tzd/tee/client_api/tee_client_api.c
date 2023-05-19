@@ -232,8 +232,10 @@ void TEEC_ReleaseSharedMemory(
 	sharedMem->buffer = NULL;
 	sharedMem->phyAddr = NULL;
 	sharedMem->size = 0;
-	sharedMem->context->sharedMemCount--;
-	sharedMem->context = NULL;
+	if (sharedMem->context) {
+		sharedMem->context->sharedMemCount--;
+		sharedMem->context = NULL;
+	}
 }
 
 TEEC_Result TEEC_OpenSession (

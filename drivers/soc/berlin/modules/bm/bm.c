@@ -255,7 +255,7 @@ static int create_pte(struct dma_buf *dmabuf, u32 flags,
 		 * return normal kernel error code instead of
 		 * TEEC error code directly
 		 */
-		ret = -EACCES;
+		ret = -EINVAL;
 	}
 	pr_debug("pt constructed %llx %llx", pt_param->phy_addr, pt_param->mem_id);
 	return ret;

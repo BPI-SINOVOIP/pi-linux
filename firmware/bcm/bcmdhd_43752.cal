@@ -196,7 +196,9 @@ ltecxfnsel=0x44
 ltecxgcigpio=0x04
 #OOB params
 #device_wake_opt=1
-host_wake_opt=0
+host_wake_opt=1
+wowl_gpio=0
+wowl_gpiopol=1
 
 # SWCTRL Related
 
@@ -215,7 +217,7 @@ clb5gslice1core1=0x000
 btc_prisel_ant_mask=0x2
 clb_swctrl_smask_ant0=0x27f
 clb_swctrl_smask_ant1=0x2f7
-muxenab=1
+muxenab=3
 
 #BT Coex 1:TDM
 btc_mode=1
