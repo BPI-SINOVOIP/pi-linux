@@ -6,6 +6,7 @@
 #include <dt-bindings/pinctrl/rockchip.h>
 #include <dt-bindings/soc/rockchip,vop2.h>
 #include "rk3566.dtsi"
+#include <dt-bindings/leds/common.h>
 
 / {
 	model = "Pine64 RK3566 Quartz64-B Board";
@@ -45,9 +46,9 @@
 
 		led-user {
 			label = "user-led";
-			default-state = "on";
 			gpios = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc0";
 			pinctrl-names = "default";
 			pinctrl-0 = <&user_led_enable_h>;
 			retain-state-suspended;
@@ -145,6 +146,14 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		vin-supply = <&vcc5v0_sys>;
+	};
+
+	ir-receiver {
+		compatible = "gpio-ir-receiver";
+		gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&ir_int>;
+		linux,rc-map-name = "rc-beelink-gs1";
+		status = "okay";
 	};
 };
 
@@ -290,7 +299,7 @@
 				regulator-name = "vdd_gpu";
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <900000>;
+				regulator-min-microvolt = <825000>;
 				regulator-max-microvolt = <1350000>;
 				regulator-init-microvolt = <900000>;
 				regulator-ramp-delay = <6001>;
@@ -575,6 +584,12 @@
 
 		vcc5v0_usb_otg_en_h: vcc5v0-usb-otg-en_h {
 			rockchip,pins = <0 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	ir {
+		ir_int: ir-int {
+			rockchip,pins = <3 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };

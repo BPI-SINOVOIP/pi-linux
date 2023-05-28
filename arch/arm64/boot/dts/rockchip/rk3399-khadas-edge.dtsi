@@ -166,7 +166,8 @@
 
 		user_led: led-1 {
 			label = "user_led";
-			default-state = "off";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc0";
 			gpios = <&gpio4 RK_PD0 GPIO_ACTIVE_HIGH>;
 		};
 	};

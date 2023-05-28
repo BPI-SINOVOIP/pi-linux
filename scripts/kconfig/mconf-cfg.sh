@@ -24,14 +24,14 @@ fi
 # Check the default paths in case pkg-config is not installed.
 # (Even if it is installed, some distributions such as openSUSE cannot
 # find ncurses by pkg-config.)
-if [ -f /usr/include/ncursesw/ncurses.h ]; then
-	echo -D_GNU_SOURCE -I/usr/include/ncursesw > ${cflags}
+if [ -f //home/minimyth/minimyth2/images/build/usr/include/ncursesw/ncurses.h ]; then
+	echo -D_GNU_SOURCE -I//home/minimyth/minimyth2/images/build/usr/include/ncursesw > ${cflags}
 	echo -lncursesw > ${libs}
 	exit 0
 fi
 
-if [ -f /usr/include/ncurses/ncurses.h ]; then
-	echo -D_GNU_SOURCE -I/usr/include/ncurses > ${cflags}
+if [ -f //home/minimyth/minimyth2/images/build/usr/include/ncurses/ncurses.h ]; then
+	echo -D_GNU_SOURCE -I//home/minimyth/minimyth2/images/build/usr/include/ncurses > ${cflags}
 	echo -lncurses > ${libs}
 	exit 0
 fi

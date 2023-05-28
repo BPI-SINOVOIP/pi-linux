@@ -17,6 +17,16 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
+	ac200_pwm_clk: ac200_clk {
+		compatible = "pwm-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm1_pin>;
+		pwms = <&pwm 1 42 0>;
+		status = "disabled";
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -89,6 +99,13 @@
 		method = "smc";
 	};
 
+	scpi_protocol: scpi {
+		compatible = "arm,scpi";
+		mboxes = <&msgbox 2>, <&msgbox 3>;
+		mbox-names = "tx", "rx";
+		shmem = <&scpi_sram>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		arm,no-tick-in-suspend;
@@ -100,6 +117,24 @@
 			(GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>,
 			     <GIC_PPI 10
 			(GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>;
+	};
+
+	sound_hdmi: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "HDMI";
+		simple-audio-card,mclk-fs = <128>;
+		simple-audio-card,frame-inversion;
+
+		simple-audio-card,codec {
+			sound-dai = <&hdmi>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1>;
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <32>;
+		};
 	};
 
 	soc {
@@ -164,6 +199,18 @@
 			iommus = <&iommu 5>;
 		};
 
+		deinterlace: deinterlace@1420000 {
+			compatible = "allwinner,sun50i-h6-deinterlace";
+			reg = <0x01420000 0x2000>;
+			clocks = <&ccu CLK_BUS_DEINTERLACE>,
+				 <&ccu CLK_DEINTERLACE>,
+				 <&ccu CLK_MBUS_DEINTERLACE>;
+			clock-names = "bus", "mod", "ram";
+			resets = <&ccu RST_BUS_DEINTERLACE>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+			iommus = <&iommu 2>;
+		};
+
 		video-codec@1c0e000 {
 			compatible = "allwinner,sun50i-h6-video-engine";
 			reg = <0x01c0e000 0x2000>;
@@ -173,7 +220,7 @@
 			resets = <&ccu RST_BUS_VE>;
 			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 			allwinner,sram = <&ve_sram 1>;
-			iommus = <&iommu 3>;
+			iommus = <&iommu 1>, <&iommu 3>;
 		};
 
 		gpu: gpu@1800000 {
@@ -207,6 +254,19 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
+
+			sram_a2: sram@100000 {
+				compatible = "mmio-sram";
+				reg = <0x00100000 0x18000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0 0x00100000 0x18000>;
+
+				scpi_sram: scpi-sram@17c00 {
+					compatible = "arm,scp-shmem";
+					reg = <0x17c00 0x200>;
+				};
+			};
 
 			sram_c: sram@28000 {
 				compatible = "mmio-sram";
@@ -242,6 +302,7 @@
 			reg = <0x03001000 0x1000>;
 			clocks = <&osc24M>, <&rtc CLK_OSC32K>, <&rtc CLK_IOSC>;
 			clock-names = "hosc", "losc", "iosc";
+			protected-clocks = <CLK_BUS_MSGBOX>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
 		};
@@ -280,6 +341,10 @@
 
 			cpu_speed_grade: cpu-speed-grade@1c {
 				reg = <0x1c 0x4>;
+			};
+
+			ephy_calib: ephy_calib@2c {
+				reg = <0x2c 0x2>;
 			};
 		};
 
@@ -335,6 +400,13 @@
 				drive-strength = <40>;
 			};
 
+			ext_rmii_pins: rmii_pins {
+				pins = "PA0", "PA1", "PA2", "PA3", "PA4",
+				       "PA5", "PA6", "PA7", "PA8", "PA9";
+				function = "emac";
+				drive-strength = <40>;
+			};
+
 			hdmi_pins: hdmi-pins {
 				pins = "PH8", "PH9", "PH10";
 				function = "hdmi";
@@ -353,6 +425,11 @@
 			i2c2_pins: i2c2-pins {
 				pins = "PD23", "PD24";
 				function = "i2c2";
+			};
+
+			i2c3_pins: i2c3-pins {
+				pins = "PB17", "PB18";
+				function = "i2c3";
 			};
 
 			mmc0_pins: mmc0-pins {
@@ -379,6 +456,11 @@
 				function = "mmc2";
 				drive-strength = <30>;
 				bias-pull-up;
+			};
+
+			pwm1_pin: pwm1-pin {
+				pins = "PB19";
+				function = "pwm1";
 			};
 
 			/omit-if-no-ref/
@@ -614,6 +696,31 @@
 			#size-cells = <0>;
 		};
 
+		i2c3: i2c@5002c00 {
+			compatible = "allwinner,sun6i-a31-i2c";
+			reg = <0x05002c00 0x400>;
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ccu CLK_BUS_I2C3>;
+			resets = <&ccu RST_BUS_I2C3>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c3_pins>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ac200: mfd@10 {
+				compatible = "x-powers,ac200";
+				reg = <0x10>;
+				clocks = <&ac200_pwm_clk>;
+
+				ac200_ephy: phy {
+					compatible = "x-powers,ac200-ephy";
+					nvmem-cells = <&ephy_calib>;
+					nvmem-cell-names = "ephy_calib";
+				};
+			};
+		};
+
 		emac: ethernet@5020000 {
 			compatible = "allwinner,sun50i-h6-emac",
 				     "allwinner,sun50i-a64-emac";
@@ -644,7 +751,6 @@
 			dmas = <&dma 4>, <&dma 4>;
 			resets = <&ccu RST_BUS_I2S1>;
 			dma-names = "rx", "tx";
-			status = "disabled";
 		};
 
 		spdif: spdif@5093000 {
@@ -781,6 +887,7 @@
 		};
 
 		hdmi: hdmi@6000000 {
+			#sound-dai-cells = <0>;
 			compatible = "allwinner,sun50i-h6-dw-hdmi";
 			reg = <0x06000000 0x10000>;
 			reg-io-width = <1>;
@@ -937,6 +1044,7 @@
 			clocks = <&osc24M>, <&rtc CLK_OSC32K>, <&rtc CLK_IOSC>,
 				 <&ccu CLK_PLL_PERIPH0>;
 			clock-names = "hosc", "losc", "iosc", "pll-periph";
+			protected-clocks = <CLK_R_APB1_TWD>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
 		};

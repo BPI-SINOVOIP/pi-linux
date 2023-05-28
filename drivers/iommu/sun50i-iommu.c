@@ -108,7 +108,6 @@ struct sun50i_iommu {
 
 	struct iommu_domain *domain;
 	struct iommu_group *group;
-	struct kmem_cache *pt_pool;
 };
 
 struct sun50i_iommu_domain {
@@ -449,6 +448,8 @@ static int sun50i_iommu_enable(struct sun50i_iommu *iommu)
 		    IOMMU_TLB_PREFETCH_MASTER_ENABLE(3) |
 		    IOMMU_TLB_PREFETCH_MASTER_ENABLE(4) |
 		    IOMMU_TLB_PREFETCH_MASTER_ENABLE(5));
+	iommu_write(iommu, 0x84, 0);
+	iommu_write(iommu, 0x30, 0);
 	iommu_write(iommu, IOMMU_INT_ENABLE_REG, IOMMU_INT_MASK);
 	iommu_write(iommu, IOMMU_DM_AUT_CTRL_REG(SUN50I_IOMMU_ACI_NONE),
 		    IOMMU_DM_AUT_CTRL_RD_UNAVAIL(SUN50I_IOMMU_ACI_NONE, 0) |
@@ -523,14 +524,15 @@ static void *sun50i_iommu_alloc_page_table(struct sun50i_iommu *iommu,
 	dma_addr_t pt_dma;
 	u32 *page_table;
 
-	page_table = kmem_cache_zalloc(iommu->pt_pool, gfp);
+	page_table = (u32 *)__get_free_pages(GFP_KERNEL | __GFP_ZERO | GFP_DMA32,
+					     get_order(PT_SIZE));
 	if (!page_table)
 		return ERR_PTR(-ENOMEM);
 
 	pt_dma = dma_map_single(iommu->dev, page_table, PT_SIZE, DMA_TO_DEVICE);
 	if (dma_mapping_error(iommu->dev, pt_dma)) {
 		dev_err(iommu->dev, "Couldn't map L2 Page Table\n");
-		kmem_cache_free(iommu->pt_pool, page_table);
+		free_pages((unsigned long)page_table, get_order(PT_SIZE));
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -546,7 +548,7 @@ static void sun50i_iommu_free_page_table(struct sun50i_iommu *iommu,
 	phys_addr_t pt_phys = virt_to_phys(page_table);
 
 	dma_unmap_single(iommu->dev, pt_phys, PT_SIZE, DMA_TO_DEVICE);
-	kmem_cache_free(iommu->pt_pool, page_table);
+	free_pages((unsigned long)page_table, get_order(PT_SIZE));
 }
 
 static u32 *sun50i_dte_get_page_table(struct sun50i_iommu_domain *sun50i_domain,
@@ -593,9 +595,11 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
 {
 	struct sun50i_iommu_domain *sun50i_domain = to_sun50i_domain(domain);
 	struct sun50i_iommu *iommu = sun50i_domain->iommu;
-	u32 pte_index;
+	u32 pte_index, pages, i;
 	u32 *page_table, *pte_addr;
 	int ret = 0;
+
+	pages = size / SPAGE_SIZE;
 
 	page_table = sun50i_dte_get_page_table(sun50i_domain, iova, gfp);
 	if (IS_ERR(page_table)) {
@@ -604,18 +608,21 @@ static int sun50i_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	}
 
 	pte_index = sun50i_iova_get_pte_index(iova);
-	pte_addr = &page_table[pte_index];
-	if (unlikely(sun50i_pte_is_page_valid(*pte_addr))) {
-		phys_addr_t page_phys = sun50i_pte_get_page_address(*pte_addr);
-		dev_err(iommu->dev,
-			"iova %pad already mapped to %pa cannot remap to %pa prot: %#x\n",
-			&iova, &page_phys, &paddr, prot);
-		ret = -EBUSY;
-		goto out;
+	for (i = 0; i < pages; i++) {
+		pte_addr = &page_table[pte_index + i];
+		if (unlikely(sun50i_pte_is_page_valid(*pte_addr))) {
+			phys_addr_t page_phys = sun50i_pte_get_page_address(*pte_addr);
+			dev_err(iommu->dev,
+				"iova %pad already mapped to %pa cannot remap to %pa prot: %#x\n",
+				&iova, &page_phys, &paddr, prot);
+			ret = -EBUSY;
+			goto out;
+		}
+		*pte_addr = sun50i_mk_pte(paddr, prot);
+		paddr += SPAGE_SIZE;
 	}
 
-	*pte_addr = sun50i_mk_pte(paddr, prot);
-	sun50i_table_flush(sun50i_domain, pte_addr, 1);
+	sun50i_table_flush(sun50i_domain, &page_table[pte_index], pages);
 
 out:
 	return ret;
@@ -626,8 +633,10 @@ static size_t sun50i_iommu_unmap(struct iommu_domain *domain, unsigned long iova
 {
 	struct sun50i_iommu_domain *sun50i_domain = to_sun50i_domain(domain);
 	phys_addr_t pt_phys;
+	u32 dte, pages, i;
 	u32 *pte_addr;
-	u32 dte;
+
+	pages = size / SPAGE_SIZE;
 
 	dte = sun50i_domain->dt[sun50i_iova_get_dte_index(iova)];
 	if (!sun50i_dte_is_pt_valid(dte))
@@ -636,13 +645,14 @@ static size_t sun50i_iommu_unmap(struct iommu_domain *domain, unsigned long iova
 	pt_phys = sun50i_dte_get_pt_address(dte);
 	pte_addr = (u32 *)phys_to_virt(pt_phys) + sun50i_iova_get_pte_index(iova);
 
-	if (!sun50i_pte_is_page_valid(*pte_addr))
-		return 0;
+	for (i = 0; i < pages; i++)
+		if (!sun50i_pte_is_page_valid(pte_addr[i]))
+			return 0;
 
-	memset(pte_addr, 0, sizeof(*pte_addr));
-	sun50i_table_flush(sun50i_domain, pte_addr, 1);
+	memset(pte_addr, 0, sizeof(*pte_addr) * pages);
+	sun50i_table_flush(sun50i_domain, pte_addr, pages);
 
-	return SZ_4K;
+	return size;
 }
 
 static phys_addr_t sun50i_iommu_iova_to_phys(struct iommu_domain *domain,
@@ -679,7 +689,7 @@ static struct iommu_domain *sun50i_iommu_domain_alloc(unsigned type)
 	if (!sun50i_domain)
 		return NULL;
 
-	sun50i_domain->dt = (u32 *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
+	sun50i_domain->dt = (u32 *)__get_free_pages(GFP_KERNEL | __GFP_ZERO | GFP_DMA32,
 						    get_order(DT_SIZE));
 	if (!sun50i_domain->dt)
 		goto err_free_domain;
@@ -827,7 +837,7 @@ static int sun50i_iommu_of_xlate(struct device *dev,
 }
 
 static const struct iommu_ops sun50i_iommu_ops = {
-	.pgsize_bitmap	= SZ_4K,
+	.pgsize_bitmap	= 0x1ff000,
 	.device_group	= sun50i_iommu_device_group,
 	.domain_alloc	= sun50i_iommu_domain_alloc,
 	.of_xlate	= sun50i_iommu_of_xlate,
@@ -988,18 +998,9 @@ static int sun50i_iommu_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, iommu);
 	iommu->dev = &pdev->dev;
 
-	iommu->pt_pool = kmem_cache_create(dev_name(&pdev->dev),
-					   PT_SIZE, PT_SIZE,
-					   SLAB_HWCACHE_ALIGN,
-					   NULL);
-	if (!iommu->pt_pool)
-		return -ENOMEM;
-
 	iommu->group = iommu_group_alloc();
-	if (IS_ERR(iommu->group)) {
-		ret = PTR_ERR(iommu->group);
-		goto err_free_cache;
-	}
+	if (IS_ERR(iommu->group))
+		return PTR_ERR(iommu->group);
 
 	iommu->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(iommu->base)) {
@@ -1051,9 +1052,6 @@ err_remove_sysfs:
 
 err_free_group:
 	iommu_group_put(iommu->group);
-
-err_free_cache:
-	kmem_cache_destroy(iommu->pt_pool);
 
 	return ret;
 }

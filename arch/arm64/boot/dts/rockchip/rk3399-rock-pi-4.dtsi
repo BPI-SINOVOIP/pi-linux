@@ -13,8 +13,8 @@
 
 / {
 	aliases {
-		mmc0 = &sdhci;
-		mmc1 = &sdmmc;
+		mmc0 = &sdmmc;
+		mmc1 = &sdhci;
 	};
 
 	chosen {
@@ -35,10 +35,10 @@
 
 		/* USER_LED2 */
 		led-0 {
-			function = LED_FUNCTION_STATUS;
 			color = <LED_COLOR_ID_BLUE>;
 			gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc0";
 		};
 	};
 

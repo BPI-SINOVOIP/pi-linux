@@ -33,3 +33,11 @@
 &vop {
 	compatible = "rockchip,rk3566-vop";
 };
+
+&usbdrd30 {
+	phys = <&usb2phy0_otg>;
+	phy-names = "usb2-phy";
+	extcon = <&usb2phy0>;
+	maximum-speed = "high-speed";
+	snps,dis_u2_susphy_quirk;
+};

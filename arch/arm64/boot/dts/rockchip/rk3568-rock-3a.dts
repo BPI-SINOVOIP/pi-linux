@@ -13,8 +13,8 @@
 
 	aliases {
 		ethernet0 = &gmac1;
-		mmc0 = &sdhci;
-		mmc1 = &sdmmc0;
+		mmc1 = &sdhci;
+		mmc0 = &sdmmc0;
 	};
 
 	chosen: chosen {
@@ -44,9 +44,9 @@
 
 		led_user: led-0 {
 			gpios = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
-			function = LED_FUNCTION_HEARTBEAT;
 			color = <LED_COLOR_ID_BLUE>;
-			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc0";
 			pinctrl-names = "default";
 			pinctrl-0 = <&led_user_en>;
 		};
@@ -261,6 +261,10 @@
 	phy-handle = <&rgmii_phy1>;
 	phy-mode = "rgmii-id";
 	phy-supply = <&vcc_3v3>;
+	pinctrl-0 = <&eth_phy_rst>;
+	snps,reset-gpio = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 20000 100000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac1m1_miim
 		     &gmac1m1_tx_bus2
@@ -588,11 +592,6 @@
 	rgmii_phy1: ethernet-phy@0 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&eth_phy_rst>;
-		reset-assert-us = <20000>;
-		reset-deassert-us = <100000>;
-		reset-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -766,7 +765,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1m0_xfer &uart1m0_ctsn &uart1m0_rtsn>;
 	uart-has-rtscts;
-	status = "okay";
+	status = "disabled";
 
 	bluetooth {
 		compatible = "brcm,bcm43438-bt";

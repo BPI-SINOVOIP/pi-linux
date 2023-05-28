@@ -5,6 +5,7 @@
 
 #include "sun50i-h6.dtsi"
 #include "sun50i-h6-cpu-opp.dtsi"
+#include "sun50i-h6-gpu-opp.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
 
@@ -27,14 +28,6 @@
 				remote-endpoint = <&hdmi_out_con>;
 			};
 		};
-	};
-
-	/* used for FD650 LED display driver */
-	i2c {
-		compatible = "i2c-gpio";
-		sda-gpios = <&pio 7 6 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>; /* PH6 */
-		scl-gpios = <&pio 7 5 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>; /* PH5 */
-		i2c-gpio,delay-us = <5>;
 	};
 
 	reg_vcc1v8: regulator-vcc1v8 {
@@ -134,6 +127,7 @@
 	mmc-pwrseq = <&wifi_pwrseq>;
 	bus-width = <4>;
 	non-removable;
+	keep-power-in-suspend;
 	status = "okay";
 };
 

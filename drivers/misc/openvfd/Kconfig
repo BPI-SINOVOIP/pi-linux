@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config LED_OPENVFD
+	tristate "OpenVFD 7-segment LED display driver"
+	default m
+	help
+	  Support for 7-segment LED displays based on FD628
+	  FD650, HD44780, IL3829, PCD8544 and SSD1306

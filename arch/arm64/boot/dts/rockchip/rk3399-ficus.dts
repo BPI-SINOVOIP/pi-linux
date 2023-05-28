@@ -40,6 +40,7 @@
 		user_led2: led-2 {
 			label = "red:user2";
 			gpios = <&gpio4 26 0>;
+			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc0";
 		};
 

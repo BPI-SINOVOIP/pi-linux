@@ -336,6 +336,9 @@ enum mmal_parameter_imagefx {
 	MMAL_PARAM_IMAGEFX_COLOURPOINT,
 	MMAL_PARAM_IMAGEFX_COLOURBALANCE,
 	MMAL_PARAM_IMAGEFX_CARTOON,
+	MMAL_PARAM_IMAGEFX_DEINTERLACE_DOUBLE,
+	MMAL_PARAM_IMAGEFX_DEINTERLACE_ADV,
+	MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST,
 };
 
 enum MMAL_PARAM_FLICKERAVOID {
@@ -577,7 +580,49 @@ enum mmal_parameter_video_type {
 	MMAL_PARAMETER_VIDEO_ENCODE_H264_LOW_DELAY_HRD_FLAG,
 
 	/**< @ref MMAL_PARAMETER_BOOLEAN_T */
-	MMAL_PARAMETER_VIDEO_ENCODE_INLINE_HEADER
+	MMAL_PARAMETER_VIDEO_ENCODE_INLINE_HEADER,
+
+	/**< Take a @ref MMAL_PARAMETER_BOOLEAN_T. */
+	MMAL_PARAMETER_VIDEO_ENCODE_SEI_ENABLE,
+
+	/**< Take a @ref MMAL_PARAMETER_BOOLEAN_T. */
+	MMAL_PARAMETER_VIDEO_ENCODE_INLINE_VECTORS,
+
+	/**< Take a @ref MMAL_PARAMETER_VIDEO_RENDER_STATS_T. */
+	MMAL_PARAMETER_VIDEO_RENDER_STATS,
+
+	/**< Take a @ref MMAL_PARAMETER_VIDEO_INTERLACE_TYPE_T. */
+	MMAL_PARAMETER_VIDEO_INTERLACE_TYPE,
+
+	/**< Takes a @ref MMAL_PARAMETER_BOOLEAN_T */
+	MMAL_PARAMETER_VIDEO_INTERPOLATE_TIMESTAMPS,
+
+	/**< Takes a @ref MMAL_PARAMETER_BOOLEAN_T */
+	MMAL_PARAMETER_VIDEO_ENCODE_SPS_TIMING,
+
+	/**< Takes a @ref MMAL_PARAMETER_UINT32_T */
+	MMAL_PARAMETER_VIDEO_MAX_NUM_CALLBACKS,
+
+	/**< Takes a @ref MMAL_PARAMETER_SOURCE_PATTERN_T */
+	MMAL_PARAMETER_VIDEO_SOURCE_PATTERN,
+
+	/**< Takes a @ref MMAL_PARAMETER_BOOLEAN_T */
+	MMAL_PARAMETER_VIDEO_ENCODE_SEPARATE_NAL_BUFS,
+
+	/**< Takes a @ref MMAL_PARAMETER_UINT32_T */
+	MMAL_PARAMETER_VIDEO_DROPPABLE_PFRAME_LENGTH,
+
+	/**< Take a @ref MMAL_PARAMETER_VIDEO_STALL_T */
+	MMAL_PARAMETER_VIDEO_STALL_THRESHOLD,
+
+	/**< Take a @ref MMAL_PARAMETER_BOOLEAN_T */
+	MMAL_PARAMETER_VIDEO_ENCODE_HEADERS_WITH_FRAME,
+
+	/**< Take a @ref MMAL_PARAMETER_BOOLEAN_T */
+	MMAL_PARAMETER_VIDEO_VALIDATE_TIMESTAMPS,
+
+	/**< Takes a @ref MMAL_PARAMETER_BOOLEAN_T */
+	MMAL_PARAMETER_VIDEO_STOP_ON_PAR_COLOUR_CHANGE,
 };
 
 /** Valid mirror modes */
@@ -706,6 +751,43 @@ struct mmal_parameter_displayregion {
 	 * transparent and 255 is fully opaque.
 	 */
 	u32 alpha;
+};
+
+enum mmal_interlace_type {
+	/* The data is not interlaced, it is progressive scan */
+	MMAL_INTERLACE_PROGRESSIVE,
+	/*
+	 * The data is interlaced, fields sent separately in temporal order, with
+	 * upper field first
+	 */
+	MMAL_INTERLACE_FIELD_SINGLE_UPPER_FIRST,
+	/*
+	 * The data is interlaced, fields sent separately in temporal order, with
+	 * lower field first
+	 */
+	MMAL_INTERLACE_FIELD_SINGLE_LOWER_FIRST,
+	/*
+	 * The data is interlaced, two fields sent together line interleaved,
+	 * with the upper field temporally earlier
+	 */
+	MMAL_INTERLACE_FIELDS_INTERLEAVED_UPPER_FIRST,
+	/*
+	 * The data is interlaced, two fields sent together line interleaved,
+	 * with the lower field temporally earlier
+	 */
+	MMAL_INTERLACE_FIELDS_INTERLEAVED_LOWER_FIRST,
+	/*
+	 * The stream may contain a mixture of progressive and interlaced
+	 * frames
+	 */
+	MMAL_INTERLACE_MIXED,
+
+	MMAL_INTERLACE_DUMMY = 0x7FFFFFFF
+};
+
+struct mmal_parameter_video_interlace_type {
+	enum mmal_interlace_type mode;	/* The interlace type of the content */
+	u32 bRepeatFirstField;		/* Whether to repeat the first field */
 };
 
 #define MMAL_MAX_IMAGEFX_PARAMETERS 5

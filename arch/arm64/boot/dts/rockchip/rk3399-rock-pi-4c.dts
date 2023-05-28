@@ -13,6 +13,8 @@
 	compatible = "radxa,rockpi4c", "radxa,rockpi4", "rockchip,rk3399";
 
 	aliases {
+		mmc0 = &sdmmc;
+		mmc1 = &sdhci;
 		mmc2 = &sdio0;
 	};
 };
@@ -28,7 +30,6 @@
 	status = "okay";
 
 	brcmf: wifi@1 {
-		compatible = "brcm,bcm4329-fmac";
 		reg = <1>;
 		interrupt-parent = <&gpio0>;
 		interrupts = <RK_PA3 IRQ_TYPE_LEVEL_HIGH>;

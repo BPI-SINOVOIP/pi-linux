@@ -269,13 +269,13 @@ static struct ccu_mux osc32k_fanout_clk = {
 };
 
 static struct ccu_common *sun6i_rtc_ccu_clks[] = {
+	&osc32k_clk.common,
+	&osc32k_fanout_clk.common,
 	&iosc_clk,
 	&iosc_32k_clk,
 	&ext_osc32k_gate_clk.common,
-	&osc32k_clk.common,
 	&osc24M_32k_clk.common,
 	&rtc_32k_clk.common,
-	&osc32k_fanout_clk.common,
 };
 
 static struct clk_hw_onecell_data sun6i_rtc_ccu_hw_clks = {

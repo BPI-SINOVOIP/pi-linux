@@ -80,6 +80,7 @@
 
 		power_led: led-0 {
 			gpios = <&rk805 1 GPIO_ACTIVE_LOW>;
+			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc0";
 		};
 
@@ -381,16 +382,32 @@
 	status = "okay";
 };
 
-&usbdrd3 {
-	dr_mode = "host";
-	status = "okay";
-};
-
 &usb_host0_ehci {
 	status = "okay";
 };
 
 &usb_host0_ohci {
+	status = "okay";
+};
+
+&usbdrd3 {
+	status = "okay";
+};
+
+&usbdrd_dwc3 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+&usb3phy {
+	status = "okay";
+};
+
+&usb3phy_utmi {
+	status = "okay";
+};
+
+&usb3phy_pipe {
 	status = "okay";
 };
 

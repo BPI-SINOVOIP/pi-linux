@@ -300,6 +300,7 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 	u32 num_dst_bufs = 0;
 	u32 offset;
 	u32 pad_size;
+	u32 wp, wp2;
 
 	/*
 	 * When max ref frame is held by VP9, this should be -= 3 to prevent a
@@ -309,7 +310,8 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 	 * they could pause when there is no capture buffer available and
 	 * resume on this notification.
 	 */
-	if (sess->fmt_out->pixfmt == V4L2_PIX_FMT_VP9) {
+	if (sess->fmt_out->pixfmt == V4L2_PIX_FMT_VP9 ||
+	    sess->fmt_out->pixfmt == V4L2_PIX_FMT_HEVC) {
 		if (codec_ops->num_pending_bufs)
 			num_dst_bufs = codec_ops->num_pending_bufs(sess);
 
@@ -319,6 +321,7 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 		if (esparser_vififo_get_free_space(sess) < payload_size ||
 		    atomic_read(&sess->esparser_queued_bufs) >= num_dst_bufs)
 			return -EAGAIN;
+
 	} else if (esparser_vififo_get_free_space(sess) < payload_size) {
 		return -EAGAIN;
 	}
@@ -353,15 +356,21 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 	}
 
 	pad_size = esparser_pad_start_code(core, vb, payload_size);
+	wp = amvdec_read_parser(core, PARSER_VIDEO_WP);
 	ret = esparser_write_data(core, phy, payload_size + pad_size);
+	wp2 = amvdec_read_parser(core, PARSER_VIDEO_WP);
 
 	if (ret <= 0) {
-		dev_warn(core->dev, "esparser: input parsing error\n");
-		amvdec_remove_ts(sess, vb->timestamp);
-		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
 		amvdec_write_parser(core, PARSER_FETCH_CMD, 0);
 
-		return 0;
+		if (ret < 0 || wp2 == wp) {
+			dev_err(core->dev, "esparser: input parsing error ret %d (%x <=> %x)\n",
+				ret, wp, wp2);
+			amvdec_remove_ts(sess, vb->timestamp);
+			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+
+			return 0;
+		}
 	}
 
 	atomic_inc(&sess->esparser_queued_bufs);

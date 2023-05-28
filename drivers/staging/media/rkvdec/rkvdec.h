@@ -11,16 +11,23 @@
 #ifndef RKVDEC_H_
 #define RKVDEC_H_
 
+#include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/reset.h>
 #include <linux/videodev2.h>
 #include <linux/wait.h>
-#include <linux/clk.h>
 
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
+
+#define RESET_NONE		0
+#define RESET_SOFT		BIT(0)
+#define RESET_HARD		BIT(1)
+
+#define RKVDEC_RESET_DELAY	5
 
 struct rkvdec_ctx;
 
@@ -63,9 +70,21 @@ vb2_to_rkvdec_decoded_buf(struct vb2_buffer *buf)
 			    base.vb.vb2_buf);
 }
 
+struct sps_attributes {
+	unsigned int width;
+	unsigned int height;
+	unsigned int luma_bitdepth;
+	unsigned int chroma_bitdepth;
+	unsigned int subsampling;
+};
+
 struct rkvdec_coded_fmt_ops {
 	int (*adjust_fmt)(struct rkvdec_ctx *ctx,
 			  struct v4l2_format *f);
+	u32 (*valid_fmt)(struct rkvdec_ctx *ctx);
+	int (*sps_check)(struct rkvdec_ctx *ctx, void *sps, struct v4l2_pix_format_mplane *pix_mp);
+	int (*get_sps_attributes)(struct rkvdec_ctx *ctx, void *sps,
+				  struct sps_attributes *attributes);
 	int (*start)(struct rkvdec_ctx *ctx);
 	void (*stop)(struct rkvdec_ctx *ctx);
 	int (*run)(struct rkvdec_ctx *ctx);
@@ -95,6 +114,8 @@ struct rkvdec_dev {
 	void __iomem *regs;
 	struct mutex vdev_lock; /* serializes ioctls */
 	struct delayed_work watchdog_work;
+	struct reset_control *rstc;
+	u8 reset_mask;
 };
 
 struct rkvdec_ctx {
@@ -105,6 +126,7 @@ struct rkvdec_ctx {
 	struct v4l2_ctrl_handler ctrl_hdl;
 	struct rkvdec_dev *dev;
 	void *priv;
+	void *sps;
 };
 
 static inline struct rkvdec_ctx *fh_to_rkvdec_ctx(struct v4l2_fh *fh)
@@ -122,6 +144,7 @@ void rkvdec_run_preamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
 void rkvdec_run_postamble(struct rkvdec_ctx *ctx, struct rkvdec_run *run);
 
 extern const struct rkvdec_coded_fmt_ops rkvdec_h264_fmt_ops;
+extern const struct rkvdec_coded_fmt_ops rkvdec_hevc_fmt_ops;
 extern const struct rkvdec_coded_fmt_ops rkvdec_vp9_fmt_ops;
 
 #endif /* RKVDEC_H_ */

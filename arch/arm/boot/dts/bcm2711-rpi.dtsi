@@ -15,6 +15,9 @@
 		ethernet0 = &genet;
 		pcie0 = &pcie0;
 		blconfig = &blconfig;
+		mmc2 = &sdhost;
+		mmc1 = &sdhci;
+		mmc0 = &emmc2;
 	};
 };
 

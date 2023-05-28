@@ -67,6 +67,8 @@ struct vchiq_state g_state;
 
 static struct platform_device *bcm2835_camera;
 static struct platform_device *bcm2835_audio;
+static struct platform_device *bcm2835_codec;
+static struct platform_device *vcsm_cma;
 
 struct vchiq_drvdata {
 	const unsigned int cache_line_size;
@@ -1774,6 +1776,7 @@ vchiq_register_child(struct platform_device *pdev, const char *name)
 {
 	struct platform_device_info pdevinfo;
 	struct platform_device *child;
+	struct device_node *np;
 
 	memset(&pdevinfo, 0, sizeof(pdevinfo));
 
@@ -1782,11 +1785,35 @@ vchiq_register_child(struct platform_device *pdev, const char *name)
 	pdevinfo.id = PLATFORM_DEVID_NONE;
 	pdevinfo.dma_mask = DMA_BIT_MASK(32);
 
+	np = of_get_child_by_name(pdev->dev.of_node, name);
+
+	/* Skip the child if it is explicitly disabled */
+	if (np && !of_device_is_available(np))
+		return NULL;
+
 	child = platform_device_register_full(&pdevinfo);
 	if (IS_ERR(child)) {
 		dev_warn(&pdev->dev, "%s not registered\n", name);
 		child = NULL;
 	}
+
+	child->dev.of_node = np;
+
+	/*
+	 * We want the dma-ranges etc to be copied from a device with the
+	 * correct dma-ranges for the VPU.
+	 * VCHIQ on Pi4 is now under scb which doesn't get those dma-ranges.
+	 * Take the "dma" node as going to be suitable as it sees the world
+	 * through the same eyes as the VPU.
+	 */
+	np = of_find_node_by_path("dma");
+	if (!np)
+		np = pdev->dev.of_node;
+
+	of_dma_configure(&child->dev, np, true);
+
+	if (np != pdev->dev.of_node)
+		of_node_put(np);
 
 	return child;
 }
@@ -1838,6 +1865,8 @@ static int vchiq_probe(struct platform_device *pdev)
 		goto error_exit;
 	}
 
+	vcsm_cma = vchiq_register_child(pdev, "vcsm-cma");
+	bcm2835_codec = vchiq_register_child(pdev, "bcm2835-codec");
 	bcm2835_camera = vchiq_register_child(pdev, "bcm2835-camera");
 	bcm2835_audio = vchiq_register_child(pdev, "bcm2835_audio");
 
@@ -1853,6 +1882,8 @@ static int vchiq_remove(struct platform_device *pdev)
 {
 	platform_device_unregister(bcm2835_audio);
 	platform_device_unregister(bcm2835_camera);
+	platform_device_unregister(bcm2835_codec);
+	platform_device_unregister(vcsm_cma);
 	vchiq_debugfs_deinit();
 	vchiq_deregister_chrdev();
 

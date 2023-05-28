@@ -116,16 +116,26 @@ static int dummy_dma_open(struct snd_soc_component *component,
 			  struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
-	int i;
+	int i, aw_quirks = 0;
+	struct device_node *dt_node;
 
 	/*
 	 * If there are other components associated with rtd, we shouldn't
 	 * override their hwparams
 	 */
-	for_each_rtd_components(rtd, i, component) {
-		if (component->driver == &dummy_platform)
-			return 0;
-	}
+
+	dt_node = of_find_node_by_path("/soc/hdmi@6000000");
+	if (dt_node)
+		if (of_get_property(dt_node, "aw-hdmi-codec-quirk", NULL))
+			aw_quirks = 1;
+
+	if (aw_quirks)
+		printk("dummy_dma_open: using aw-hdmi-codec-quirk for H616\n");
+	else
+		for_each_rtd_components(rtd, i, component) {
+			if (component->driver == &dummy_platform)
+				return 0;
+		}
 
 	/* BE's dont need dummy params */
 	if (!rtd->dai_link->no_pcm)

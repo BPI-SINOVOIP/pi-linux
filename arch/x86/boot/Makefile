@@ -27,7 +27,7 @@ KCOV_INSTRUMENT		:= n
 # Set it to -DSVGA_MODE=NORMAL_VGA if you just want the EGA/VGA mode.
 # The number is the same as you would ordinarily press at bootup.
 
-SVGA_MODE	:= -DSVGA_MODE=NORMAL_VGA
+SVGA_MODE	:= -DSVGA_MODE=786
 
 targets		:= vmlinux.bin setup.bin setup.elf bzImage
 targets		+= fdimage fdimage144 fdimage288 image.iso hdimage

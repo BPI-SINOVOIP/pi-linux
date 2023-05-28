@@ -79,6 +79,13 @@ All components are stored with the same number of bits per component.
       - Cr, Cb
       - Yes
       - Linear
+    * - V4L2_PIX_FMT_NV15
+      - 'NV15'
+      - 15
+      - 4:2:0
+      - Cb, Cr
+      - Yes
+      - Linear
     * - V4L2_PIX_FMT_NV12M
       - 'NM12'
       - 8
@@ -183,6 +190,7 @@ horizontally.
 
 .. _V4L2-PIX-FMT-NV12:
 .. _V4L2-PIX-FMT-NV21:
+.. _V4L2-PIX-FMT-NV15:
 .. _V4L2-PIX-FMT-NV12M:
 .. _V4L2-PIX-FMT-NV21M:
 .. _V4L2-PIX-FMT-P010:
@@ -586,6 +594,73 @@ Data in the 10 high bits, zeros in the 6 low bits, arranged in little endian ord
       - Cb\ :sub:`11`
       - Cr\ :sub:`11`
 
+.. _V4L2_PIX_FMT_NV15:
+
+NV15
+----
+
+Similar to P010, a semi-planar 10-bit Y/CbCr format, but all components are
+packed without any padding between each other. As a side-effect, each group of
+4 components are stored over 5 bytes (YYYY or UVUV = 4 * 10 bits = 40 bits = 5
+bytes).
+
+.. flat-table:: Sample 4x4 NV15 Image
+    :header-rows:  0
+    :stub-columns: 0
+
+    * - start + 0:
+      - Y'\ :sub:`00`
+      - Y'\ :sub:`01`
+      - Y'\ :sub:`02`
+      - Y'\ :sub:`03`
+    * - start + 8:
+      - Y'\ :sub:`04`
+      - Y'\ :sub:`10`
+      - Y'\ :sub:`11`
+      - Y'\ :sub:`12`
+    * - start + 16:
+      - Y'\ :sub:`13`
+      - Y'\ :sub:`14`
+      - Y'\ :sub:`20`
+      - Y'\ :sub:`21`
+    * - start + 24:
+      - Y'\ :sub:`22`
+      - Y'\ :sub:`23`
+      - Y'\ :sub:`24`
+      - Y'\ :sub:`30`
+    * - start + 32:
+      - Y'\ :sub:`31`
+      - Y'\ :sub:`32`
+      - Y'\ :sub:`33`
+      - Y'\ :sub:`34`
+
+    * - start + 0:
+      - Cb\ :sub:`00`
+      - Cr\ :sub:`00`
+      - Cb\ :sub:`01`
+      - Cr\ :sub:`01`
+    * - start + 8:
+      - Cb\ :sub:`02`
+      - Cr\ :sub:`02`
+      - Cb\ :sub:`03`
+      - Cr\ :sub:`03`
+    * - start + 16:
+      - Cb\ :sub:`04`
+      - Cr\ :sub:`04`
+      - Cb\ :sub:`10`
+      - Cr\ :sub:`10`
+    * - start + 24:
+      - Cb\ :sub:`11`
+      - Cr\ :sub:`11`
+      - Cb\ :sub:`12`
+      - Cr\ :sub:`12`
+    * - start + 32:
+      - Cb\ :sub:`13`
+      - Cr\ :sub:`13`
+      - Cb\ :sub:`14`
+      - Cr\ :sub:`14`
+
+.. raw:: latex
 
 Fully Planar YUV Formats
 ========================

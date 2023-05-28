@@ -10,12 +10,16 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
+#include <linux/rockchip_pmu.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
@@ -26,6 +30,145 @@
 
 #include "rkvdec.h"
 #include "rkvdec-regs.h"
+
+static void rkvdec_fill_decoded_pixfmt(struct rkvdec_ctx *ctx,
+				       struct v4l2_pix_format_mplane *pix_mp)
+{
+	v4l2_fill_pixfmt_mp(pix_mp, pix_mp->pixelformat,
+			    pix_mp->width, pix_mp->height);
+	pix_mp->plane_fmt[0].sizeimage += 128 *
+		DIV_ROUND_UP(pix_mp->width, 16) *
+		DIV_ROUND_UP(pix_mp->height, 16);
+	pix_mp->field = V4L2_FIELD_NONE;
+}
+
+static int rkvdec_queue_busy(struct rkvdec_ctx *ctx, enum v4l2_buf_type buf_type)
+{
+	struct vb2_queue *vq;
+
+	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, buf_type);
+	if (vb2_is_busy(vq))
+		return -EBUSY;
+	else
+		return 0;
+}
+
+/*
+ * Use the current SPS, set by the user via the VIDIOC_S_CTRL IOCTL,
+ * to determine the optimal pixel-format. Each codec is responsible
+ * for choosing the appropriate pixel-format for a given parameter set.
+ */
+static int rkvdec_get_valid_fmt(struct rkvdec_ctx *ctx)
+{
+	const struct rkvdec_coded_fmt_desc *coded_desc = ctx->coded_fmt_desc;
+
+	if (coded_desc->ops->valid_fmt)
+		return coded_desc->ops->valid_fmt(ctx);
+	return ctx->coded_fmt_desc->decoded_fmts[0];
+}
+
+static int rkvdec_sps_check(struct rkvdec_ctx *ctx, struct v4l2_pix_format_mplane *pix_mp)
+{
+	const struct rkvdec_coded_fmt_desc *coded_desc = ctx->coded_fmt_desc;
+
+	/*
+	 * When a codec doesn't implement the SPS check, handle it as if no
+	 * SPS exists for the codec.
+	 */
+	if (coded_desc->ops->sps_check) {
+		if (!ctx->sps)
+			return -EINVAL;
+
+		if (!pix_mp)
+			pix_mp = &ctx->decoded_fmt.fmt.pix_mp;
+		return coded_desc->ops->sps_check(ctx, ctx->sps, pix_mp);
+	}
+
+	return 0;
+}
+
+static int rkvdec_get_sps_attributes(struct rkvdec_ctx *ctx, void *sps,
+				     struct sps_attributes *attributes)
+{
+	const struct rkvdec_coded_fmt_desc *coded_desc = ctx->coded_fmt_desc;
+
+	if (coded_desc->ops->get_sps_attributes)
+		return coded_desc->ops->get_sps_attributes(ctx, sps, attributes);
+	return 0;
+}
+
+static int rkvdec_set_sps(struct rkvdec_ctx *ctx, struct v4l2_ctrl *ctrl)
+{
+	struct v4l2_pix_format_mplane *pix_mp;
+	struct sps_attributes attributes = {0};
+	void *new_sps = NULL;
+
+	/*
+	 * SPS structures are not filled until the control handler is set up
+	 */
+	if (!ctx->fh.ctrl_handler)
+		return 0;
+
+	switch (ctrl->id) {
+	case V4L2_CID_STATELESS_H264_SPS:
+		new_sps = (void *)ctrl->p_new.p_h264_sps;
+		break;
+	case V4L2_CID_STATELESS_HEVC_SPS:
+		new_sps = (void *)ctrl->p_new.p_hevc_sps;
+		break;
+	default:
+		dev_err(ctx->dev->dev, "Unsupported stateless control ID: %x\n", ctrl->id);
+		return -EINVAL;
+	};
+	rkvdec_get_sps_attributes(ctx, new_sps, &attributes);
+
+	/*
+	 * Providing an empty SPS is valid but we do not store it.
+	 */
+	if (attributes.width == 0 && attributes.height == 0)
+		return 0;
+
+	pix_mp = &ctx->decoded_fmt.fmt.pix_mp;
+
+	/*
+	 * SPS must match the provided format dimension, if it doesn't userspace has to
+	 * first reset the output format
+	 */
+	if ((attributes.width > pix_mp->width) || (attributes.height > pix_mp->height)) {
+		dev_err(ctx->dev->dev,
+			"Dimension mismatch. [%s SPS] W: %d, H: %d, [Format] W: %d, H: %d)\n",
+			ctrl->id == V4L2_CID_STATELESS_HEVC_SPS ? "HEVC" : "H264",
+			attributes.width, attributes.height, pix_mp->width, pix_mp->height);
+		return -EINVAL;
+	}
+
+	if (ctx->sps && pix_mp->pixelformat == rkvdec_get_valid_fmt(ctx)) {
+		/*
+		 * Userspace is allowed to change the SPS at any point, if the
+		 * pixel format doesn't differ from the format in the context,
+		 * just accept the change even if buffers are queued
+		 */
+		ctx->sps = new_sps;
+	} else {
+		/*
+		 * Do not accept changing the SPS, while buffers are queued,
+		 * when the new SPS would cause switching the CAPTURE pixel format
+		 */
+		if (pix_mp->pixelformat != rkvdec_get_valid_fmt(ctx)) {
+			if (rkvdec_queue_busy(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE))
+				return -EBUSY;
+		}
+		ctx->sps = new_sps;
+		/*
+		 * For the initial SPS setting and when the pixel format is
+		 * changed adjust the pixel format stored in the context
+		 */
+		pix_mp->pixelformat = rkvdec_get_valid_fmt(ctx);
+		rkvdec_fill_decoded_pixfmt(ctx, pix_mp);
+	}
+
+	return 0;
+}
 
 static int rkvdec_try_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -38,8 +181,16 @@ static int rkvdec_try_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int rkvdec_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct rkvdec_ctx *ctx = container_of(ctrl->handler, struct rkvdec_ctx, ctrl_hdl);
+
+	return rkvdec_set_sps(ctx, ctrl);
+}
+
 static const struct v4l2_ctrl_ops rkvdec_ctrl_ops = {
 	.try_ctrl = rkvdec_try_ctrl,
+	.s_ctrl = rkvdec_s_ctrl,
 };
 
 static const struct rkvdec_ctrl_desc rkvdec_h264_ctrl_descs[] = {
@@ -83,6 +234,62 @@ static const struct rkvdec_ctrl_desc rkvdec_h264_ctrl_descs[] = {
 	},
 };
 
+static const struct rkvdec_ctrl_desc rkvdec_hevc_ctrl_descs[] = {
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_SLICE_PARAMS,
+		.cfg.name = "Slice parameters",
+		.cfg.flags = V4L2_CTRL_FLAG_DYNAMIC_ARRAY,
+		.cfg.type = V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS,
+		.cfg.dims = { 600 },
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_SPS,
+		.cfg.ops = &rkvdec_ctrl_ops,
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_PPS,
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_SCALING_MATRIX,
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_DECODE_PARAMS,
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_DECODE_MODE,
+		.cfg.min = V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED,
+		.cfg.max = V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED,
+		.cfg.def = V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED,
+	},
+	{
+		.cfg.id = V4L2_CID_STATELESS_HEVC_START_CODE,
+		.cfg.min = V4L2_STATELESS_HEVC_START_CODE_ANNEX_B,
+		.cfg.def = V4L2_STATELESS_HEVC_START_CODE_ANNEX_B,
+		.cfg.max = V4L2_STATELESS_HEVC_START_CODE_ANNEX_B,
+	},
+	{
+		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
+		.cfg.min = V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN,
+		.cfg.max = V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10,
+		.cfg.def = V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN,
+	},
+	{
+		.cfg.id = V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
+		.cfg.min = V4L2_MPEG_VIDEO_HEVC_LEVEL_1,
+		.cfg.max = V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1,
+	},
+};
+
+static const struct rkvdec_ctrls rkvdec_hevc_ctrls = {
+	.ctrls = rkvdec_hevc_ctrl_descs,
+	.num_ctrls = ARRAY_SIZE(rkvdec_hevc_ctrl_descs),
+};
+
+static const u32 rkvdec_hevc_decoded_fmts[] = {
+	V4L2_PIX_FMT_NV12,
+	V4L2_PIX_FMT_NV15,
+};
+
 static const struct rkvdec_ctrls rkvdec_h264_ctrls = {
 	.ctrls = rkvdec_h264_ctrl_descs,
 	.num_ctrls = ARRAY_SIZE(rkvdec_h264_ctrl_descs),
@@ -113,6 +320,21 @@ static const struct rkvdec_ctrls rkvdec_vp9_ctrls = {
 };
 
 static const struct rkvdec_coded_fmt_desc rkvdec_coded_fmts[] = {
+	{
+		.fourcc = V4L2_PIX_FMT_HEVC_SLICE,
+		.frmsize = {
+			.min_width = 64,
+			.max_width = 4096,
+			.step_width = 64,
+			.min_height = 64,
+			.max_height = 2304,
+			.step_height = 16,
+		},
+		.ctrls = &rkvdec_hevc_ctrls,
+		.ops = &rkvdec_hevc_fmt_ops,
+		.num_decoded_fmts = ARRAY_SIZE(rkvdec_hevc_decoded_fmts),
+		.decoded_fmts = rkvdec_hevc_decoded_fmts,
+	},
 	{
 		.fourcc = V4L2_PIX_FMT_H264_SLICE,
 		.frmsize = {
@@ -189,16 +411,13 @@ static void rkvdec_reset_coded_fmt(struct rkvdec_ctx *ctx)
 static void rkvdec_reset_decoded_fmt(struct rkvdec_ctx *ctx)
 {
 	struct v4l2_format *f = &ctx->decoded_fmt;
+	u32 valid_fmt = rkvdec_get_valid_fmt(ctx);
 
-	rkvdec_reset_fmt(ctx, f, ctx->coded_fmt_desc->decoded_fmts[0]);
+	rkvdec_reset_fmt(ctx, f, valid_fmt);
 	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	v4l2_fill_pixfmt_mp(&f->fmt.pix_mp,
-			    ctx->coded_fmt_desc->decoded_fmts[0],
-			    ctx->coded_fmt.fmt.pix_mp.width,
-			    ctx->coded_fmt.fmt.pix_mp.height);
-	f->fmt.pix_mp.plane_fmt[0].sizeimage += 128 *
-		DIV_ROUND_UP(f->fmt.pix_mp.width, 16) *
-		DIV_ROUND_UP(f->fmt.pix_mp.height, 16);
+	f->fmt.pix_mp.width = ctx->coded_fmt.fmt.pix_mp.width;
+	f->fmt.pix_mp.height = ctx->coded_fmt.fmt.pix_mp.height;
+	rkvdec_fill_decoded_pixfmt(ctx, &f->fmt.pix_mp);
 }
 
 static int rkvdec_enum_framesizes(struct file *file, void *priv,
@@ -249,13 +468,17 @@ static int rkvdec_try_capture_fmt(struct file *file, void *priv,
 	if (WARN_ON(!coded_desc))
 		return -EINVAL;
 
-	for (i = 0; i < coded_desc->num_decoded_fmts; i++) {
-		if (coded_desc->decoded_fmts[i] == pix_mp->pixelformat)
-			break;
-	}
+	if (ctx->sps) {
+		pix_mp->pixelformat = rkvdec_get_valid_fmt(ctx);
+	} else {
+		for (i = 0; i < coded_desc->num_decoded_fmts; i++) {
+			if (coded_desc->decoded_fmts[i] == pix_mp->pixelformat)
+				break;
+		}
 
-	if (i == coded_desc->num_decoded_fmts)
-		pix_mp->pixelformat = coded_desc->decoded_fmts[0];
+		if (i == coded_desc->num_decoded_fmts)
+			pix_mp->pixelformat = coded_desc->decoded_fmts[0];
+	}
 
 	/* Always apply the frmsize constraint of the coded end. */
 	pix_mp->width = max(pix_mp->width, ctx->coded_fmt.fmt.pix_mp.width);
@@ -264,13 +487,7 @@ static int rkvdec_try_capture_fmt(struct file *file, void *priv,
 				       &pix_mp->height,
 				       &coded_desc->frmsize);
 
-	v4l2_fill_pixfmt_mp(pix_mp, pix_mp->pixelformat,
-			    pix_mp->width, pix_mp->height);
-	pix_mp->plane_fmt[0].sizeimage +=
-		128 *
-		DIV_ROUND_UP(pix_mp->width, 16) *
-		DIV_ROUND_UP(pix_mp->height, 16);
-	pix_mp->field = V4L2_FIELD_NONE;
+	rkvdec_fill_decoded_pixfmt(ctx, pix_mp);
 
 	return 0;
 }
@@ -311,13 +528,10 @@ static int rkvdec_s_capture_fmt(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
 	struct rkvdec_ctx *ctx = fh_to_rkvdec_ctx(priv);
-	struct vb2_queue *vq;
 	int ret;
 
 	/* Change not allowed if queue is busy */
-	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
-			     V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	if (vb2_is_busy(vq))
+	if (rkvdec_queue_busy(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) != 0)
 		return -EBUSY;
 
 	ret = rkvdec_try_capture_fmt(file, priv, f);
@@ -335,8 +549,15 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
 	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
 	const struct rkvdec_coded_fmt_desc *desc;
 	struct v4l2_format *cap_fmt;
-	struct vb2_queue *peer_vq, *vq;
+	struct vb2_queue *vq;
 	int ret;
+
+	/*
+	 * When the new output format doesn't match the existing SPS stored in
+	 * the context, then the SPS needs to be reset by user-space.
+	 */
+	if (rkvdec_sps_check(ctx, &f->fmt.pix_mp) < 0)
+		ctx->sps = NULL;
 
 	/*
 	 * In order to support dynamic resolution change, the decoder admits
@@ -354,8 +575,7 @@ static int rkvdec_s_output_fmt(struct file *file, void *priv,
 	 * queue, we can't allow doing so when the CAPTURE queue has buffers
 	 * allocated.
 	 */
-	peer_vq = v4l2_m2m_get_vq(m2m_ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	if (vb2_is_busy(peer_vq))
+	if (rkvdec_queue_busy(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) != 0)
 		return -EBUSY;
 
 	ret = rkvdec_try_output_fmt(file, priv, f);
@@ -427,6 +647,18 @@ static int rkvdec_enum_capture_fmt(struct file *file, void *priv,
 
 	if (WARN_ON(!ctx->coded_fmt_desc))
 		return -EINVAL;
+
+	/*
+	 * According to the specification the driver can only return formats
+	 * that are supported by both the current encoded format and the
+	 * provided controls
+	 */
+	if (ctx->sps) {
+		if (f->index)
+			return -EINVAL;
+		f->pixelformat = rkvdec_get_valid_fmt(ctx);
+		return 0;
+	}
 
 	if (f->index >= ctx->coded_fmt_desc->num_decoded_fmts)
 		return -EINVAL;
@@ -555,6 +787,21 @@ static int rkvdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	if (V4L2_TYPE_IS_CAPTURE(q->type))
 		return 0;
 
+	/*
+	 * An incompatible SPS at this point is invalid, abort the process.
+	 */
+	if (rkvdec_sps_check(ctx, NULL) < 0) {
+		ctx->sps = NULL;
+		return -EINVAL;
+	}
+
+	/*
+	 * Make sure that both the output and the capture queue are running
+	 */
+	if (rkvdec_queue_busy(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) == 0 ||
+	    rkvdec_queue_busy(ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) == 0)
+		return -EAGAIN;
+
 	desc = ctx->coded_fmt_desc;
 	if (WARN_ON(!desc))
 		return -EINVAL;
@@ -658,6 +905,11 @@ static void rkvdec_job_finish(struct rkvdec_ctx *ctx,
 
 	pm_runtime_mark_last_busy(rkvdec->dev);
 	pm_runtime_put_autosuspend(rkvdec->dev);
+
+	if (result == VB2_BUF_STATE_ERROR &&
+	    rkvdec->reset_mask == RESET_NONE)
+		rkvdec->reset_mask |= RESET_SOFT;
+
 	rkvdec_job_finish_no_pm(ctx, result);
 }
 
@@ -695,6 +947,33 @@ static void rkvdec_device_run(void *priv)
 
 	if (WARN_ON(!desc))
 		return;
+	if (rkvdec->reset_mask != RESET_NONE) {
+
+		if (rkvdec->reset_mask & RESET_SOFT) {
+			writel(RKVDEC_SOFTRST_EN_P,
+			       rkvdec->regs + RKVDEC_REG_INTERRUPT);
+			udelay(RKVDEC_RESET_DELAY);
+			if (readl(rkvdec->regs + RKVDEC_REG_INTERRUPT)
+			    & RKVDEC_SOFTRESET_RDY)
+				dev_info_ratelimited(rkvdec->dev,
+						      "softreset failed\n");
+		}
+
+		if (rkvdec->reset_mask & RESET_HARD) {
+			rockchip_pmu_idle_request(rkvdec->dev, true);
+			ret = reset_control_assert(rkvdec->rstc);
+			if (!ret) {
+				udelay(RKVDEC_RESET_DELAY);
+				ret = reset_control_deassert(rkvdec->rstc);
+			}
+			rockchip_pmu_idle_request(rkvdec->dev, false);
+			if (ret)
+				dev_notice_ratelimited(rkvdec->dev,
+							"hardreset failed\n");
+		}
+		rkvdec->reset_mask = RESET_NONE;
+		pm_runtime_suspend(rkvdec->dev);
+	}
 
 	ret = pm_runtime_resume_and_get(rkvdec->dev);
 	if (ret < 0) {
@@ -957,9 +1236,15 @@ static irqreturn_t rkvdec_irq_handler(int irq, void *priv)
 	state = (status & RKVDEC_RDY_STA) ?
 		VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 
-	writel(0, rkvdec->regs + RKVDEC_REG_INTERRUPT);
+	writel(RKVDEC_CONFIG_DEC_CLK_GATE_E,
+	       rkvdec->regs + RKVDEC_REG_INTERRUPT);
 	if (cancel_delayed_work(&rkvdec->watchdog_work)) {
 		struct rkvdec_ctx *ctx;
+
+		if (state == VB2_BUF_STATE_ERROR) {
+			rkvdec->reset_mask |= (status & RKVDEC_ERR_MASK) ?
+						RESET_HARD : RESET_SOFT;
+		}
 
 		ctx = v4l2_m2m_get_curr_priv(rkvdec->m2m_dev);
 		rkvdec_job_finish(ctx, state);
@@ -978,7 +1263,9 @@ static void rkvdec_watchdog_func(struct work_struct *work)
 	ctx = v4l2_m2m_get_curr_priv(rkvdec->m2m_dev);
 	if (ctx) {
 		dev_err(rkvdec->dev, "Frame processing timed out!\n");
-		writel(RKVDEC_IRQ_DIS, rkvdec->regs + RKVDEC_REG_INTERRUPT);
+		rkvdec->reset_mask |= RESET_HARD;
+		writel(RKVDEC_CONFIG_DEC_CLK_GATE_E | RKVDEC_IRQ_DIS,
+		       rkvdec->regs + RKVDEC_REG_INTERRUPT);
 		writel(0, rkvdec->regs + RKVDEC_REG_SYSCTRL);
 		rkvdec_job_finish(ctx, VB2_BUF_STATE_ERROR);
 	}
@@ -1046,6 +1333,18 @@ static int rkvdec_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+
+	rkvdec->rstc = devm_reset_control_array_get(&pdev->dev, false, true);
+	if (IS_ERR(rkvdec->rstc)) {
+		dev_err(&pdev->dev,
+			"get resets failed %ld\n", PTR_ERR(rkvdec->rstc));
+		return PTR_ERR(rkvdec->rstc);
+	} else {
+		dev_dbg(&pdev->dev,
+			 "requested %d resets\n",
+			 reset_control_get_count(&pdev->dev));
+	}
+
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -1068,9 +1367,9 @@ static int rkvdec_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&rkvdec->watchdog_work);
 
-	rkvdec_v4l2_cleanup(rkvdec);
-	pm_runtime_disable(&pdev->dev);
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	rkvdec_v4l2_cleanup(rkvdec);
 	return 0;
 }
 

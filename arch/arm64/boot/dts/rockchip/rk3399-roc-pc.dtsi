@@ -92,7 +92,7 @@
 		yellow_led: led-2 {
 			label = "yellow:yellow-led";
 			gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
+			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc1";
 		};
 	};

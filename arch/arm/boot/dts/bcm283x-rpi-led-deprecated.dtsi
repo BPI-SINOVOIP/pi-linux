@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#include <dt-bindings/leds/common.h>
+
 / {
 	/*
 	 * This file provides the now deprecated ACT LED to the
@@ -12,7 +14,8 @@
 		led_act: led-act {
 			label = "ACT";
 			default-state = "keep";
-			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc0";
 		};
 	};
 };

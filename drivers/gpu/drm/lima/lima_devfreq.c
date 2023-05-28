@@ -157,7 +157,7 @@ int lima_devfreq_init(struct lima_device *ldev)
 	ldevfreq->gov_data.downdifferential = 5;
 
 	devfreq = devm_devfreq_add_device(dev, &lima_devfreq_profile,
-					  DEVFREQ_GOV_SIMPLE_ONDEMAND,
+					  DEVFREQ_GOV_PERFORMANCE,
 					  &ldevfreq->gov_data);
 	if (IS_ERR(devfreq)) {
 		dev_err(dev, "Couldn't initialize GPU devfreq\n");

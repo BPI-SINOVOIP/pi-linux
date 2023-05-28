@@ -30,6 +30,7 @@
 		user_led2: led-2 {
 			label = "green:user2";
 			gpios = <&gpio4 RK_PC6 0>;
+			function = LED_FUNCTION_DISK_ACTIVITY;
 			linux,default-trigger = "mmc0";
 		};
 

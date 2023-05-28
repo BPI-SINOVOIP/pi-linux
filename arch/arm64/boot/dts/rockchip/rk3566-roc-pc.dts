@@ -6,6 +6,7 @@
 #include <dt-bindings/pinctrl/rockchip.h>
 #include <dt-bindings/soc/rockchip,vop2.h>
 #include "rk3566.dtsi"
+#include <dt-bindings/leds/common.h>
 
 / {
 	model = "Firefly Station M2";
@@ -46,7 +47,8 @@
 			label = "user-led";
 			default-state = "on";
 			gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			linux,default-trigger = "mmc0";
 			pinctrl-names = "default";
 			pinctrl-0 = <&user_led_enable_h>;
 			retain-state-suspended;
