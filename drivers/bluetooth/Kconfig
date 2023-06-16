@@ -30,6 +30,12 @@ config BT_HCIBTUSB
 	  Say Y here to compile support for Bluetooth USB devices into the
 	  kernel or say M to compile it as module (btusb).
 
+config BT_RTKBTRFKILL
+        tristate "Realtek Bluetooth RFKILL driver"
+        default n
+        help
+          Realtek Bluetooth rfkill driver
+
 config BT_HCIBTUSB_BCM
 	bool "Broadcom protocol support"
 	depends on BT_HCIBTUSB
@@ -40,6 +46,8 @@ config BT_HCIBTUSB_BCM
 	  download support for Broadcom Bluetooth controllers.
 
 	  Say Y here to compile support for Broadcom protocol.
+
+source "drivers/bluetooth/rtk_btusb/Kconfig"
 
 config BT_HCIBTUSB_RTL
 	bool "Realtek protocol support"
