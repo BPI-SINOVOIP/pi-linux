@@ -207,8 +207,8 @@
 
 &mmc2 {
 	vmmc-supply = <&reg_dcdc1>;
-	vqmmc-supply = <&reg_dcdc1>;
 	bus-width = <8>;
+	cap-mmc-hw-reset;
 	non-removable;
 	status = "okay";
 };

@@ -1168,6 +1168,13 @@ static const struct sunxi_mmc_cfg sun8i_a83t_emmc_cfg = {
 	.ccu_has_timings_switch = true,
 };
 
+static const struct sunxi_mmc_cfg sun8i_r40_emmc_cfg = {
+	.idma_des_size_bits = 13,
+	.clk_delays = NULL,
+	.can_calibrate = true,
+	.needs_new_timings = false,
+};
+
 static const struct sunxi_mmc_cfg sun9i_a80_cfg = {
 	.idma_des_size_bits = 16,
 	.clk_delays = sun9i_mmc_clk_delays,
@@ -1226,6 +1233,7 @@ static const struct of_device_id sunxi_mmc_of_match[] = {
 	{ .compatible = "allwinner,sun5i-a13-mmc", .data = &sun5i_a13_cfg },
 	{ .compatible = "allwinner,sun7i-a20-mmc", .data = &sun7i_a20_cfg },
 	{ .compatible = "allwinner,sun8i-a83t-emmc", .data = &sun8i_a83t_emmc_cfg },
+	{ .compatible = "allwinner,sun8i-r40-emmc", .data = &sun8i_r40_emmc_cfg },
 	{ .compatible = "allwinner,sun9i-a80-mmc", .data = &sun9i_a80_cfg },
 	{ .compatible = "allwinner,sun20i-d1-mmc", .data = &sun20i_d1_cfg },
 	{ .compatible = "allwinner,sun50i-a64-mmc", .data = &sun50i_a64_cfg },
