@@ -1,0 +1,21 @@
+// Orange Pi 5 Pcie M.2 to sata
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&sata0>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&pcie2x1l2>;
+
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

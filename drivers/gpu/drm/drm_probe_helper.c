@@ -107,35 +107,23 @@ drm_mode_validate_pipeline(struct drm_display_mode *mode,
 		struct drm_crtc *crtc;
 
 		*status = drm_encoder_mode_valid(encoder, mode);
-		if (*status != MODE_OK) {
-			/* No point in continuing for crtc check as this encoder
-			 * will not accept the mode anyway. If all encoders
-			 * reject the mode then, at exit, ret will not be
-			 * MODE_OK. */
-			continue;
-		}
+		if (*status != MODE_OK)
+			return *status;
 
 		bridge = drm_bridge_chain_get_first_bridge(encoder);
 		*status = drm_bridge_chain_mode_valid(bridge,
 						      &connector->display_info,
 						      mode);
-		if (*status != MODE_OK) {
-			/* There is also no point in continuing for crtc check
-			 * here. */
-			continue;
-		}
+		if (*status != MODE_OK)
+			return *status;
 
 		drm_for_each_crtc(crtc, dev) {
 			if (!drm_encoder_crtc_ok(encoder, crtc))
 				continue;
 
 			*status = drm_crtc_mode_valid(crtc, mode);
-			if (*status == MODE_OK) {
-				/* If we get to this point there is at least
-				 * one combination of encoder+crtc that works
-				 * for this mode. Lets return now. */
-				return 0;
-			}
+			if (*status != MODE_OK)
+				return *status;
 		}
 	}
 

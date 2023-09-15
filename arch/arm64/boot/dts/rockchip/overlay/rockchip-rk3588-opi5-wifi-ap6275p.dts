@@ -1,0 +1,25 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    metadata {
+		title ="Enable AP6275P PCIe wireless module on Orange Pi 5";
+		compatible = "rockchip,rk3588", "rockchip,rk3588s-orangepi-5";
+		category = "misc";
+		description = "Enable AP6275P PCIe wireless module on Orange Pi 5";
+	};
+
+	fragment@0 {
+		target = <&wireless_bluetooth>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&wireless_wlan>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};

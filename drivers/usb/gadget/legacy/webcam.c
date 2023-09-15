@@ -12,6 +12,7 @@
 #include <linux/usb/video.h>
 
 #include "u_uvc.h"
+#include "../function/uvc.h"
 
 USB_GADGET_COMPOSITE_OPTIONS();
 
@@ -383,6 +384,7 @@ webcam_bind(struct usb_composite_dev *cdev)
 	uvc_opts->fs_streaming = uvc_fs_streaming_cls;
 	uvc_opts->hs_streaming = uvc_hs_streaming_cls;
 	uvc_opts->ss_streaming = uvc_ss_streaming_cls;
+	uvc_opts->pm_qos_latency = 0;
 
 	/* Allocate string descriptor numbers ... note that string contents
 	 * can be overridden by the composite_dev glue.
