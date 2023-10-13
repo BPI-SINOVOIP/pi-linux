@@ -1,0 +1,28 @@
+Synaptics Berlin Sound Output
+
+This devices handle all sound stream related operations
+
+Required properties:
+
+  - compatible : should be one of:
+	{ .compatible = "syna,vs640-hdmi",  },
+	{ .compatible = "syna,vs680-hdmi",  },
+
+Optional properties:
+
+Example:
+		hdmi_out: hdmi-out{
+			compatible = "syna,vs680-hdmi";
+			status = "disabled";
+			interrupt-parent = <&dhubctr_a>;
+			interrupts = <7>;
+			interrupt-names = "hdmi";
+		};
+
+		hdmi_out: hdmi-out{
+			compatible = "syna,vs640-hdmi";
+			status = "disabled";
+			interrupt-parent = <&dhubctr_a>;
+			interrupts = <7>;
+			interrupt-names = "hdmi";
+		};

@@ -7,9 +7,9 @@
 #include "berlin_pcm.h"
 #include "aio_hal.h"
 
-#define APLL0_RATE_1 (16384000 * 8)
-#define APLL0_RATE_2 (22579200 * 8)
-#define APLL0_RATE_3 (24576000 * 8)
+#define APLL_RATE_32K (16384000 * 8)
+#define APLL_RATE_44_1K (22579200 * 8)
+#define APLL_RATE_48K (24576000 * 8)
 
 unsigned long apll_rate[AIO_APLL_NUM] = {0, 0};
 
@@ -22,22 +22,25 @@ int berlin_set_pll(void *aio_handle, u32 apll_id, u32 fs)
 	case 22050:
 	case 44100:
 	case 88200:
-		apll = APLL0_RATE_2;
+	case 176400:
+		apll = APLL_RATE_44_1K;
 		break;
 	case 8000:
 	case 16000:
 	case 32000:
 	case 64000:
-		apll = APLL0_RATE_1;
+		apll = APLL_RATE_32K;
 		break;
 	case 12000:
 	case 24000:
 	case 48000:
 	case 96000:
-		apll = APLL0_RATE_3;
+	case 192000:
+	case 384000:
+		apll = APLL_RATE_48K;
 		break;
 	default:
-		apll = APLL0_RATE_3;
+		apll = APLL_RATE_48K;
 		break;
 	}
 

@@ -26,6 +26,7 @@ obj-$(CONFIG_BT_QCOMSMD)	+= btqcomsmd.o
 obj-$(CONFIG_BT_BCM)		+= btbcm.o
 obj-$(CONFIG_BT_RTL)		+= btrtl.o
 obj-$(CONFIG_BT_QCA)		+= btqca.o
+obj-$(CONFIG_BT_RTKBTUSB)		+= rtk_bt.o rtk_misc.o rtk_coex.o
 
 obj-y		+= bluetooth-rfkill.o
 obj-y		+= bluetooth-lpm.o

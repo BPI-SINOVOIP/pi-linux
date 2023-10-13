@@ -124,9 +124,64 @@ static struct tsp_device_t tsp_dev = {
 
 static const TEEC_UUID ta_tsp_uuid = {0x1316a183, 0x894d, 0x43fe, \
 	{0x98, 0x93, 0xbb, 0x94, 0x6a, 0xe1, 0x03, 0xe8} };
-static TEEC_Context context;
-static TEEC_Session session[TSP_FIGO_NUM];
+
+
+static irqreturn_t tsp_devices_isr(int irq, void *dev_id)
+{
+	struct tsp_context *hTspCtx = (struct tsp_context *)dev_id;
+	MV_CC_MSG_t msg = { 0 };
+	u32 addr, val;
+	int rc;
+
+	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_status;
+	TSP_REG_WORD32_READ(addr, &val);
+
+	if (likely(val != 0)) {
+		TSP_REG_WORD32_WRITE(addr, val);
+
+		msg.m_MsgID = val & 0xffff;
+		rc = AMPMsgQ_Add(&hTspCtx->hTSPMsgQ, &msg);
+		if (likely(rc == S_OK))
+			up(&hTspCtx->tsp_sem);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static void drv_tsp_open(struct tsp_context *hTspCtx, unsigned int mask)
+{
+	u32 addr;
+
+	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_enable;
+	TSP_REG_WORD32_WRITE(addr, mask);
+
+	return;
+}
+
+static void drv_tsp_close(struct tsp_context *hTspCtx)
+{
+	MV_CC_MSG_t msg = { 0 };
+	u32 addr;
+	int err;
+
+	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_enable;
+	TSP_REG_WORD32_WRITE(addr, 0);
+	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_status;
+	TSP_REG_WORD32_WRITE(addr, 0);
+
+	do {
+		err = AMPMsgQ_DequeueRead(&hTspCtx->hTSPMsgQ, &msg);
+	} while (likely(err == 1));
+
+	sema_init(&hTspCtx->tsp_sem, 0);
+
+	return;
+}
+
+#ifdef CONFIG_PM_SLEEP
 static bool figo_running[2] = {false, false};
+static TEEC_Session session[TSP_FIGO_NUM];
+static TEEC_Context context;
 
 static int tz_tsp_errcode_translate(TEEC_Result result)
 {
@@ -147,6 +202,15 @@ static int tz_tsp_errcode_translate(TEEC_Result result)
 		break;
 	}
 	return ret;
+}
+
+static int tz_tsp_check_figo_id(uint32_t id)
+{
+	if (id > (TSP_FIGO_NUM - 1)) {
+		pr_err("Invalid figo id:0x%x\n", id);
+		return TEEC_ERROR_BAD_PARAMETERS;
+	}
+	return TEEC_SUCCESS;
 }
 
 static int tz_tsp_initialize(void)
@@ -204,15 +268,6 @@ static void tz_tsp_finalize(void)
 	for (i = 0; i < TSP_FIGO_NUM; i++)
 		TEEC_CloseSession(&session[i]);
 	TEEC_FinalizeContext(&context);
-}
-
-static int tz_tsp_check_figo_id(uint32_t id)
-{
-	if (id > (TSP_FIGO_NUM - 1)) {
-		pr_err("Invalid figo id:0x%x\n", id);
-		return TEEC_ERROR_BAD_PARAMETERS;
-	}
-	return TEEC_SUCCESS;
 }
 
 static int tz_tsp_save_hw_context(uint32_t figo_id)
@@ -329,59 +384,6 @@ fun_ret:
 	return tz_tsp_errcode_translate(result);
 }
 
-static irqreturn_t tsp_devices_isr(int irq, void *dev_id)
-{
-	struct tsp_context *hTspCtx = (struct tsp_context *)dev_id;
-	MV_CC_MSG_t msg = { 0 };
-	u32 addr, val;
-	int rc;
-
-	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_status;
-	TSP_REG_WORD32_READ(addr, &val);
-
-	if (likely(val != 0)) {
-		TSP_REG_WORD32_WRITE(addr, val);
-
-		msg.m_MsgID = val & 0xffff;
-		rc = AMPMsgQ_Add(&hTspCtx->hTSPMsgQ, &msg);
-		if (likely(rc == S_OK))
-			up(&hTspCtx->tsp_sem);
-	}
-
-	return IRQ_HANDLED;
-}
-
-static void drv_tsp_open(struct tsp_context *hTspCtx, unsigned int mask)
-{
-	u32 addr;
-
-	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_enable;
-	TSP_REG_WORD32_WRITE(addr, mask);
-
-	return;
-}
-
-static void drv_tsp_close(struct tsp_context *hTspCtx)
-{
-	MV_CC_MSG_t msg = { 0 };
-	u32 addr;
-	int err;
-
-	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_enable;
-	TSP_REG_WORD32_WRITE(addr, 0);
-	addr = RA_TspReg_IntReg + RA_TspIntReg_software_int_status;
-	TSP_REG_WORD32_WRITE(addr, 0);
-
-	do {
-		err = AMPMsgQ_DequeueRead(&hTspCtx->hTSPMsgQ, &msg);
-	} while (likely(err == 1));
-
-	sema_init(&hTspCtx->tsp_sem, 0);
-
-	return;
-}
-
-#ifdef CONFIG_PM_SLEEP
 static int wait_figo_resp(u32 figo_id, unsigned int cmd)
 {
 	u32 addr, val, cnt, old, val1, val2;

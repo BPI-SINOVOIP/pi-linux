@@ -14,7 +14,7 @@
 #include "vs680-a0.dtsi"
 
 / {
-	model = "Synaptics VS680 EVK (BPI-M6) 20230806";
+	model = "Synaptics VS680 EVK";
 	compatible = "syna,vs680-evk", "syna,vs680";
 
 	aliases {
@@ -59,7 +59,7 @@
 		pwms = <&pwm0 1 1000000 0>;
 		brightness-levels = <0 36 72 108 144 180 212 255>;
 		default-brightness-level = <6>;
-		//enable-gpio = <&expander3 2 GPIO_ACTIVE_HIGH>;
+		enable-gpio = <&expander3 2 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
@@ -84,7 +84,7 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-name = "vmmc_sdio";
 			enable-active-high;
-			//gpio = <&expander3 1 GPIO_ACTIVE_HIGH>;
+			gpio = <&expander3 1 GPIO_ACTIVE_HIGH>;
 		};
 
 		reg_usb0_vbus: usb0_vbus {
@@ -92,7 +92,7 @@
 			regulator-name = "usb0_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
-			//gpio = <&expander2 3 GPIO_ACTIVE_HIGH>;
+			gpio = <&expander2 3 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 
@@ -101,7 +101,7 @@
 			regulator-name = "xhci0_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
-			//gpio = <&expander2 2 GPIO_ACTIVE_HIGH>;
+			gpio = <&expander2 2 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
 	};
@@ -299,7 +299,6 @@
 	pinctrl-names = "default";
 	no-sdio;
 	no-mmc;
-	non-removable;
 	disable-wp;
 	sdclkdl-dc = /bits/ 8 <75>;
 	pad-sp = /bits/ 8 <12>;
@@ -321,7 +320,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pmux>;
 	no-irq-suspend;
-/*
+
 	falcon: cx9000@33 {
 		compatible = "cnxt,cx9000";
 		pinctrl-names = "default";
@@ -373,7 +372,7 @@
 		focaltech,display-coords = <0 0 799 1279>;
 		focaltech,max-touch-number = <5>;
 	};
-*/
+
 	backlight@2c {
 		compatible = "ti,lp8556";
 		reg = <0x2c>;
@@ -526,7 +525,7 @@
 
 &isp {
 	status = "okay";
-	enable-gpios = <&expander1 7 GPIO_ACTIVE_HIGH>;
+	enable-gpios = <&expander2 7 GPIO_ACTIVE_HIGH>;
 	i2c-bus = <&i2c3>;
 	dev-addr = <112>;
 };
@@ -566,8 +565,8 @@
 &avio {
 	status = "okay";
 	vpp {
-		hdtx5v-gpio = <&portb 16 GPIO_ACTIVE_HIGH>;
-		//mipirst-gpio = <&expander3 5 GPIO_ACTIVE_LOW>;
+		hdtx5v-gpio = <&portd 16 GPIO_ACTIVE_HIGH>;
+		mipirst-gpio = <&expander3 5 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -584,20 +583,20 @@
 };
 
 &aout {
-	status = "okay";
+	status = "disabled";
 };
 
 &hrx {
 	status = "okay";
 	pinctrl-0 = <&hrx5v_pmux>;
 	pinctrl-names = "default";
-	hrxhpd-gpio = <&portb 23 GPIO_ACTIVE_HIGH>;
+	hrxhpd-gpio = <&expander1 4 GPIO_ACTIVE_HIGH>;
 	hrx5v-gpio = <&portd 21 GPIO_ACTIVE_HIGH>;
 };
 
 &i2s_pri {
 	status = "okay";
-	pinctrl-0 = <&i2s1_pmux>, <&spdifo_pmux>;
+	pinctrl-0 = <&i2s1_pmux>;
 	pinctrl-names = "default";
 };
 
@@ -618,7 +617,7 @@
 	status = "okay";
 	pinctrl-0 = <&pdm_pmux>;
 	pinctrl-names = "default";
-	//pdm-data-sel-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
+	pdm-data-sel-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
 	pdm-type = <1>;
 	pdm-clk-sel = <2>;
 };
@@ -643,12 +642,16 @@
 	status = "okay";
 };
 
+&hdmi_out {
+	status = "okay";
+};
+
 &vs680_spdifi {
 	status = "okay";
 	pinctrl-0 = <&spdifi_pmux>;
 	pinctrl-names = "default";
-	//gate-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
-	//enable-gpio = <&expander3 7 GPIO_ACTIVE_LOW>;
+	gate-gpio = <&expander2 4 GPIO_ACTIVE_HIGH>;
+	enable-gpio = <&expander3 7 GPIO_ACTIVE_LOW>;
 	dynamic-src-ctrl;
 };
 
@@ -658,7 +661,7 @@
 
 &vs680_asoc {
 	status = "okay";
-/*
+
 	soc_i2so1: soc-i2so1 {
 		status = "okay";
 		stream-name = "soc-i2so1";
@@ -761,7 +764,17 @@
 		codec-dai-name = "snd-soc-dummy-dai";
 		platform-node = <&vs680_pcm>;
 	};
-*/
+
+        soc_hdmio: soc-hdmio {
+                status = "okay";
+                stream-name = "soc-hdmio";
+                link-name = "soc-hdmio";
+                format = "i2s";
+                cpu-node = <&hdmi_out>;
+                codec-name = "snd-soc-dummy";
+                codec-dai-name = "snd-soc-dummy-dai";
+                platform-node = <&vs680_pcm>;
+        };
 };
 
 &ovp {

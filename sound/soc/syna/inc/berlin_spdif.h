@@ -29,6 +29,26 @@ enum subframe_type {
 	TYPE_W = 2,
 };
 
+enum burst_data_type {
+	BURST_NULL = 0,
+	BURST_AC3 = 1,
+	BURST_PAUSE = 3,
+	BURST_MPEG1_LAYER1 = 4,
+	BURST_MPEG1_LAYER2 = 5,
+	BURST_MPEG2_EXTENSION = 6,
+	BURST_GNTR_AAC = 7,
+	BURST_MPEG2_LAYER1 = 8,
+	BURST_MPEG2_LAYER2 = 9,
+	BURST_MPEG2_LAYER3 = 10,
+	BURST_DTS_LAYER1 = 11,
+	BURST_DTS_LAYER2 = 12,
+	BURST_DTS_LAYER4 = 17,
+	BURST_WMA_PRO = 18,
+	BURST_MPEG2_AAC = 19,
+	BURST_MPEG4_AAC = 20,
+	BURST_DDP = 21,
+	BURST_MAT = 22,
+} ;
 /*
  * 32-bits packed spdif data
  */
@@ -42,9 +62,24 @@ struct spdif_frame {
 	int16_t audiosample2;
 };
 
+struct hdmi_spdif_frame {
+	u32 reserve_b   	  :8;
+	u32 reserve 		  :3;
+	u32 Data_Low		  :5;
+	u32 Data_Mid		  :8;
+	u32 Data_High   	  :3;
+	u32 unValidFlag 	  :1;
+	u32 unUserData  	  :1;
+	u32 unChannelStatus   :1;
+	u32 unParityBit 	  :1;
+	u32 unBbit  		  :1;
+};
+
 #define SPDIF_BLOCK_SIZE       192
 
-u32 spdif_init_channel_status(struct spdif_cs *chnsts, u32 fs);
+u32 spdif_init_channel_status(struct spdif_cs *chnsts, u32 fs, u32 digital);
 u8 spdif_get_channel_status(u8 *chnsts, u32 spdif_frames);
-
+u8 hdmi_get_channel_status(u8 *chnsts, u32 spdif_frames);
+u32 hdmi_init_channel_status(struct spdif_cs *chnsts, u32 fs,
+	struct hdmi_spdif_frame *pSpdifData);
 #endif

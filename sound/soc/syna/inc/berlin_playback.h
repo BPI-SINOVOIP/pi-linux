@@ -18,6 +18,9 @@ snd_pcm_uframes_t
 berlin_playback_pointer(struct snd_pcm_substream *substream);
 int berlin_playback_isr(struct snd_pcm_substream *substream,
 			unsigned int chan_id);
-int berlin_playback_open(struct snd_pcm_substream *substream);
+int berlin_playback_open(struct snd_pcm_substream *substream, int passthrough);
 int berlin_playback_close(struct snd_pcm_substream *substream);
+bool berlin_playback_passthrough_check(struct snd_pcm_substream *substream,
+			       u32 *data_type);
+void berlin_playback_hdmi_bitstream_start(struct snd_pcm_substream *substream);
 #endif

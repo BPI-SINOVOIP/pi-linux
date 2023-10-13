@@ -9,6 +9,8 @@ ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/common
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/dhub
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/dhub/include
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/aio
+ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/vpp
+ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/vpp/ca/include
 ifeq ($(CONFIG_AVIO_VS680),y)
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/fw_inc/vs680
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/aio/vs6xx/680
@@ -33,6 +35,7 @@ snd-soc-berlin-pcm-objs    += berlin_pcm.o \
 			      berlin_spdif.o
 snd-soc-berlin-dmic-objs   += dmic.o
 snd-soc-berlin-pri-objs    += i2s_pri.o
+snd-soc-berlin-hdmi-outdai-objs += hdmi_outdai.o
 snd-soc-berlin-sec-objs    += i2s_sec.o
 snd-soc-berlin-spdifo-objs += spdif_outdai.o
 snd-soc-berlin-pdmi-objs   += pdm_pdmi.o
@@ -47,6 +50,7 @@ obj-$(CONFIG_SND_SOC_BERLIN_PCM)    += snd-soc-berlin-pcm.o
 obj-$(CONFIG_SND_SOC_BERLIN_DMIC)   += snd-soc-berlin-dmic.o
 obj-$(CONFIG_SND_SOC_BERLIN_PRI)    += snd-soc-berlin-pri.o
 obj-$(CONFIG_SND_SOC_BERLIN_SPDIFO) += snd-soc-berlin-spdifo.o
+obj-$(CONFIG_SND_SOC_BERLIN_HDMI)   += snd-soc-berlin-hdmi-outdai.o
 obj-$(CONFIG_SND_SOC_BERLIN_SEC)    += snd-soc-berlin-sec.o
 obj-$(CONFIG_SND_SOC_BERLIN_PDMI)   += snd-soc-berlin-pdmi.o
 obj-$(CONFIG_SND_SOC_BERLIN_MIC1)   += snd-soc-berlin-mic1.o

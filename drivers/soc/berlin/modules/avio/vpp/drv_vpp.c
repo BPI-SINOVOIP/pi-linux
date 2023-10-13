@@ -12,6 +12,31 @@
 #include "drv_hdmitx.h"
 #include "avio_common.h"
 
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/i2c.h>
+#include <linux/module.h>
+#include <linux/workqueue.h>
+#include <linux/backlight.h>
+//#include "tinker_mcu.h"
+
+//#define CONFIG_RASPBERRY_PI_LCD_MCU 1
+
+#ifdef CONFIG_RASPBERRY_PI_LCD_MCU
+
+#define LOG_INFO(fmt,arg...) pr_info("tinker-mcu: %s: "fmt, __func__, ##arg);
+#define LOG_ERR(fmt,arg...) pr_err("tinker-mcu: %s: "fmt, __func__, ##arg);
+
+#define MAX_I2C_LEN 255
+
+struct tinker_mcu_data {
+	struct device *dev;
+	struct i2c_client *client;
+};
+static struct tinker_mcu_data *g_mcu_data;
+#endif
+
 #define AVIO_DEVICE_PROCFILE_CONFIG		"config"
 #define AVIO_DEVICE_PROCFILE_STATUS		"status"
 #define AVIO_DEVICE_PROCFILE_DETAIL		"detail"
@@ -402,6 +427,156 @@ static void drv_vpp_config(void *h_vpp_ctx, void *dev)
 	avio_devices_vpp_enable_clocks(hVppCtx);
 }
 
+#ifdef CONFIG_RASPBERRY_PI_LCD_MCU
+
+static int send_c(struct i2c_client *client, unsigned char *buf, int size)
+{
+	int ret, retry = 5;
+
+	while(retry-- > 0) {
+	    ret = i2c_master_send(client, buf, size);
+	    if (ret <= 0) {
+	            printk("send command failed, ret = %d, retry again!\n", ret);
+	    } else
+	            break;
+	    }
+
+	if(ret <= 0) {
+		printk("send command failed\n");
+		return ret!=0 ? ret : -ECOMM;
+	}
+
+	msleep(20);
+	return 0;
+}
+
+unsigned char rrbuf[] = {
+    0x85 ,0x01,
+    0x81 ,0x40,
+    0x86, 0x80
+};
+
+static int init_cmd_check(struct tinker_mcu_data *mcu_data)
+{
+	int ret = 0, i = 0;
+
+     for (i = 0; i < sizeof(rrbuf)/sizeof(rrbuf[0]); i++) {
+	ret = send_c(mcu_data->client, &(rrbuf[i*2]), 2);
+     }
+     return 0;
+}
+
+static int tinker_mcu_probe(struct i2c_client *client,
+			const struct i2c_device_id *id)
+{
+	struct tinker_mcu_data *mcu_data;
+	int ret;
+
+	printk("address = 0x%x\n", client->addr);
+
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		printk("I2C check functionality failed\n");
+		return -ENODEV;
+	}
+
+	mcu_data = kzalloc(sizeof(struct tinker_mcu_data), GFP_KERNEL);
+	if (mcu_data == NULL) {
+		printk("no memory for device\n");
+		return -ENOMEM;
+	}
+
+	mcu_data->client = client;
+	i2c_set_clientdata(client, mcu_data);
+	g_mcu_data = mcu_data;
+
+	ret = init_cmd_check(mcu_data);
+	if (ret < 0) {
+		printk("init_cmd_check failed, %d\n", ret);
+		goto error;
+	}
+	return 0;
+
+error:
+	kfree(mcu_data);
+	return ret;
+}
+
+static int tinker_mcu_remove(struct i2c_client *client)
+{
+	struct tinker_mcu_data *mcu_data = i2c_get_clientdata(client);
+	kfree(mcu_data);
+	return 0;
+}
+
+static const struct i2c_device_id tinker_mcu_id[] = {
+	{"tinker_mcu", 0},
+	{},
+};
+
+#define TINKER_I2C_ADAPTER 0
+#define I2C_ADDR_SLAVE 0x45
+
+const struct i2c_board_info info = {
+        I2C_BOARD_INFO("tinker_mcu", I2C_ADDR_SLAVE)
+};
+
+static int new_tinker_device(void)
+{
+	struct i2c_adapter *adapter;
+	struct i2c_client *client;
+	struct i2c_board_info info = {
+		.type = "tinker_mcu",
+		.addr = I2C_ADDR_SLAVE,
+	};
+
+	pr_debug("%s\n", __func__);
+
+	adapter = i2c_get_adapter(TINKER_I2C_ADAPTER);
+	if (!adapter) {
+		pr_err("%s: i2c_get_adapter(%d) failed\n", __func__,
+			TINKER_I2C_ADAPTER);
+		return -EINVAL;
+	}
+
+	client = i2c_new_device(adapter, &info);
+	if (!client) {
+		pr_err("%s: i2c_new_device() failed\n", __func__);
+		i2c_put_adapter(adapter);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static struct i2c_driver tinker_mcu_driver = {
+	.driver = {
+		.name = "tinker_mcu",
+	},
+	.probe = tinker_mcu_probe,
+	.remove = tinker_mcu_remove,
+	.id_table = tinker_mcu_id,
+};
+
+static int icn6211_init(void)
+{
+	int ret;
+
+	printk("enter %s\n", __FUNCTION__);
+	ret = new_tinker_device();
+	if (ret != 0) {
+		pr_err("new tinker_mcu i2c device faield.");
+		return ret;
+	}
+	ret = i2c_add_driver(&tinker_mcu_driver);
+	if (ret < 0) {
+		pr_err("register tinker_mcu i2c dirver faield.");
+		return ret;
+	}
+	return 0;
+}
+
+#endif
+
 static int drv_vpp_open(void *h_vpp_ctx)
 {
 	unsigned int i, intr_num;
@@ -428,6 +603,10 @@ static int drv_vpp_open(void *h_vpp_ctx)
 
 	/* Clear the Reset line to make the device to normal functional state */
 	gpiod_set_value_cansleep(hVppCtx->gpio_mipirst, 0);
+#ifdef CONFIG_RASPBERRY_PI_LCD_MCU
+	msleep(120);
+	icn6211_init();
+#endif
 
 	return 0;
 }

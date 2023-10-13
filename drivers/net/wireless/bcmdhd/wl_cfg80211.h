@@ -109,7 +109,7 @@ struct wl_ibss;
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0) && !defined(WL_NMI_IF))
-#define WL_NMI_IF
+//#define WL_NMI_IF   //guxiaolin 20230531 ,did not support nmi interafce
 #endif /* LINUX_VERSION_CODE >= (4, 17, 0) && !(WL_NMI_IF) */
 
 /* Define to default v4 */

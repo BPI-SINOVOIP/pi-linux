@@ -13,7 +13,6 @@ ISP_INC_PATH += -I$(ISP_ABS_PATH)/fw_inc/vs680
 HEADER_PATH +=  $(ISP_INC_PATH)    \
 		-I$(srctree)/drivers/soc/berlin/modules/isp/dhub \
 		-I$(srctree)/drivers/soc/berlin/modules/msgQ \
-		-I$(srctree)/drivers/soc/berlin/modules/isp \
 
 ccflags-y += $(HEADER_PATH)
 

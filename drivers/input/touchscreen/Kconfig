@@ -1315,4 +1315,22 @@ config TOUCHSCREEN_IQS5XX
 	  To compile this driver as a module, choose M here: the
 	  module will be called iqs5xx.
 
+config TOUCHSCREEN_FT5X06
+	tristate "FocalTech ft5x06 TouchScreen driver"
+	depends on I2C
+	help
+	  Say Y to enable support for FocalTech ft5x06 TouchScreen driver is include IC types such as:
+	  FT5x06 FT5606 FT5x16 FT6x06 Ft6x36 FT5x06i FT5336 FT3316 FT5436i FT5336i FT5x46.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ft5x06.
+
+config TOUCHSCREEN_FT5406
+	tristate "FocalTech tinker ft5406 TouchScreen driver"
+	depends on I2C
+	help
+	  Say Y to enable support for FocalTech ft5406 TouchScreen driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ft5406.
 endif

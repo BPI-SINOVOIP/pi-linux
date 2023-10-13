@@ -273,6 +273,14 @@
 			interrupt-names = "spdifo";
 		};
 
+		hdmi_out: hdmi-out {
+			compatible = "syna,vs680-hdmi";
+			status = "disabled";
+			interrupt-parent = <&dhubctr_a>;
+			interrupts = <7>;
+			interrupt-names = "hdmi";
+		};
+
 		i2s_mic1: i2s-mic1 {
 			compatible = "syna,vs680-i2s-mic1";
 			status = "disabled";

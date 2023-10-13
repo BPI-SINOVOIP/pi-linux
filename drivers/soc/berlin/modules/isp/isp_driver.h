@@ -41,8 +41,13 @@ typedef struct isp_device_t {
 	resource_size_t reg_base_phys;
 	resource_size_t reg_size;
 	struct device *dev;
+	#if 1//def CONFIG_ISP_CAMERA_GPIO
+	//struct gpio_desc *rcamvdd33;
+	struct gpio_desc *rcamrst;
+	#else
 	struct gpio_descs *enable_gpios;
 	gpio_array_values gpio_values;
+	#endif
 	struct clk **isp_clks;
 	struct proc_dir_entry *dev_procdir;
 	struct mutex isp_mutex;

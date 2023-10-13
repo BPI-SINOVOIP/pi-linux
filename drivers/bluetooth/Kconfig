@@ -10,6 +10,12 @@ config BT_INTEL
 config BT_BCM
 	tristate
 	select FW_LOADER
+ 
+config BT_RTKBTUSB
+    tristate "RTK HCI USB driver"
+    depends on USB
+    help
+       RTK Bluetooth HCI USB driver
 
 config BT_RTL
 	tristate

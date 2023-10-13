@@ -163,7 +163,7 @@ static void outdai_set_aio(struct outdai_priv *out,
 		else if (chnum == 8)
 			aio_set_interleaved_mode(out->aio_handle, AIO_ID_PRI_TX, 3, (1<<2) | (2<<4) | (3<<6));
 		else
-			dev_err(out->aio_handle, "not supported chnum: %d in I2S mode\n", chnum);
+			snd_printk("not supported chnum: %d in I2S mode\n", chnum);
 	}
 	div = (24576000 * 8) / (8 * bclk);
 	div = ilog2(div);
@@ -303,7 +303,7 @@ static int berlin_outdai_hw_params(struct snd_pcm_substream *substream,
 	struct berlin_ss_params ssparams;
 
 	if (!(outdai->mode & I2SO_MODE)) {
-		dev_err(outdai->dev, "not in i2s mode, fatal error.\n");
+		snd_printk("not in i2s mode, fatal error.\n");
 		return -EINVAL;
 	}
 	berlin_set_pll(outdai->aio_handle, AIO_APLL_0, fs);

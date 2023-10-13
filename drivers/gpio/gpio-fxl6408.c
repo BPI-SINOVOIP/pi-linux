@@ -459,6 +459,8 @@ static int fxl6408_gpio_suspend(struct device *dev)
 static int fxl6408_gpio_resume(struct device *dev)
 {
 	struct fxl6408_chip *chip;
+	u8 device_id;
+	int count;
 
 	chip = dev_get_drvdata(dev);
 
@@ -466,6 +468,12 @@ static int fxl6408_gpio_resume(struct device *dev)
 		return 0;
 
 	mutex_lock(&chip->i2c_lock);
+
+	for (count = 0; count<5; count++ ){
+		device_id = i2c_smbus_read_byte_data(chip->client, FXL6408_DEVICE_ID);
+		if (device_id > 0)
+			break;
+	}
 
 	i2c_smbus_write_byte_data(chip->client, FXL6408_OUTPUT,
 				  chip->reg_output);

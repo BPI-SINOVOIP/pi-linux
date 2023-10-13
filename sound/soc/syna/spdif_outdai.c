@@ -94,7 +94,6 @@ static int berlin_outdai_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	aio_setspdif_en(outdai->aio_handle, 1);
 
-
 	aio_set_aud_ch_flush(outdai->aio_handle, AIO_ID_SPDIF_TX, AIO_TSD0, 0);
 
 	berlin_set_pll(outdai->aio_handle, AIO_APLL_1, fs);
@@ -129,6 +128,7 @@ static int berlin_outdai_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		snd_printd("%s: dainame %s, cmd: %d\n", __func__, outdai->dev_name, cmd);
 		aio_set_aud_ch_mute(outdai->aio_handle, AIO_ID_SPDIF_TX, AIO_TSD0, 0);
 		aio_set_aud_ch_flush(outdai->aio_handle, AIO_ID_SPDIF_TX, AIO_TSD0, 0);
 		break;

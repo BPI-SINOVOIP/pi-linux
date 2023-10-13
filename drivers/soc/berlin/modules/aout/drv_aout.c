@@ -1613,6 +1613,7 @@ amp_driver_setup_cdev(struct cdev *dev, int major, int minor,
 	return cdev_add(dev, MKDEV(major, minor), 1);
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int drv_aout_suspend(struct device *dev)
 {
 	struct aout_priv *aout = get_aout_priv(dev);
@@ -1679,6 +1680,7 @@ static int drv_aout_resume(struct device *dev)
 
 	return 0;
 }
+#endif
 
 static int aout_init(struct aout_priv *aout)
 {

@@ -5,6 +5,8 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/of_device.h>
+#include <sound/pcm_params.h>
+#include <sound/soc.h>
 
 #include "berlin_pcm.h"
 #include "berlin_capture.h"
@@ -227,6 +229,23 @@ void berlin_pcm_max_ch_inuse(struct snd_pcm_substream *substream,
 }
 EXPORT_SYMBOL(berlin_pcm_max_ch_inuse);
 
+bool berline_pcm_passthrough_check(struct snd_pcm_substream *substream,
+			       u32 *data_type)
+{
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		return berlin_playback_passthrough_check(substream, data_type);
+
+	return false;
+}
+EXPORT_SYMBOL(berline_pcm_passthrough_check);
+
+void berlin_pcm_hdmi_bitstream_start(struct snd_pcm_substream *substream)
+{
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		berlin_playback_hdmi_bitstream_start(substream);
+}
+EXPORT_SYMBOL(berlin_pcm_hdmi_bitstream_start);
+
 static int berlin_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -240,8 +259,7 @@ static int berlin_pcm_open(struct snd_pcm_substream *substream)
 	if (mutex_lock_interruptible(&chip->dhub_lock) != 0)
 		return  -EINTR;
 	if (chip->dhub == NULL) {
-		chip->dhub =
-			(void *) Dhub_GetDhubHandle_ByDhubId(DHUB_ID_AG_DHUB);
+		chip->dhub = Dhub_GetDhubHandle_ByDhubId(DHUB_ID_AG_DHUB);
 		if (unlikely(chip->dhub == NULL)) {
 			snd_printk("chip->dhub: get failed\n");
 			mutex_unlock(&chip->dhub_lock);
@@ -253,7 +271,7 @@ static int berlin_pcm_open(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return berlin_capture_open(substream);
 	else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		return berlin_playback_open(substream);
+		return berlin_playback_open(substream, chip->passthrough_enable);
 
 	return 0;
 }
@@ -359,8 +377,86 @@ static const struct snd_pcm_ops berlin_pcm_ops = {
 
 #define PREALLOC_BUFFER (2 * 1024 * 1024)
 #define PREALLOC_BUFFER_MAX (2 * 1024 * 1024)
+/*
+ * ALSA API channel-map control callbacks
+ */
+static int berlin_pcm_chmap_ctl_info(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 8;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = SNDRV_CHMAP_LAST;
+	return 0;
+}
+
+static int berlin_pcm_chmap_ctl_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_pcm_chmap *info = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dai *dai = info->private_data;
+	u32 tx_ch[8], tx_num;
+	int i;
+
+	if (dai->driver->ops->get_channel_map) {
+		dai->driver->ops->get_channel_map(dai, &tx_num, tx_ch, NULL, NULL);
+		for (i = 0; i < tx_num; i++)
+			ucontrol->value.integer.value[i] = tx_ch[i];
+	}
+
+	return 0;
+}
+
+static int berlin_pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_pcm_chmap *info = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dai *dai = info->private_data;
+	u32 tx_ch[8], tx_num;
+	int i;
+
+	if (dai->driver->ops->set_channel_map) {
+		tx_num = 8;
+		for (i = 0; i < tx_num; i++)
+			tx_ch[i] = ucontrol->value.integer.value[i];
+		dai->driver->ops->set_channel_map(dai, tx_num, tx_ch, 0, NULL);
+	}
+
+	return 0;
+}
+
+static int berlin_pcm_chmap_ctl_tlv(struct snd_kcontrol *kcontrol, int op_flag,
+			      unsigned int size, unsigned int __user *tlv)
+{
+	snd_printd("%s enter", __func__);
+
+	return 0;
+}
+
 static int berlin_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
+	struct snd_pcm_chmap *chmap;
+	struct snd_kcontrol *kctl;
+	int err, i;
+
+	/* create channel mapping for playback streams only now */
+	if (rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream_count) {
+		err = snd_pcm_add_chmap_ctls(rtd->pcm,
+					     SNDRV_PCM_STREAM_PLAYBACK,
+					     NULL, 0, 0, &chmap);
+		if (err < 0)
+			return err;
+		/* override handlers */
+		kctl = chmap->kctl;
+		chmap->private_data = rtd->cpu_dai;
+		for (i = 0; i < kctl->count; i++)
+			kctl->vd[i].access |= SNDRV_CTL_ELEM_ACCESS_WRITE;
+		kctl->info = berlin_pcm_chmap_ctl_info;
+		kctl->get = berlin_pcm_chmap_ctl_get;
+		kctl->put = berlin_pcm_chmap_ctl_put;
+		kctl->tlv.c = berlin_pcm_chmap_ctl_tlv;
+	}
+
 	snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
 			SNDRV_DMA_TYPE_CONTINUOUS,
 			snd_dma_continuous_data
@@ -375,11 +471,55 @@ static void berlin_pcm_free(struct snd_pcm *pcm)
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
 
-static const struct snd_soc_component_driver berlin_pcm_component = {
+static int berlin_pcm_hdmi_spdif_out_switch_get(
+					struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *value)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct device *dev = component->dev;
+	struct berlin_chip *chip = dev_get_drvdata(dev);
+
+	value->value.integer.value[0] = chip->passthrough_enable;
+
+	return 0;
+}
+
+static int berlin_pcm_hdmi_spdif_out_switch_put(
+				     struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *value)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct device *dev = component->dev;
+	struct berlin_chip *chip = dev_get_drvdata(dev);
+	int changed;
+
+	changed = value->value.integer.value[0] != chip->passthrough_enable;
+	if (changed) {
+		chip->passthrough_enable = value->value.integer.value[0];
+		snd_printd("berlin audio passthrough: %s\n",
+			value->value.integer.value[0] ? "enable" : "disable");
+	}
+
+	return changed;
+}
+
+static struct snd_kcontrol_new berlin_pcm_controls[] = {
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_PCM,
+		.name = SNDRV_CTL_NAME_IEC958("", PLAYBACK, SWITCH),
+		.info = snd_ctl_boolean_mono_info,
+		.get = berlin_pcm_hdmi_spdif_out_switch_get,
+		.put = berlin_pcm_hdmi_spdif_out_switch_put,
+	}
+};
+
+static struct snd_soc_component_driver berlin_pcm_component = {
 	.name		= "syna-berlin-pcm",
 	.ops		= &berlin_pcm_ops,
 	.pcm_new	= berlin_pcm_new,
 	.pcm_free	= berlin_pcm_free,
+	.controls	= berlin_pcm_controls,
+	.num_controls	= ARRAY_SIZE(berlin_pcm_controls),
 };
 
 static int berlin_pcm_probe(struct platform_device *pdev)

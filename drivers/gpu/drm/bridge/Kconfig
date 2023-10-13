@@ -158,6 +158,12 @@ config DRM_TI_SN65DSI86
 	help
 	  Texas Instruments SN65DSI86 DSI to eDP Bridge driver
 
+config RASPBERRY_PI_LCD_MCU
+	tristate "Support raspberry lcd"
+	default n
+	help
+	  Support raspberry lcd.
+
 source "drivers/gpu/drm/bridge/analogix/Kconfig"
 
 source "drivers/gpu/drm/bridge/adv7511/Kconfig"
