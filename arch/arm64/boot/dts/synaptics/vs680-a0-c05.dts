@@ -7,7 +7,7 @@
 
 /dts-v1/;
 
-/memreserve/ 0x7f000000 0x01000000;
+/memreserve/ 0x70c00000 0x0F400000;
 
 #include <dt-bindings/gpio/gpio.h>
 
@@ -20,7 +20,11 @@
 	aliases {
 		i2c3 = &i2cdemux3_i2c;
 	};
-
+	soc {
+		firmware {
+            compatible = "berlin,secure-firmware";
+        };
+	};
 	cpus {
 		cpu@0 {
 			cpu0-supply = <&vcpu>;
@@ -33,7 +37,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0 0x01000000 0 0x7f000000>;
+		reg = <0 0x04100000 0 0x00900000>, <0 0x04a00000 0 0x6C200000>, <0 0x80000000 0 0x60000000>;
 	};
 
 	reserved-memory {
@@ -96,11 +100,11 @@
 	ion {
 		compatible = "syna,ion-berlin-heaps";
 		pool-num = <2>;
-		reg-names = "NonSecure", "Secure";
-		reg = <0 0x7f000000 0 0x00800000>,
-		      <0 0x7f800000 0 0x00800000>;
+		reg-names = "Secure","NonSecure-NC";
+		reg = <0 0x71400000 0 0x0ec00000>,
+		      <0 0x70C00000 0 0x00800000>;
 		attributes-num-per-pool = <2>;
-		pool-attributes = <0x00000105 0x00000F3A 0x00000102 0x00000F3D>;
+		pool-attributes = <0x00000005 0x00000f3d 0x00000005 0x00000f3a>;
 	};
 
 	regulators {
