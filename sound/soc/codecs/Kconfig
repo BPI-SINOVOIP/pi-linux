@@ -1503,4 +1503,8 @@ config SND_SOC_CX9000
 	tristate "Synaptics CX9000 AMPLIFIER"
 	depends on I2C
 
+config SND_SOC_SN6040
+	tristate "Senarytech SN6040 Codec"
+	depends on I2C
+
 endmenu

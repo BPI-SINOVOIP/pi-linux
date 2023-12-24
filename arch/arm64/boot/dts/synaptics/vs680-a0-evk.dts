@@ -20,11 +20,7 @@
 	aliases {
 		i2c3 = &i2cdemux3_i2c;
 	};
-	soc {
-		firmware {
-            compatible = "berlin,secure-firmware";
-        };
-	};
+
 	cpus {
 		cpu@0 {
 			cpu0-supply = <&vcpu>;
@@ -37,7 +33,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0 0x04a00000 0 0x6C200000>;
+		reg = <0 0x01000000 0 0x7f000000>;
 	};
 
 	reserved-memory {
@@ -66,11 +62,11 @@
 	ion {
 		compatible = "syna,ion-berlin-heaps";
 		pool-num = <2>;
-		reg-names = "Secure","NonSecure-NC";
-		reg = <0 0x71400000 0 0x0ec00000>,
-		      <0 0x70C00000 0 0x00800000>;
+		reg-names = "NonSecure", "Secure";
+		reg = <0 0x7f000000 0 0x00800000>,
+		      <0 0x7f800000 0 0x00800000>;
 		attributes-num-per-pool = <2>;
-		pool-attributes = <0x00000005 0x00000f3d 0x00000005 0x00000f3a>;
+		pool-attributes = <0x00000105 0x00000F3A 0x00000102 0x00000F3D>;
 	};
 
 	regulators {
@@ -395,7 +391,6 @@
 	pinctrl-0 = <&i2c1_pmux>;
 
 	vcpu: regulator@62 {
-		status = "disabled";
 		compatible = "mps,mp8867";
 		regulator-name = "vcpu";
 		regulator-min-microvolt = <700000>;
@@ -411,7 +406,7 @@
 	};
 
 	vcpu1: regulator1@60 {
-		status = "okay";
+		status = "disabled";
 		compatible = "silergy,sy8827n";
 		regulator-name = "vcpu";
 		regulator-min-microvolt = <700000>;
@@ -431,7 +426,6 @@
 	pinctrl-0 = <&i2c2_pmux>;
 
 	vcore: regulator@60 {
-		status = "disabled";
 		compatible = "mps,mp8869";
 		regulator-name = "vcore";
 		regulator-min-microvolt = <700000>;
@@ -448,7 +442,7 @@
 	};
 
 	vcore1: regulator1@60 {
-		status = "okay";
+		status = "disabled";
 		compatible = "silergy,sy8827n";
 		regulator-name = "vcore";
 		regulator-min-microvolt = <700000>;

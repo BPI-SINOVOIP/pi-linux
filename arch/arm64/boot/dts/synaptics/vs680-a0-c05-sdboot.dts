@@ -14,7 +14,7 @@
 #include "vs680-a0.dtsi"
 
 / {
-	model = "Synaptics VS680 BPI-M6 (20231120)";
+	model = "Synaptics VS680 EVK";
 	compatible = "syna,vs680-evk", "syna,vs680";
 
 	aliases {
@@ -357,7 +357,7 @@
 	pinctrl-names = "default";
 	no-sdio;
 	no-mmc;
-	no-removable;  //SD not detected
+	//no-removable;  //SD not detected
 	disable-wp;
 	sdclkdl-dc = /bits/ 8 <75>;
 	pad-sp = /bits/ 8 <12>;

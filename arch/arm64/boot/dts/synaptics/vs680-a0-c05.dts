@@ -7,7 +7,7 @@
 
 /dts-v1/;
 
-/memreserve/ 0x70c00000 0x0F400000;
+/memreserve/ 0x7f000000 0x01000000;
 
 #include <dt-bindings/gpio/gpio.h>
 
@@ -37,7 +37,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0 0x04100000 0 0x00900000>, <0 0x04a00000 0 0x6C200000>, <0 0x80000000 0 0x60000000>;
+		reg = <0 0x04a00000 0 0x6C200000>;
 	};
 
 	reserved-memory {

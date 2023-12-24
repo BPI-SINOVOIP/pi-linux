@@ -525,8 +525,6 @@ static int es8326_pcm_startup(struct snd_pcm_substream *substream,
 				   SNDRV_PCM_HW_PARAM_RATE,
 				   es8326->sysclk_constraints);
 
-	
-	
 	return 0;
 }
 
@@ -534,7 +532,6 @@ static int es8326_pcm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
 {
-	
 	struct snd_soc_component*codec = dai->component;
 	struct es8326_priv *es8326 = snd_soc_component_get_drvdata(codec);
 	unsigned int srate = 0;
@@ -684,9 +681,9 @@ static int es8326_set_bias_level(struct snd_soc_component*codec,
 	return 0;
 }
 
-#define es8326_RATES SNDRV_PCM_RATE_48000
+#define es8326_RATES (SNDRV_PCM_RATE_48000|SNDRV_PCM_RATE_44100)
 
-#define es8326_FORMATS (SNDRV_PCM_FMTBIT_S32_LE)
+#define es8326_FORMATS (SNDRV_PCM_FMTBIT_S32_LE|SNDRV_PCM_FMTBIT_S16_LE)
 
 static struct snd_soc_dai_ops es8326_ops = {
 	//.startup = es8326_pcm_startup,

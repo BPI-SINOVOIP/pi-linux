@@ -131,8 +131,6 @@
 			reg = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-
 		};
 
 		i2c@1 {
@@ -173,11 +171,26 @@
 		function = "gpio";
 	};
 
-	pwm1_pmux: pwm1-pmux {
-		groups = "SPI1_SS1n";
+	pwm0_pmux: pwm0-pmux {
+		groups = "STS1_CLK";
 		function = "pwm";
 	};
-	
+
+	pwm0_gpio: pwm0-gpio {
+		groups = "STS1_CLK";
+		function = "gpio";
+	};
+
+	pwm1_pmux: pwm1-pmux {
+		groups = "STS1_SOP";
+		function = "pwm";
+	};
+
+	pwm1_gpio: pwm1-gpio {
+		groups = "STS1_SOP";
+		function = "gpio";
+	};
+
 	spi1_pmux: spi1-pmux {
 		groups = "SPI1_SCLK", "SPI1_SDI", "SPI1_SDO", "SPI1_SS0n";
 		function = "spi1";
@@ -258,6 +271,25 @@
 		function = "spdifo";
 	};
 */
+	pwm2_pmux: pwm2-pmux {
+		groups = "I2S1_DO2";
+		function = "pwm";
+	};
+
+	pwm2_gpio: pwm2-gpio {
+		groups = "I2S1_DO2";
+		function = "gpio";
+	};
+
+	pwm3_pmux: pwm3-pmux {
+		groups = "I2S1_DO3";
+		function = "pwm";
+	};
+
+	pwm3_gpio: pwm3-gpio {
+		groups = "I2S1_DO3";
+		function = "gpio";
+	};
 };
 
 &sdhci0 {
@@ -720,6 +752,16 @@
 };
 
 &pwm0 {
+	pinctrl-0 = <&pwm0_pmux>;
+	pinctrl-1 = <&pwm0_gpio>;
+	pinctrl-2 = <&pwm1_pmux>;
+	pinctrl-3 = <&pwm1_gpio>;
+	pinctrl-4 = <&pwm2_pmux>;
+	pinctrl-5 = <&pwm2_gpio>;
+	pinctrl-6 = <&pwm3_pmux>;
+	pinctrl-7 = <&pwm3_gpio>;
+	pinctrl-names = "pwm0","pwm0_gpio","pwm1","pwm1_gpio",\
+	"pwm2","pwm2_gpio","pwm3","pwm3_gpio";
 	status = "okay";
 };
 

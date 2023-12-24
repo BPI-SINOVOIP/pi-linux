@@ -728,17 +728,32 @@ static int berlin_outdai_setfmt(struct snd_soc_dai *dai, unsigned int fmt)
 }
 
 struct hdmi_priv *g_hdmi = NULL;
+struct mutex hdmi_mutex;
 void hdmi_port_int_enable(void)
 {
-	struct hdmi_priv *hdmi = g_hdmi;
-	struct snd_pcm_substream *substream = hdmi->ss;
+	struct hdmi_priv *hdmi ;
 
+	struct snd_pcm_substream *substream;
+
+	mutex_lock(&hdmi_mutex);
+
+	hdmi = g_hdmi;
+
+	substream  = hdmi->ss;
+
+	if(NULL == hdmi || NULL == substream || NULL == hdmi->aio_handle )
+	{
+		dev_err(hdmi->dev, " fatal error null pointer %p %p %p\n", hdmi, substream, hdmi->aio_handle);
+		mutex_unlock(&hdmi_mutex);
+		return ;
+	}
 	aio_set_aud_ch_flush(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_FLUSH_OFF);
 	aio_set_aud_ch_en(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_ENABLE_ENABLE);
 	/* wait for hw done */
 	usleep_range(1000, 1500);
 	aio_set_aud_ch_mute(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_MUTE_MUTE_OFF);
 	berlin_pcm_hdmi_bitstream_start(substream);
+	mutex_unlock(&hdmi_mutex);
 }
 EXPORT_SYMBOL(hdmi_port_int_enable);
 
@@ -751,6 +766,7 @@ static void trigger_hdmi(struct work_struct *work)
 	int ret;
 
 	snd_printd("%s: dainame %s, starting...\n", __func__, hdmi->dev_name);
+	mutex_lock(&hdmi_mutex);
 	if (berline_pcm_passthrough_check(substream, &data_type)) {
 		snd_printd("IEC61937 data type %d\n", data_type);
 		switch (data_type) {
@@ -783,9 +799,12 @@ static void trigger_hdmi(struct work_struct *work)
 	ret = set_hdmi_audio_fmt(hdmi);
 	if (ret < 0) {
 		dev_err(hdmi->dev, "hdmi audio fmt set fail\n");
+		mutex_unlock(&hdmi_mutex);
 		return;
 	}
+
 	g_hdmi = hdmi;
+	mutex_unlock(&hdmi_mutex);
 	pr_item(hdmi->irq);
 	pr_item(hdmi->chid);
 	pr_item(hdmi->channels);
@@ -797,7 +816,7 @@ static void trigger_hdmi(struct work_struct *work)
 	pr_item(hdmi->i2s_dfm);
 	pr_item(hdmi->i2s_cfm);
 	pr_item(hdmi->fmt);
-	snd_printd("kick off hdmi...\n");
+	snd_printd("kick off hdmi %p...\n",g_hdmi);
 }
 
 static int berlin_outdai_hw_params(struct snd_pcm_substream *substream,
@@ -1018,6 +1037,7 @@ static int hdmi_outdai_probe(struct platform_device *pdev)
 		snd_printk("failed to register DAI: %d\n", ret);
 		return ret;
 	}
+	mutex_init(&hdmi_mutex);
 	snd_printd("%s: done i2s [%d %d]\n", __func__,
 		   outdai->irq, outdai->chid);
 	return ret;

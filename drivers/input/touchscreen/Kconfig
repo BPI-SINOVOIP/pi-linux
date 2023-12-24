@@ -1333,4 +1333,6 @@ config TOUCHSCREEN_FT5406
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ft5406.
+
+source "drivers/input/touchscreen/gt9xx/Kconfig"
 endif
