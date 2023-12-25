@@ -1,6 +1,7 @@
 obj-$(CONFIG_SYNA_ISP)	:=	isp.o
 
 ISP_ABS_PATH := $(srctree)/drivers/soc/berlin/modules/isp
+ISP_INC_PATH += -I$(ISP_ABS_PATH)
 
 ifeq ($(CONFIG_ISP_VS680),y)
 ISP_INC_PATH += -I$(ISP_ABS_PATH)/vs680
