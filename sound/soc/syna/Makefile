@@ -47,10 +47,10 @@ snd-soc-berlin-pri-loopback-objs += i2s_pri_loopback.o
 snd-soc-berlin-hdmi-loopback-objs += i2s_hdmi_loopback.o
 
 obj-$(CONFIG_SND_SOC_BERLIN_PCM)    += snd-soc-berlin-pcm.o
+obj-$(CONFIG_SND_SOC_BERLIN_HDMI)   += snd-soc-berlin-hdmi-outdai.o
 obj-$(CONFIG_SND_SOC_BERLIN_DMIC)   += snd-soc-berlin-dmic.o
 obj-$(CONFIG_SND_SOC_BERLIN_PRI)    += snd-soc-berlin-pri.o
 obj-$(CONFIG_SND_SOC_BERLIN_SPDIFO) += snd-soc-berlin-spdifo.o
-obj-$(CONFIG_SND_SOC_BERLIN_HDMI)   += snd-soc-berlin-hdmi-outdai.o
 obj-$(CONFIG_SND_SOC_BERLIN_SEC)    += snd-soc-berlin-sec.o
 obj-$(CONFIG_SND_SOC_BERLIN_PDMI)   += snd-soc-berlin-pdmi.o
 obj-$(CONFIG_SND_SOC_BERLIN_MIC1)   += snd-soc-berlin-mic1.o
