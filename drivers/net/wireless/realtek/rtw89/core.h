@@ -2807,8 +2807,7 @@ struct rtw89_fw_suit {
 			  GET_FW_HDR_SUBINDEX(fw_hdr))
 
 struct rtw89_fw_info {
-	const void *firmware;
-	size_t firmware_size;
+	const struct firmware *firmware;
 	struct rtw89_dev *rtwdev;
 	struct completion completion;
 	u8 h2c_seq;
