@@ -1,0 +1,8 @@
+config TOUCHSCREEN_GT9XX
+    tristate "Gt9xx touchscreen"
+    depends on INPUT_TOUCHSCREEN
+    help
+        Say Y here if you have a Gt9xx IC and want to enable
+        support for the built-in touchscreen.
+        If unsure, say N.
+

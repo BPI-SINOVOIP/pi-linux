@@ -651,11 +651,9 @@ int berlin_playback_hw_free(struct snd_pcm_substream *ss)
 }
 
 extern void hdmi_port_int_enable(void);
-//static void hdmi_enable(struct work_struct *work)
-void hdmi_enable(struct work_struct *work)
+static void hdmi_enable(struct work_struct *work)
 {
-	//hdmi_port_int_enable();
-	return;
+	hdmi_port_int_enable();
 }
 
 
@@ -1468,3 +1466,5 @@ bool berlin_playback_passthrough_check(struct snd_pcm_substream *substream,
 	*data_type = bp->burst_type;
 	return true;
 }
+
+MODULE_LICENSE("GPL v2");

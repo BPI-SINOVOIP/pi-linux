@@ -17,6 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/pinctrl/consumer.h>
 
 #define BERLIN_PWM_EN			0x0
 #define  BERLIN_PWM_ENABLE		BIT(0)
@@ -38,6 +40,8 @@
 #define BERLIN_PWM_TCNT			0xc
 #define  BERLIN_PWM_MAX_TCNT		65535
 
+#define BERLIN_PWM_DEBUG
+
 struct berlin_pwm_channel {
 	u32 enable;
 	u32 ctrl;
@@ -49,7 +53,86 @@ struct berlin_pwm_chip {
 	struct pwm_chip chip;
 	struct clk *clk;
 	void __iomem *base;
+	struct mutex lock;
 };
+
+#ifdef BERLIN_PWM_DEBUG
+static ssize_t berlin_pwm_show(struct device *cd,
+	struct device_attribute *attr, char *buf);
+static ssize_t berlin_pwm_store(struct device *cd,
+	struct device_attribute *attr, const char *buf, size_t len);
+static DEVICE_ATTR_RW(berlin_pwm);
+
+static ssize_t berlin_pwm_show(
+	struct device *cd,
+	struct device_attribute *attr,
+	char *buf)
+{
+	return sysfs_emit(buf, "support mode:pwm0,pwm0_gpio,pwm1,pwm1_gpio,\
+pwm2,pwm2_gpio,pwm3,pwm3_gpio\n");
+}
+
+static ssize_t berlin_pwm_store(
+	struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t len)
+{
+	int i = 0, ret;
+	bool is_support = false;
+	struct pinctrl *pinctrl = NULL;
+	struct pinctrl_state *pwm_pin_state = NULL;
+	struct berlin_pwm_chip *pwm = (struct berlin_pwm_chip *)dev_get_drvdata(dev);
+	char *pinctrl_names[8] = {"pwm0", "pwm0_gpio", "pwm1", "pwm1_gpio",
+				  "pwm2", "pwm2_gpio",  "pwm3", "pwm3_gpio"};
+	if (buf == NULL) {
+		pr_err("[err] %s: Command format is error !\r\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&pwm->lock);
+	for(i = 0; i < 8; i++) {
+		if(sysfs_streq(buf, pinctrl_names[i])) {
+			is_support = true;
+			break;
+		}
+	}
+
+	if(!is_support) {
+		pr_err("[err] %s: %s Command Not Supported! len = %ld\r\n", __func__, buf, len);
+		mutex_unlock(&pwm->lock);
+		return -EINVAL;
+	}
+
+	pr_info("[info] %s set pwm mode %s !\r\n", __func__,  pinctrl_names[i]);
+
+	pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pinctrl)) {
+		pinctrl = NULL;
+		dev_err(dev, "Cannot find pinctrl!\n");
+		mutex_unlock(&pwm->lock);
+		return -EINVAL;
+	}
+
+	pwm_pin_state = pinctrl_lookup_state(pinctrl, pinctrl_names[i]);
+	if (IS_ERR(pwm_pin_state)) {
+		pwm_pin_state = NULL;
+		dev_err(dev, "Cannot find pinctrl idle!\n");
+		goto exit;
+	}
+
+	ret = pinctrl_select_state(pinctrl, pwm_pin_state);
+	if (ret) {
+		dev_err(dev, "failed to set proper pins state: %d\n", ret);
+	}
+exit:
+	devm_pinctrl_put(pinctrl);
+
+	mutex_unlock(&pwm->lock);
+
+	return len;
+}
+#endif
 
 static inline struct berlin_pwm_chip *to_berlin_pwm_chip(struct pwm_chip *chip)
 {
@@ -219,7 +302,10 @@ static int berlin_pwm_probe(struct platform_device *pdev)
 		clk_disable_unprepare(pwm->clk);
 		return ret;
 	}
-
+#ifdef BERLIN_PWM_DEBUG
+	mutex_init(&pwm->lock);
+	device_create_file(&pdev->dev, &dev_attr_berlin_pwm);
+#endif
 	platform_set_drvdata(pdev, pwm);
 
 	return 0;
@@ -232,7 +318,9 @@ static int berlin_pwm_remove(struct platform_device *pdev)
 
 	ret = pwmchip_remove(&pwm->chip);
 	clk_disable_unprepare(pwm->clk);
-
+#ifdef BERLIN_PWM_DEBUG
+	device_remove_file(&pdev->dev, &dev_attr_berlin_pwm);
+#endif
 	return ret;
 }
 

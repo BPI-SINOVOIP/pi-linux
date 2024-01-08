@@ -1,6 +1,7 @@
 obj-$(CONFIG_SYNA_ISP)	:=	isp.o
 
 ISP_ABS_PATH := $(srctree)/drivers/soc/berlin/modules/isp
+ISP_INC_PATH += -I$(ISP_ABS_PATH)
 
 ifeq ($(CONFIG_ISP_VS680),y)
 ISP_INC_PATH += -I$(ISP_ABS_PATH)/vs680
@@ -13,7 +14,6 @@ ISP_INC_PATH += -I$(ISP_ABS_PATH)/fw_inc/vs680
 HEADER_PATH +=  $(ISP_INC_PATH)    \
 		-I$(srctree)/drivers/soc/berlin/modules/isp/dhub \
 		-I$(srctree)/drivers/soc/berlin/modules/msgQ \
-		-I$(srctree)/drivers/soc/berlin/modules/isp \
 
 ccflags-y += $(HEADER_PATH)
 

@@ -964,6 +964,13 @@ config GPIO_TS4900
 	  Say yes here to enabled the GPIO driver for Technologic's FPGA core.
 	  Series supported include TS-4100, TS-4900, TS-7970 and TS-7990.
 
+config GPIO_ET6416
+	tristate "ET6416 I2C GPIO expander"
+	select GPIOLIB_IRQCHIP
+	help
+	  This option enables support for 16 GPIOs found
+	  on the ET6416.
+
 endmenu
 
 menu "MFD GPIO expanders"
