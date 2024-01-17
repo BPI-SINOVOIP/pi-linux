@@ -153,11 +153,11 @@
 	};
 
 	uboot_gipo: uboot-gpio {
-	compatible = "syna,uboot_gpio";
-	//40 41:CSI_PWR 11:VDD SM_8:LAN_PHY
-	out-high-gpios = <&porta 11 GPIO_ACTIVE_HIGH>, <&portb 8 GPIO_ACTIVE_HIGH>,
-		<&portb 9 GPIO_ACTIVE_HIGH>, <&portd 8 GPIO_ACTIVE_HIGH>;
-	out-low-gpios = <&expander1 5 GPIO_ACTIVE_HIGH>;
+		compatible = "syna,uboot_gpio";
+		//40 41:CSI_PWR 11:VDD SM_8:LAN_PHY 3:LCD_RST
+		out-high-gpios = <&porta 11 GPIO_ACTIVE_HIGH>, <&portb 8 GPIO_ACTIVE_HIGH>,
+			<&portb 9 GPIO_ACTIVE_HIGH>, <&porta 3 GPIO_ACTIVE_HIGH>;
+		out-low-gpios = <&expander1 5 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -521,7 +521,7 @@
 	pinctrl-names = "default";
 	phy-handle = <&phy0>;
 	phy-mode = "rgmii-id";
-	snps,reset-gpio = <&expander1 0 GPIO_ACTIVE_LOW>;
+	snps,reset-gpio = <&portd 8 GPIO_ACTIVE_HIGH>;
 	snps,reset-delays-us = <0 10000 50000>;
 };
 
