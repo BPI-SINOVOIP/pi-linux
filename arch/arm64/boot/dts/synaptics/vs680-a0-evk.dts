@@ -552,6 +552,10 @@
 	status = "okay";
 };
 
+&msg {
+	status = "okay";
+};
+
 &drm {
 	status = "okay";
 };

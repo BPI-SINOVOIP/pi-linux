@@ -17,9 +17,6 @@
 	model = "Synaptics VS680 EVK";
 	compatible = "syna,vs680-evk", "syna,vs680";
 
-	aliases {
-		i2c3 = &i2cdemux3_i2c;
-	};
 	soc {
 		firmware {
             compatible = "berlin,secure-firmware";
@@ -155,60 +152,6 @@
 		bt-dev-wake-gpio = <&expander1 3 GPIO_ACTIVE_HIGH>;
 	};
 
-	gpioi2c3: gpioi2c3 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "i2c-gpio";
-		gpios = <&portd 10 GPIO_ACTIVE_HIGH /* sda */
-			 &portd 9 GPIO_ACTIVE_HIGH /* scl */
-			>;
-		i2c-gpio,delay-us = <5>;
-	};
-
-	i2cdemux3 {
-		compatible = "i2c-dyndmx-pinctrl";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		i2c-parent = <&i2c3>, <&gpioi2c3>;
-
-		pinctrl-names = "i2c3", "gpioi2c3";
-		pinctrl-0 = <&i2c3_pmux>;
-		pinctrl-1 = <&gpioi2c3_pmux>;
-
-		i2cdemux3_i2c: i2c@0 {
-			reg = <0>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			expander0: gpio@43 {
-				compatible = "fcs,fxl6408";
-				reg = <0x43>;
-				gpio-controller;
-				#gpio-cells = <2>;
-			};
-
-			expander1: gpio@44 {
-				compatible = "fcs,fxl6408";
-				reg = <0x44>;
-				gpio-controller;
-				#gpio-cells = <2>;
-			};
-/*
-			rtc0: rtc@68 {
-				compatible = "dallas,ds1339";
-				wakeup-source;
-				reg = <0x68>;
-			};
-			*/
-		};
-
-		i2c@1 {
-			reg = <1>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-		};
-	};
 };
 
 &pinctrl {
@@ -283,12 +226,6 @@
 		//pin8 10
 		groups = "SM_SPI2_SS2n", "SM_SPI2_SS3n";
 		function = "uart2";
-	};
-
-	gpioi2c3_pmux: gpioi2c3-pmux {
-		groups = "SM_TW3_SCL", "SM_TW3_SDA";
-		function = "gpio";
-		drive-strength = <7>;
 	};
 
 	hrx5v_pmux: hrx5v-pmux {
@@ -503,6 +440,22 @@
 &i2c3 {
 	status = "okay";
 	no-irq-suspend;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pmux>;
+
+	expander0: gpio@43 {
+		compatible = "fcs,fxl6408";
+		reg = <0x43>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	expander1: gpio@44 {
+		compatible = "fcs,fxl6408";
+		reg = <0x44>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &uart0 {
@@ -563,9 +516,9 @@
 
 &isp {
 	status = "okay";
-	/* enable-gpios = <&expander1 7 GPIO_ACTIVE_HIGH>; */
 	/* rcamvdd33-gpio = <&porta 11 GPIO_ACTIVE_HIGH>; */
-	rcamrst-gpio = <&porta 8 GPIO_ACTIVE_HIGH>;
+	//rcamrst-gpio = <&porta 8 GPIO_ACTIVE_HIGH>;
+	enable-gpios = <&porta 8 GPIO_ACTIVE_HIGH>, <&portd 6 GPIO_ACTIVE_HIGH>;
 	i2c-bus = <&i2c3>;
 	dev-addr = <112>;
 };
@@ -623,6 +576,10 @@
 };
 
 &aout {
+	status = "okay";
+};
+
+&msg {
 	status = "okay";
 };
 

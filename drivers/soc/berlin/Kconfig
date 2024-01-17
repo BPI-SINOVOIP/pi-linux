@@ -78,6 +78,12 @@ config SYNA_ISP
 	help
 	  isp core driver
 
+config ISP_CAMERA_C05
+	tristate "Support for two identical sensor Camera gpio control"
+	default n
+	help
+	  isp core driver
+
 config BERLIN_TSP
 	tristate "Support BERLIN TSP"
 	default n
@@ -194,4 +200,9 @@ config SYNA_MC_DFC
 	help
 	  MC DFC HWCC for DDR frequency switch on the fly.
 
+config SYNA_MSG
+	tristate "Support msg"
+	default n
+	help
+	  support to get messge from user space.
 endmenu

@@ -483,8 +483,7 @@
 
 &isp {
 	status = "okay";
-	//enable-gpios = <&porta 4 GPIO_ACTIVE_HIGH>;
-	rcamrst-gpio = <&porta 4 GPIO_ACTIVE_HIGH>;
+	enable-gpios = <&porta 4 GPIO_ACTIVE_HIGH>;
 	i2c-bus = <&i2c3>;
 	dev-addr = <112>;
 };
@@ -542,6 +541,10 @@
 };
 
 &aout {
+	status = "okay";
+};
+
+&msg {
 	status = "okay";
 };
 

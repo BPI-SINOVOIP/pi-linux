@@ -15,6 +15,7 @@
 #include "avio_common.h"
 #include "hal_vpp_wrap.h"
 #include "vpp_cmd.h"
+#include "msg.h"
 
 #define HDMI_PLAYBACK_RATES   (SNDRV_PCM_RATE_8000_384000)
 #define HDMI_PLAYBACK_FORMATS (SNDRV_PCM_FMTBIT_S16_LE \
@@ -43,6 +44,10 @@ struct hdmi_priv {
 	struct delayed_work trigger_work;
 	struct snd_pcm_substream *ss;
 };
+
+struct hdmi_priv *g_hdmi = NULL;
+static int hdmi_plugin_handler(void);
+struct mutex hdmi_mutex;
 
 #define pr_item(a) snd_printd(#a" = %d\n", a)
 
@@ -370,6 +375,23 @@ static void hdmi_set_channel_mask(struct hdmi_priv *hdmi)
 	}
 }
 
+int outdai_hdmi_callback(unsigned int uiEventCode, void *pEventInfo, void *pContext)
+{
+	int ret = 0;
+	snd_printd("disp_callback_hdmi invoked value:%d\n", *(int *)pEventInfo);
+
+	if (*(int *)pEventInfo == 1) {
+		snd_printd("hdmi sink connected!\n");
+		mutex_lock(&hdmi_mutex);
+		if (g_hdmi)
+			ret = hdmi_plugin_handler();
+		mutex_unlock(&hdmi_mutex);
+	} else if (*(int *)pEventInfo == 0) {
+		snd_printd("hdmi sink disconnected!\n");
+	}
+
+	return ret;
+}
 
 void hdmi_set_samplerate(struct hdmi_priv *hdmi, int freq, int hbr)
 {
@@ -689,6 +711,48 @@ int set_hdmi_audio_fmt(struct hdmi_priv *hdmi)
 	return ret;
 }
 
+static int hdmi_plugin_handler(void)
+{
+	struct hdmi_priv *hdmi = g_hdmi;
+	struct snd_pcm_substream *substream = hdmi->ss;
+	int ret = 0;
+
+	snd_printd("hdmi_plugin_handler, stop port first!");
+	//aio_set_aud_ch_flush(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_FLUSH_ON);
+	aio_set_aud_ch_en(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_ENABLE_DISABLE);
+	aio_set_aud_ch_mute(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_MUTE_MUTE_ON);
+	usleep_range(5000, 5100);
+
+	ret = hdmi_audioformat_en(false);
+	if (ret < 0) {
+		dev_err(hdmi->dev, "hdmi audio fmt set fail\n");
+		return ret;
+	}
+
+	snd_printd("PCM stream");
+	hdmi->fmt = RAW_PCM;
+	hdmi_set_channel_mask(hdmi);
+
+	snd_printd("reset hdmi format!");
+	ret = set_hdmi_audio_fmt(hdmi);
+	if (ret < 0) {
+		dev_err(hdmi->dev, "hdmi audio fmt set fail\n");
+		return ret;
+	}
+	snd_printd("set_hdmi_audio_fmt, done!");
+
+	aio_set_aud_ch_flush(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_FLUSH_OFF);
+	aio_set_aud_ch_en(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_ENABLE_ENABLE);
+	snd_printd("hdmi_plugin_handler, enable port!");
+	usleep_range(1000, 1500);
+	aio_set_aud_ch_mute(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_MUTE_MUTE_OFF);
+	snd_printd("hdmi_plugin_handler, unmute port!");
+	berlin_pcm_hdmi_bitstream_start(substream);
+	snd_printd("hdmi_plugin_handler, start irq!");
+
+	return ret;
+}
+
 static struct snd_kcontrol_new berlin_outdai_ctrls[] = {
 	//TODO: add dai control here
 };
@@ -727,26 +791,37 @@ static int berlin_outdai_setfmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return ret;
 }
 
-struct hdmi_priv *g_hdmi = NULL;
-struct mutex hdmi_mutex;
 void hdmi_port_int_enable(void)
 {
-	struct hdmi_priv *hdmi ;
 
-	struct snd_pcm_substream *substream;
+	struct hdmi_priv *hdmi;
+	struct snd_pcm_substream *substream = NULL;
 
 	mutex_lock(&hdmi_mutex);
 
 	hdmi = g_hdmi;
 
-	substream  = hdmi->ss;
-
-	if(NULL == hdmi || NULL == substream || NULL == hdmi->aio_handle )
+	if(NULL == hdmi)
 	{
-		dev_err(hdmi->dev, " fatal error null pointer %p %p %p\n", hdmi, substream, hdmi->aio_handle);
+		printk(" fatal error null pointer hdmi %p\n", hdmi);
 		mutex_unlock(&hdmi_mutex);
 		return ;
 	}
+	if(NULL == hdmi->ss)
+	{
+		printk(" fatal error null pointer hdmi->ss  %p \n",hdmi->ss);
+		mutex_unlock(&hdmi_mutex);
+		return ;
+	}
+	if(NULL == hdmi->aio_handle)
+	{
+		printk(" fatal error null pointer aio_handle  %p \n", hdmi->aio_handle);
+		mutex_unlock(&hdmi_mutex);
+		return ;
+	}
+
+	substream  = hdmi->ss;
+
 	aio_set_aud_ch_flush(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_FLUSH_OFF);
 	aio_set_aud_ch_en(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_ENABLE_ENABLE);
 	/* wait for hw done */
@@ -754,6 +829,7 @@ void hdmi_port_int_enable(void)
 	aio_set_aud_ch_mute(hdmi->aio_handle, AIO_ID_HDMI_TX, AIO_TSD0, AUDCH_CTRL_MUTE_MUTE_OFF);
 	berlin_pcm_hdmi_bitstream_start(substream);
 	mutex_unlock(&hdmi_mutex);
+
 }
 EXPORT_SYMBOL(hdmi_port_int_enable);
 
@@ -894,6 +970,10 @@ static int berlin_outdai_hw_free(struct snd_pcm_substream *substream,
 		destroy_workqueue(outdai->wq);
 		outdai->wq = NULL;
 	}
+	mutex_lock(&hdmi_mutex);
+	if (g_hdmi)
+		g_hdmi = NULL;
+	mutex_unlock(&hdmi_mutex);
 	return 0;
 }
 
@@ -1006,6 +1086,8 @@ static int hdmi_outdai_probe(struct platform_device *pdev)
 	//Defer probe until dependent soc module/s are probed/initialized
 	if (!is_avio_driver_initialized())
 		return -EPROBE_DEFER;
+
+	syna_msg_callback_register(outdai_hdmi_callback);
 
 	outdai = devm_kzalloc(dev, sizeof(struct hdmi_priv),
 				  GFP_KERNEL);

@@ -11,6 +11,7 @@ ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/dhub/include
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/aio
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/vpp
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/vpp/ca/include
+ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/syna_msg
 ifeq ($(CONFIG_AVIO_VS680),y)
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/fw_inc/vs680
 ccflags-y += -I$(srctree)/drivers/soc/berlin/modules/avio/aio/vs6xx/680

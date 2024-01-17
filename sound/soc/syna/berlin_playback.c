@@ -1466,5 +1466,3 @@ bool berlin_playback_passthrough_check(struct snd_pcm_substream *substream,
 	*data_type = bp->burst_type;
 	return true;
 }
-
-MODULE_LICENSE("GPL v2");

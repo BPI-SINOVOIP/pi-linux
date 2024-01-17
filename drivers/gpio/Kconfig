@@ -1507,4 +1507,9 @@ config GPIO_MOCKUP
 	  tools/testing/selftests/gpio/gpio-mockup.sh. Reference the usage in
 	  it.
 
+config GPIO_VS680_UBOOT
+	tristate "VS680 Uboot Init GPIO Driver"
+	help
+	  This enables GPIO Init driver for Uboot boot.
+
 endif
