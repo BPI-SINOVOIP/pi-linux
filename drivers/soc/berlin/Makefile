@@ -26,3 +26,4 @@ obj-$(CONFIG_BERLIN_BM)	+= modules/bm/
 obj-$(CONFIG_SYNAPTICS_BT_DEVICE) += modules/bluetooth/
 obj-$(CONFIG_SYNA_DRM)		+= modules/drm/
 obj-$(CONFIG_SYNA_MC_DFC) += modules/mc/
+obj-$(CONFIG_SYNA_MSG) += modules/syna_msg/

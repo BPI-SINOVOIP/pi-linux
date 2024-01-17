@@ -459,6 +459,11 @@
 			status = "disabled";
 		};
 
+		msg: msg {
+			compatible = "syna,berlin-msg";
+			status = "disabled";
+		};
+
 		drm: drm {
 			compatible = "syna,berlin-drm";
 			status = "disabled";

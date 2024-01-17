@@ -181,6 +181,9 @@ static long isp_driver_ioctl(struct file *filp,
 	pInArg = (void __user *)arg;
 	pOutArg = (void __user *)arg;
 
+	//Remove module offset
+	cmd = cmd & 0xFFFF;
+
 	switch (cmd & 0xFF) {
 	case ISP_SET_CLK:
 	{
@@ -221,24 +224,23 @@ static long isp_driver_ioctl(struct file *filp,
 	case ISP_SELECT_SENSOR:
 	{
 		char sensor;
-		#if 0//def CONFIG_ISP_CAMERA_GPIO
+		#ifdef CONFIG_ISP_CAMERA_C05
 		char channel;
 		#endif
 
 		if (!copy_from_user(&sensor, pInArg, sizeof(sensor))) {
-			/* i2c switching is not needed if i2c-dev entry is not
-			available in the dts profile. Req for single sensor profiles */
-			#if 1//def CONFIG_ISP_CAMERA_GPIO
-			//if(sensor == 1)
-			//	channel = 8;//csi0
-			//else
-			//	channel = 4;//csi1
-			//pr_err("camera set channel=%d",channel);
-			
-			//if(isp_dev->i2c)
-			//	isp_i2c_write(isp_dev, 1, &channel, sizeof(channel));
+			#ifdef CONFIG_ISP_CAMERA_C05
+			/* Using two identical sensor profiles requires an i2c switching IC */
+			if(sensor == 1)
+				channel = 8;//csi0
+			else
+				channel = 4;//csi1
+			if(isp_dev->i2c)
+				/* Configure the i2c switch IC */
+				isp_i2c_write(isp_dev, 1, &channel, sizeof(channel));
 			#else
 			if(isp_dev->i2c)
+				/* Configure the sensor IC */
 				isp_i2c_write(isp_dev, 1, &sensor, sizeof(sensor));
 			#endif
 		}
@@ -250,19 +252,6 @@ static long isp_driver_ioctl(struct file *filp,
 		int enable;
 
 		if (!copy_from_user(&enable, pInArg, sizeof(enable))) {
-			#if 1//def CONFIG_ISP_CAMERA_GPIO
-			if(enable) {
-				//rear camera
-				//gpiod_set_value_cansleep(isp_dev->rcamvdd33, 1);
-				gpiod_set_value_cansleep(isp_dev->rcamrst, 1);
-				pr_err("camera power on");
-			} else {
-				//rear camera
-				gpiod_set_value_cansleep(isp_dev->rcamrst, 0);
-				//gpiod_set_value_cansleep(isp_dev->rcamvdd33, 0);
-				pr_err("camera power off");
-			}
-			#else
 			if (!IS_ERR_OR_NULL(isp_dev->enable_gpios)) {
 
 				if (enable)
@@ -282,7 +271,6 @@ static long isp_driver_ioctl(struct file *filp,
 					"IOCTL: Failed to find GPIO for setting power\n");
 				return -EINVAL;
 			}
-			#endif
 		} else {
 			isp_error(dev,
 				"IOCTL: Failed to set power\n");
@@ -429,35 +417,21 @@ static int isp_enable_sensor(isp_device *isp_dev)
 	struct device *dev;
 
 	dev = isp_dev->dev;
-#if 1//def CONFIG_ISP_CAMERA_GPIO
-	//isp_dev->rcamvdd33 = devm_gpiod_get_optional(dev,"rcamvdd33",GPIOD_OUT_LOW);
-	//if (IS_ERR(isp_dev->rcamvdd33)) 
-	//	pr_err("fail to rcamvdd33");
-	isp_dev->rcamrst = devm_gpiod_get_optional(dev,"rcamrst",GPIOD_OUT_LOW);
-	if (IS_ERR(isp_dev->rcamrst))
-		pr_err("fail to rcamrst");
-#else
 	isp_dev->enable_gpios = devm_gpiod_get_array_optional(dev, "enable", GPIOD_OUT_LOW);
 
 	if (IS_ERR(isp_dev->enable_gpios))
 		return PTR_ERR(isp_dev->enable_gpios);
-#endif
 	return 0;
 }
 
 static void isp_device_exit(isp_device *isp_dev)
 {
 	int i;
-	
-	#if 1//def CONFIG_ISP_CAMERA_GPIO
-	gpiod_set_value_cansleep(isp_dev->rcamrst, 1);
-	//gpiod_set_value_cansleep(isp_dev->rcamvdd33, 0);
-	pr_err("camera exit");
-	#else
+
 	if (!IS_ERR_OR_NULL(isp_dev->enable_gpios))
 		for (i = 0; i < isp_dev->enable_gpios->ndescs; i++)
 			gpiod_set_value_cansleep(isp_dev->enable_gpios->desc[i], 0);
-	#endif
+
 	//Exit all ISP modules
 	isp_invoke_mod_exit(isp_dev, isp_dev->mod_ctx);
 
@@ -584,40 +558,33 @@ static int isp_probe(struct platform_device *pdev)
 			}
 
 			of_node_put(np);
-			
-			#if 1//def CONFIG_ISP_CAMERA_GPIO
-			//sensor = 8; /* select sensor connected in CSI0 by default */
-			//isp_i2c_write(isp_dev, 1, &sensor, sizeof(sensor));
+			#ifdef CONFIG_ISP_CAMERA_C05
+			sensor = 8; /* select sensor connected in CSI0 by default */
+			isp_i2c_write(isp_dev, 1, &sensor, sizeof(sensor));
 			#else
 			sensor = 1; /* select sensor connected in CSI0 by default */
-			isp_i2c_write(isp_dev, 1, &sensor, sizeof(sensor));	
+			isp_i2c_write(isp_dev, 1, &sensor, sizeof(sensor));
 			#endif
 		}
 	}
-	
-	#if 0//ndef CONFIG_ISP_CAMERA_GPIO
+
 	isp_dev->gpio_values.nvalues = isp_dev->enable_gpios->ndescs;
 	isp_dev->gpio_values.values = bitmap_alloc(isp_dev->gpio_values.nvalues, GFP_KERNEL);
 	if (!isp_dev->gpio_values.values) {
 		isp_error(dev, "failed to allocate memory for gpio_values...!\n");
 		return -ENOMEM;
 	}
-	#endif
 
 	ret = isp_fetch_clocks(dev, isp_clks);
 	if (ret) {
 		isp_error(dev, "isp clock fetch failed...!\n");
-		#if 0//ndef CONFIG_ISP_CAMERA_GPIO
 		bitmap_free(isp_dev->gpio_values.values);
-		#endif
 		return ret;
 	}
 	ret = isp_enable_clocks(dev, isp_clks);
 	if (ret) {
 		isp_error(dev, "isp clock enable failed...!\n");
-		#if 0//ndef CONFIG_ISP_CAMERA_GPIO
 		bitmap_free(isp_dev->gpio_values.values);
-		#endif
 		return ret;
 	}
 	isp_dev->isp_clks = isp_clks;
@@ -634,9 +601,7 @@ static int isp_probe(struct platform_device *pdev)
 	ret = isp_invoke_mod_probe(isp_dev, isp_dev->mod_ctx);
 	if (ret) {
 		isp_error(dev, "isp driver probe/init failed...!\n");
-		#if 0//ndef CONFIG_ISP_CAMERA_GPIO
 		bitmap_free(isp_dev->gpio_values.values);
-		#endif
 		return ret;
 	}
 
@@ -649,9 +614,7 @@ static int isp_remove(struct platform_device *pdev)
 	isp_device *isp_dev = dev_get_drvdata(&pdev->dev);
 	struct clk **isp_clks = isp_dev->isp_clks;
 
-	#if 0//ndef CONFIG_ISP_CAMERA_GPIO
 	bitmap_free(isp_dev->gpio_values.values);
-	#endif
 
 	for (i = 0; i < ARRAY_SIZE(isp_clock_list); i++)
 		clk_disable_unprepare(isp_clks[i]);
