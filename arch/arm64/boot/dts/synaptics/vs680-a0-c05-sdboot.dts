@@ -521,7 +521,7 @@
 	pinctrl-names = "default";
 	phy-handle = <&phy0>;
 	phy-mode = "rgmii-id";
-	snps,reset-gpio = <&portd 8 GPIO_ACTIVE_HIGH>;
+	snps,reset-gpio = <&portd 8 GPIO_ACTIVE_LOW>;
 	snps,reset-delays-us = <0 10000 50000>;
 };
 
