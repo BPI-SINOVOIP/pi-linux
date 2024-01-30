@@ -2,6 +2,9 @@
 dtbo-$(CONFIG_ARCH_SUNXI) += \
 	sun50i-h616-ir.dtbo \
 	sun50i-h616-gpu.dtbo \
+	sun50i-h616-pg-i2c3.dtbo \
+	sun50i-h616-pg-i2c4.dtbo \
+	sun50i-h616-pg-uart1.dtbo \
 	sun50i-h616-ph-uart2.dtbo \
 	sun50i-h616-ph-uart5.dtbo \
 	sun50i-h616-ph-i2c1.dtbo \
@@ -17,6 +20,7 @@ dtbo-$(CONFIG_ARCH_SUNXI) += \
 	sun50i-h616-spi1-cs0-cs1-spidev.dtbo \
 	sun50i-h616-disable-leds.dtbo \
 	sun50i-h616-disable-uart0.dtbo \
+	sun50i-h616-berry-zero-disable-led.dtbo \
 	sun50i-h616-zero2w-disable-led.dtbo \
 	sun50i-h616-pi-i2c0.dtbo \
 	sun50i-h616-pi-i2c1.dtbo \

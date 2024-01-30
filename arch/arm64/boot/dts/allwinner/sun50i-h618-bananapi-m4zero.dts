@@ -13,11 +13,11 @@
 #include <dt-bindings/leds/common.h>
 
 / {
-	model = "BananaPi M4 Berry";
-	compatible = "BiPai,bananapi-m4berry", "allwinner,sun50i-h616";
+	model = "BananaPi M4 Zero";
+	compatible = "BiPai,bananapi-m4zero", "allwinner,sun50i-h616";
 
 	aliases {
-		ethernet0 = &emac0;
+		ethernet0 = &emac1;
 		serial0 = &uart0;
 		serial5 = &uart5;
 	};
@@ -83,18 +83,19 @@
 	status = "disabled";
 };
 
-&emac0 {
+&emac1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&ext_rgmii_pins>;
-	phy-mode = "rgmii";
-	phy-handle = <&ext_rgmii_phy>;
+	pinctrl-0 = <&rmii_pins>;
+	phy-mode = "rmii";
+	phy-handle = <&rmii_phy>;
+	phy-supply = <&reg_dldo1>;
 	allwinner,rx-delay-ps = <3100>;
 	allwinner,tx-delay-ps = <700>;
 	status = "okay";
 };
 
-&mdio0 {
-	ext_rgmii_phy: ethernet-phy@1 {
+&mdio1 {
+	rmii_phy: ethernet-phy@1 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <1>;
 	};
@@ -102,7 +103,7 @@
 
 &mmc0 {
 	vmmc-supply = <&reg_dldo1>;
-	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;	/* PF6 */
+	cd-gpios = <&pio 5 6 GPIO_ACTIVE_HIGH>;	/* PF6 */
 	bus-width = <4>;
 	max-frequency = <50000000>;
 	status = "okay";
@@ -276,7 +277,7 @@
 };
 
 &spi1 {
-	status = "okay";
+	status = "disabled";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
@@ -284,7 +285,7 @@
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
-		status = "okay";
+		status = "disabled";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 	};
