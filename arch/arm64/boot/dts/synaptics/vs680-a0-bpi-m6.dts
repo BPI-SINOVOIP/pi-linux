@@ -14,7 +14,7 @@
 #include "vs680-a0.dtsi"
 
 / {
-	model = "Synaptics VS680 EVK";
+	model = "Synaptics VS680 BPI-M6 (20240115A)";
 	compatible = "syna,vs680-evk", "syna,vs680";
 
 	soc {
