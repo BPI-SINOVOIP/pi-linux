@@ -29,7 +29,7 @@
  */
 //#define BUF_STATE_DEBUG
 
-#define DMA_BUFFER_SIZE        (256 * 1024)
+#define DMA_BUFFER_SIZE        (16 * 1024)
 #define DMA_BUFFER_MIN         (512)
 #define MAX_BUFFER_SIZE        (DMA_BUFFER_SIZE << 1)
 
@@ -203,6 +203,11 @@ static void start_dma_if_needed(struct berlin_playback *bp)
 {
 	dma_addr_t dma_source_address;
 	int dma_size;
+
+	if ((bp->output_mode & HDMIO_MODE) && !bp->hdmi_dma_addr) {
+		snd_printk("%s: hdmi mem invalid\n", __func__);
+		return;
+	}
 
 	assert_spin_locked(&bp->lock);
 
