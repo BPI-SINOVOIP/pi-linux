@@ -167,7 +167,9 @@ $(BOOT_TARGETS): vmlinux
 Image.%: Image Image.gz
 	$(Q)$(MAKE) $(build)=$(boot) $(bootvars-y) $(boot)/$@
 
-install: KBUILD_IMAGE := $(boot)/Image
+#BPI
+#install: KBUILD_IMAGE := $(boot)/Image
+install: KBUILD_IMAGE := $(boot)/Image.itb
 zinstall: KBUILD_IMAGE := $(boot)/Image.gz
 install zinstall:
 	$(call cmd,install)
