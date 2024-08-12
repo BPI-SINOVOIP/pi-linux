@@ -177,12 +177,14 @@ Maintainer: $maintainer
 Rules-Requires-Root: no
 Build-Depends: bc, rsync, kmod, cpio, bison, flex | flex:native $extra_build_depends
 Homepage: https://www.kernel.org/
+XBS-Commit-Id: $KERNELGITVER
 
 Package: $packagename-$version
 Architecture: $debarch
 Description: Linux kernel, version $version
  This package contains the Linux kernel, modules and corresponding other
  files, version: $version.
+Depends: spacemit-flash-dtbs
 
 Package: linux-libc-dev
 Section: devel
@@ -192,6 +194,26 @@ Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers
  are used by the installed headers for GNU glibc and other system libraries.
 Multi-Arch: same
+
+Package: linux-tools-$version
+Architecture: $debarch
+Section: devel
+Depends: linux-tools-common
+Description: Linux kernel version specific tools for version -$version
+ This package provides the architecture dependant parts for kernel
+ version locked tools (such as perf) for
+ version -$version on
+ .
+
+Package: linux-tools-common
+Architecture: all
+Multi-Arch: foreign
+Section: kernel
+Depends: lsb-release
+Description: Linux kernel version specific tools for version $version
+ This package provides the architecture independent parts for kernel
+ version locked tools (such as perf) for
+ version $version.
 EOF
 
 if is_enabled CONFIG_MODULES; then
@@ -221,12 +243,15 @@ fi
 cat <<EOF > debian/rules
 #!$(command -v $MAKE) -f
 
-srctree ?= .
+srctree = \$(abs_srctree)
 
 build-indep:
 build-arch:
 	\$(MAKE) KERNELRELEASE=${version} ARCH=${ARCH} \
 	KBUILD_BUILD_VERSION=${revision} -f \$(srctree)/Makefile
+	# perf
+	cd \$(srctree)/tools/perf && \$(MAKE) prefix=/usr HAVE_NO_LIBBFD=1 HAVE_CPLUS_DEMANGLE_SUPPORT=1 CROSS_COMPILE=\$(CROSS_COMPILE) NO_LIBPYTHON=1 NO_LIBPERL=1 WERROR=0
+	cd \$(srctree)/tools/perf && make man
 
 build: build-arch
 
@@ -238,6 +263,7 @@ binary-arch: build-arch
 clean:
 	rm -rf debian/*tmp debian/files
 	\$(MAKE) clean
+	cd \$(srctree)/tools/perf && \$(MAKE) clean
 
 binary: binary-arch
 EOF

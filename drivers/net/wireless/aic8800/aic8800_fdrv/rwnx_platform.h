@@ -14,7 +14,6 @@
 #include <linux/pci.h>
 #include "lmac_msg.h"
 
-
 #define RWNX_CONFIG_FW_NAME             "rwnx_settings.ini"
 #define RWNX_PHY_CONFIG_TRD_NAME        "rwnx_trident.ini"
 #define RWNX_PHY_CONFIG_KARST_NAME      "rwnx_karst.ini"
@@ -34,9 +33,9 @@
 #endif
 
 #define RWNX_FCU_FW_NAME                "fcuram.bin"
-
-
-
+#if (defined(CONFIG_DPD) && !defined(CONFIG_FORCE_DPD_CALIB))
+#define FW_DPDRESULT_NAME_8800DC        "aic_dpdresult_lite_8800dc.bin"
+#endif
 
 /**
  * Type of memory to access (cf rwnx_plat.get_address)
@@ -76,14 +75,13 @@ struct rwnx_plat {
     struct pci_dev *pci_dev;
 
 #ifdef AICWF_SDIO_SUPPORT
-	struct aic_sdio_dev *sdiodev;
+    struct aic_sdio_dev *sdiodev;
 #endif
 
 #ifdef AICWF_USB_SUPPORT
     struct aic_usb_dev *usbdev;
 #endif
     bool enabled;
-    bool wait_disconnect_cb;
 
     int (*enable)(struct rwnx_hw *rwnx_hw);
     int (*disable)(struct rwnx_hw *rwnx_hw);
@@ -97,13 +95,13 @@ struct rwnx_plat {
 };
 
 #define RWNX_ADDR(plat, base, offset)           \
-    plat->get_address(plat, base, offset)
+	plat->get_address(plat, base, offset)
 
 #define RWNX_REG_READ(plat, base, offset)               \
-    readl(plat->get_address(plat, base, offset))
+	readl(plat->get_address(plat, base, offset))
 
 #define RWNX_REG_WRITE(val, plat, base, offset)         \
-    writel(val, plat->get_address(plat, base, offset))
+	writel(val, plat->get_address(plat, base, offset))
 
 extern struct rwnx_plat *g_rwnx_plat;
 
@@ -113,13 +111,21 @@ void rwnx_platform_deinit(struct rwnx_hw *rwnx_hw);
 int rwnx_platform_on(struct rwnx_hw *rwnx_hw, void *config);
 void rwnx_platform_off(struct rwnx_hw *rwnx_hw, void **config);
 
-void get_userconfig_txpwr_lvl_in_fdrv(txpwr_lvl_conf_t *txpwr_lvl);
-void get_userconfig_txpwr_lvl_v2_in_fdrv(txpwr_lvl_conf_v2_t *txpwr_lvl_v2);
-void get_userconfig_txpwr_ofst_in_fdrv(txpwr_ofst_conf_t *txpwr_ofst);
-void get_userconfig_txpwr_loss(txpwr_loss_conf_t *txpwr_loss);
 int rwnx_platform_register_drv(void);
 void rwnx_platform_unregister_drv(void);
 
+void get_userconfig_txpwr_idx(txpwr_idx_conf_t *txpwr_idx);
+void get_userconfig_txpwr_ofst(txpwr_ofst_conf_t *txpwr_ofst);
+void get_userconfig_xtal_cap(xtal_cap_conf_t *xtal_cap);
+
+void get_userconfig_txpwr_lvl_in_fdrv(txpwr_lvl_conf_t *txpwr_lvl);
+void get_userconfig_txpwr_lvl_v2_in_fdrv(txpwr_lvl_conf_v2_t *txpwr_lvl_v2);
+void get_userconfig_txpwr_lvl_v3_in_fdrv(txpwr_lvl_conf_v3_t *txpwr_lvl_v3);
+void get_userconfig_txpwr_lvl_adj_in_fdrv(txpwr_lvl_adj_conf_t *txpwr_lvl_adj);
+
+void get_userconfig_txpwr_ofst_in_fdrv(txpwr_ofst_conf_t *txpwr_ofst);
+void get_userconfig_txpwr_ofst2x_in_fdrv(txpwr_ofst2x_conf_t *txpwr_ofst2x);
+void get_userconfig_txpwr_loss(txpwr_loss_conf_t *txpwr_loss);
 extern struct device *rwnx_platform_get_dev(struct rwnx_plat *rwnx_plat);
 
 static inline unsigned int rwnx_platform_get_irq(struct rwnx_plat *rwnx_plat)

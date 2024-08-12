@@ -5,7 +5,7 @@
  *
  * @brief Declaration of module parameters
  *
- * Copyright (C) RivieraWaves 2012-2019
+ * Copyright (C) RivieraWaves 2012-2021
  *
  ******************************************************************************
  */

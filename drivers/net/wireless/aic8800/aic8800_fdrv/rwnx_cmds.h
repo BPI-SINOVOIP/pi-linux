@@ -21,7 +21,11 @@
 #elif defined(CONFIG_RWNX_FHOST)
 #define RWNX_80211_CMD_TIMEOUT_MS    (10000)
 #else
-#define RWNX_80211_CMD_TIMEOUT_MS    2000//500//300
+#ifdef AICWF_USB_SUPPORT
+#define RWNX_80211_CMD_TIMEOUT_MS    2000//300
+#else
+#define RWNX_80211_CMD_TIMEOUT_MS    3000//500//300
+#endif
 #endif
 
 #define RWNX_CMD_FLAG_NONBLOCK      BIT(0)
@@ -33,9 +37,9 @@
 /* ATM IPC design makes it possible to get the CFM before the ACK,
  * otherwise this could have simply been a state enum */
 #define RWNX_CMD_WAIT_COMPLETE(flags) \
-    (!(flags & (RWNX_CMD_FLAG_WAIT_ACK | RWNX_CMD_FLAG_WAIT_CFM)))
+	(!(flags & (RWNX_CMD_FLAG_WAIT_ACK | RWNX_CMD_FLAG_WAIT_CFM)))
 
-#define RWNX_CMD_MAX_QUEUED         16//8 AIDEN
+#define RWNX_CMD_MAX_QUEUED         16
 
 #ifdef CONFIG_RWNX_FHOST
 #include "ipc_fhost.h"
@@ -81,11 +85,11 @@ struct rwnx_cmd {
 
     struct completion complete;
     u32 result;
-	u8 used;
-	int array_id;
-    #ifdef CONFIG_RWNX_FHOST
+    u8 used;
+    int array_id;
+#ifdef CONFIG_RWNX_FHOST
     struct rwnx_term_stream *stream;
-    #endif
+#endif
 };
 
 struct rwnx_cmd_mgr {
@@ -108,9 +112,9 @@ struct rwnx_cmd_mgr {
 };
 
 #define WAKE_CMD_WORK(cmd_mgr) \
-    do { \
-        queue_work((cmd_mgr)->cmd_wq, &cmd_mgr->cmdWork); \
-    } while (0)
+	do { \
+		queue_work((cmd_mgr)->cmd_wq, &cmd_mgr->cmdWork); \
+	} while (0)
 
 void rwnx_cmd_mgr_init(struct rwnx_cmd_mgr *cmd_mgr);
 void rwnx_cmd_mgr_deinit(struct rwnx_cmd_mgr *cmd_mgr);

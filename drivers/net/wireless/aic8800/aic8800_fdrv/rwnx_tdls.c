@@ -41,8 +41,8 @@ rwnx_get_tdls_sta_capab(struct rwnx_vif *rwnx_vif, u16 status_code)
 
 static int
 rwnx_tdls_prepare_encap_data(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                                 const u8 *peer, u8 action_code, u8 dialog_token,
-                                 u16 status_code, struct sk_buff *skb)
+                             const u8 *peer, u8 action_code, u8 dialog_token,
+                             u16 status_code, struct sk_buff *skb)
 {
     struct ieee80211_tdls_data *tf;
     tf = (void *)skb_put(skb, sizeof(struct ieee80211_tdls_data) - sizeof(tf->u));
@@ -63,7 +63,7 @@ rwnx_tdls_prepare_encap_data(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
         skb_put(skb, sizeof(tf->u.setup_req));
         tf->u.setup_req.dialog_token = dialog_token;
         tf->u.setup_req.capability =
-                cpu_to_le16(rwnx_get_tdls_sta_capab(rwnx_vif, status_code));
+            cpu_to_le16(rwnx_get_tdls_sta_capab(rwnx_vif, status_code));
         break;
 
     case WLAN_TDLS_SETUP_RESPONSE:
@@ -71,7 +71,7 @@ rwnx_tdls_prepare_encap_data(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
         tf->u.setup_resp.status_code = cpu_to_le16(status_code);
         tf->u.setup_resp.dialog_token = dialog_token;
         tf->u.setup_resp.capability =
-                cpu_to_le16(rwnx_get_tdls_sta_capab(rwnx_vif, status_code));
+            cpu_to_le16(rwnx_get_tdls_sta_capab(rwnx_vif, status_code));
         break;
 
     case WLAN_TDLS_SETUP_CONFIRM:
@@ -111,7 +111,7 @@ rwnx_prep_tdls_direct(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
     memcpy(mgmt->bssid, rwnx_vif->sta.ap->mac_addr, ETH_ALEN);
 
     mgmt->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
-                      IEEE80211_STYPE_ACTION);
+                                      IEEE80211_STYPE_ACTION);
 
     switch (action_code) {
     case WLAN_PUB_ACTION_TDLS_DISCOVER_RES:
@@ -188,9 +188,7 @@ rwnx_tdls_add_supp_channels(struct rwnx_hw *rwnx_hw, struct sk_buff *skb)
     u8 *pos_subband;
     u8 *pos = skb_put(skb, 2);
     struct ieee80211_supported_band *rwnx_band_2GHz = rwnx_hw->wiphy->bands[NL80211_BAND_2GHZ];
-	//#ifdef USE_5G
     struct ieee80211_supported_band *rwnx_band_5GHz = rwnx_hw->wiphy->bands[NL80211_BAND_5GHZ];
-	//#endif
 
     *pos++ = WLAN_EID_SUPPORTED_CHANNELS;
 
@@ -201,8 +199,7 @@ rwnx_tdls_add_supp_channels(struct rwnx_hw *rwnx_hw, struct sk_buff *skb)
 
     /* 2GHz, with 5MHz spacing */
     pos_subband = skb_put(skb, 2);
-    if (rwnx_band_2GHz->n_channels > 0)
-    {
+    if (rwnx_band_2GHz->n_channels > 0) {
         *pos_subband++ = ieee80211_frequency_to_channel(rwnx_band_2GHz->channels[0].center_freq);
         *pos_subband++ = rwnx_band_2GHz->n_channels;
         subband_cnt++;
@@ -210,16 +207,13 @@ rwnx_tdls_add_supp_channels(struct rwnx_hw *rwnx_hw, struct sk_buff *skb)
 
     /* 5GHz, with 20MHz spacing */
     pos_subband = skb_put(skb, 2);
-	//#ifdef USE_5G
-	if(rwnx_hw->band_5g_support){
-	    if (rwnx_band_5GHz->n_channels > 0)
-	    {
-	        *pos_subband++ = ieee80211_frequency_to_channel(rwnx_band_5GHz->channels[0].center_freq);
-	        *pos_subband++ = rwnx_band_5GHz->n_channels;
-	        subband_cnt++;
-	    }
-	}
-	//#endif
+    if (rwnx_hw->band_5g_support) {
+        if (rwnx_band_5GHz->n_channels > 0) {
+            *pos_subband++ = ieee80211_frequency_to_channel(rwnx_band_5GHz->channels[0].center_freq);
+            *pos_subband++ = rwnx_band_5GHz->n_channels;
+            subband_cnt++;
+        }
+    }
     /* length */
     *pos = 2 * subband_cnt;
 }
@@ -229,7 +223,7 @@ rwnx_tdls_add_ext_capab(struct rwnx_hw *rwnx_hw, struct sk_buff *skb)
 {
     u8 *pos = (void *)skb_put(skb, 7);
     bool chan_switch = rwnx_hw->wiphy->features &
-               NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
+                       NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
 
     *pos++ = WLAN_EID_EXT_CAPABILITY;
     *pos++ = 5; /* len */
@@ -260,19 +254,18 @@ rwnx_add_wmm_info_ie(struct sk_buff *skb, u8 qosinfo)
 /* translate numbering in the WMM parameter IE to the mac80211 notation */
 static u8 rwnx_ac_from_wmm(int ac)
 {
-	switch (ac) {
-	default:
-		WARN_ON_ONCE(1);
-		fallthrough;
-	case 0:
-		return AC_BE;
-	case 1:
-		return AC_BK;
-	case 2:
-		return AC_VI;
-	case 3:
-		return AC_VO;
-	}
+    switch (ac) {
+    default:
+        WARN_ON_ONCE(1);
+    case 0:
+        return AC_BE;
+    case 1:
+        return AC_BK;
+    case 2:
+        return AC_VI;
+    case 3:
+        return AC_VO;
+    }
 }
 
 static void
@@ -303,13 +296,13 @@ rwnx_add_wmm_param_ie(struct sk_buff *skb, u8 acm_bits, u32 *ac_params)
      */
     for (i = 0; i < AC_MAX; i++) {
         j = rwnx_ac_from_wmm(i);
-        cw_min = (ac_params[j] & 0xF0 ) >> 4;
-        cw_max = (ac_params[j] & 0xF00 ) >> 8;
+        cw_min = (ac_params[j] & 0xF0) >> 4;
+        cw_max = (ac_params[j] & 0xF00) >> 8;
         acm = (acm_bits & (1 << j)) != 0;
 
         wmm->ac[i].aci_aifsn = (i << 5) | (acm << 4) | (ac_params[j] & 0xF);
         wmm->ac[i].cw = (cw_max << 4) | cw_min;
-        wmm->ac[i].txop_limit = (ac_params[j] & 0x0FFFF000 ) >> 12;
+        wmm->ac[i].txop_limit = (ac_params[j] & 0x0FFFF000) >> 12;
     }
 }
 
@@ -327,8 +320,11 @@ rwnx_tdls_add_oper_classes(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
     chan_def.width = rwnx_vif->sta.ap->width;
     chan_def.center_freq1 = rwnx_vif->sta.ap->center_freq1;
     chan_def.center_freq2 = rwnx_vif->sta.ap->center_freq2;
-
+#ifdef CONFIG_GKI
+    if (!rwnx_ieee80211_chandef_to_operating_class(&chan_def, &op_class))
+#else
     if (!ieee80211_chandef_to_operating_class(&chan_def, &op_class))
+#endif
         return;
 
     pos = skb_put(skb, 4);
@@ -344,7 +340,7 @@ rwnx_tdls_add_oper_classes(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
 
 static void
 rwnx_ie_build_ht_cap(struct sk_buff *skb, struct ieee80211_sta_ht_cap *ht_cap,
-                  u16 cap)
+                     u16 cap)
 {
     u8 *pos;
     __le16 tmp;
@@ -361,8 +357,8 @@ rwnx_ie_build_ht_cap(struct sk_buff *skb, struct ieee80211_sta_ht_cap *ht_cap,
 
     /* AMPDU parameters */
     *pos++ = ht_cap->ampdu_factor |
-         (ht_cap->ampdu_density <<
-            IEEE80211_HT_AMPDU_PARM_DENSITY_SHIFT);
+             (ht_cap->ampdu_density <<
+              IEEE80211_HT_AMPDU_PARM_DENSITY_SHIFT);
 
     /* MCS set */
     memcpy(pos, &ht_cap->mcs, sizeof(ht_cap->mcs));
@@ -380,7 +376,7 @@ rwnx_ie_build_ht_cap(struct sk_buff *skb, struct ieee80211_sta_ht_cap *ht_cap,
 
 static void
 rwnx_ie_build_vht_cap(struct sk_buff *skb, struct ieee80211_sta_vht_cap *vht_cap,
-                   u32 cap)
+                      u32 cap)
 {
     u8 *pos;
     __le32 tmp;
@@ -414,8 +410,8 @@ rwnx_tdls_add_bss_coex_ie(struct sk_buff *skb)
 
 static void
 rwnx_tdls_add_link_ie(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                       struct sk_buff *skb, const u8 *peer,
-                       bool initiator)
+                      struct sk_buff *skb, const u8 *peer,
+                      bool initiator)
 {
     struct ieee80211_tdls_lnkie *lnkid;
     const u8 *init_addr, *rsp_addr;
@@ -443,19 +439,19 @@ rwnx_tdls_add_aid_ie(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
 {
     u8 *pos = (void *)skb_put(skb, 4);
 
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
     *pos++ = WLAN_EID_AID;
-    #else
+#else
     *pos++ = 197;
-    #endif
+#endif
     *pos++ = 2; /* len */
     *pos++ = rwnx_vif->sta.ap->aid;
 }
 
 static u8 *
 rwnx_ie_build_ht_oper(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                          u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
-                          u16 prot_mode)
+                      u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
+                      u16 prot_mode)
 {
     struct ieee80211_ht_operation *ht_oper;
     /* Build HT Information */
@@ -463,7 +459,7 @@ rwnx_ie_build_ht_oper(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
     *pos++ = sizeof(struct ieee80211_ht_operation);
     ht_oper = (struct ieee80211_ht_operation *)pos;
     ht_oper->primary_chan = ieee80211_frequency_to_channel(
-                    rwnx_vif->sta.ap->center_freq);
+                                rwnx_vif->sta.ap->center_freq);
     switch (rwnx_vif->sta.ap->width) {
     case NL80211_CHAN_WIDTH_160:
     case NL80211_CHAN_WIDTH_80P80:
@@ -496,8 +492,8 @@ rwnx_ie_build_ht_oper(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 
 static u8 *
 rwnx_ie_build_vht_oper(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                          u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
-                          u16 prot_mode)
+                       u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
+                       u16 prot_mode)
 {
     struct ieee80211_vht_operation *vht_oper;
     /* Build HT Information */
@@ -509,21 +505,21 @@ rwnx_ie_build_vht_oper(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
     case NL80211_CHAN_WIDTH_80:
         vht_oper->chan_width = IEEE80211_VHT_CHANWIDTH_80MHZ; // Channel Width
         CCFS0(vht_oper) =
-                ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq); // Channel Center Frequency Segment 0
+            ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq); // Channel Center Frequency Segment 0
         CCFS1(vht_oper) = 0; // Channel Center Frequency Segment 1 (N.A.)
         break;
     case NL80211_CHAN_WIDTH_160:
         vht_oper->chan_width = IEEE80211_VHT_CHANWIDTH_160MHZ; // Channel Width
         CCFS0(vht_oper) =
-                ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq); // Channel Center Frequency Segment 0
+            ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq); // Channel Center Frequency Segment 0
         CCFS1(vht_oper) = 0; // Channel Center Frequency Segment 1 (N.A.)
         break;
     case NL80211_CHAN_WIDTH_80P80:
         vht_oper->chan_width = IEEE80211_VHT_CHANWIDTH_80P80MHZ; // Channel Width
         CCFS0(vht_oper) =
-                ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq1); // Channel Center Frequency Segment 0
+            ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq1); // Channel Center Frequency Segment 0
         CCFS1(vht_oper) =
-                ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq2); // Channel Center Frequency Segment 1
+            ieee80211_frequency_to_channel(rwnx_vif->sta.ap->center_freq2); // Channel Center Frequency Segment 1
         break;
     default:
         vht_oper->chan_width = IEEE80211_VHT_CHANWIDTH_USE_HT;
@@ -575,7 +571,7 @@ rwnx_tdls_add_setup_start_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif
     if (((action_code == WLAN_TDLS_SETUP_REQUEST) ||
          (action_code == WLAN_TDLS_SETUP_RESPONSE) ||
          (action_code == WLAN_PUB_ACTION_TDLS_DISCOVER_RES)) &&
-         ht_cap.ht_supported /* (!sta || sta->sta.ht_cap.ht_supported)*/) {
+        ht_cap.ht_supported /* (!sta || sta->sta.ht_cap.ht_supported)*/) {
         rwnx_ie_build_ht_cap(skb, &ht_cap, ht_cap.cap);
     }
 
@@ -605,8 +601,8 @@ rwnx_tdls_add_setup_start_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif
 
 static void
 rwnx_tdls_add_setup_cfm_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                              struct sk_buff *skb, const u8 *peer, bool initiator,
-                              const u8 *extra_ies, size_t extra_ies_len)
+                            struct sk_buff *skb, const u8 *peer, bool initiator,
+                            const u8 *extra_ies, size_t extra_ies_len)
 {
     struct ieee80211_supported_band *sband;
     enum nl80211_band band = rwnx_vif->sta.ap->band;
@@ -628,7 +624,7 @@ rwnx_tdls_add_setup_cfm_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 
     /* add the QoS param IE if both the peer and we support it */
     if (sta->qos)
-    	rwnx_add_wmm_param_ie(skb, ap_sta->acm, ap_sta->ac_param);
+        rwnx_add_wmm_param_ie(skb, ap_sta->acm, ap_sta->ac_param);
 
     /* if HT support is only added in TDLS, we need an HT-operation IE */
     sband = rwnx_hw->wiphy->bands[band];
@@ -660,11 +656,11 @@ rwnx_tdls_add_setup_cfm_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 
 static void
 rwnx_tdls_add_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                                   struct sk_buff *skb, const u8 *peer,
-                                   u8 action_code, u16 status_code,
-                                   bool initiator, const u8 *extra_ies,
-                                   size_t extra_ies_len, u8 oper_class,
-                                   struct cfg80211_chan_def *chandef)
+                  struct sk_buff *skb, const u8 *peer,
+                  u8 action_code, u16 status_code,
+                  bool initiator, const u8 *extra_ies,
+                  size_t extra_ies_len, u8 oper_class,
+                  struct cfg80211_chan_def *chandef)
 {
     switch (action_code) {
     case WLAN_TDLS_SETUP_REQUEST:
@@ -693,43 +689,35 @@ rwnx_tdls_add_ies(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 
 int
 rwnx_tdls_send_mgmt_packet_data(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                         const u8 *peer, u8 action_code, u8 dialog_token,
-                         u16 status_code, u32 peer_capability, bool initiator,
-                         const u8 *extra_ies, size_t extra_ies_len, u8 oper_class,
-                         struct cfg80211_chan_def *chandef)
+                                const u8 *peer, u8 action_code, u8 dialog_token,
+                                u16 status_code, u32 peer_capability, bool initiator,
+                                const u8 *extra_ies, size_t extra_ies_len, u8 oper_class,
+                                struct cfg80211_chan_def *chandef)
 {
     struct sk_buff *skb;
     int ret = 0;
     struct ieee80211_supported_band *rwnx_band_2GHz = rwnx_hw->wiphy->bands[NL80211_BAND_2GHZ];
-    //#ifdef USE_5G
     struct ieee80211_supported_band *rwnx_band_5GHz = rwnx_hw->wiphy->bands[NL80211_BAND_5GHZ];
-    //#endif
     int channels = rwnx_band_2GHz->n_channels;
 
-	if (rwnx_hw->band_5g_support){
-		channels += rwnx_band_5GHz->n_channels;
-	}
+    if (rwnx_hw->band_5g_support)
+        channels += rwnx_band_5GHz->n_channels;
 
     skb = netdev_alloc_skb(rwnx_vif->ndev,
-              sizeof(struct ieee80211_tdls_data) + // ethhdr + TDLS info
-              10 +  /* supported rates */
-              6 +  /* extended supported rates */
-              (2 + channels) + /* supported channels */
-              //#ifdef USE_5G
-              //(2 + rwnx_band_2GHz->n_channels + rwnx_band_5GHz->n_channels) + /* supported channels */
-              //#else
-			  //(2 + rwnx_band_2GHz->n_channels) + /* supported channels */
-			  //#endif
-              sizeof(struct ieee_types_extcap) +
-              sizeof(struct ieee80211_wmm_param_ie) +
-              4 + /* oper classes */
-              28 + //sizeof(struct ieee80211_ht_cap) +
-              sizeof(struct ieee_types_bss_co_2040) +
-              sizeof(struct ieee80211_tdls_lnkie) +
-              (2 + sizeof(struct ieee80211_vht_cap)) +
-              4 + /*AID*/
-              (2 + sizeof(struct ieee80211_ht_operation)) +
-              extra_ies_len);
+                           sizeof(struct ieee80211_tdls_data) + // ethhdr + TDLS info
+                           10 +  /* supported rates */
+                           6 +  /* extended supported rates */
+                           (2 + channels) + /* supported channels */
+                           sizeof(struct ieee_types_extcap) +
+                           sizeof(struct ieee80211_wmm_param_ie) +
+                           4 + /* oper classes */
+                           28 + //sizeof(struct ieee80211_ht_cap) +
+                           sizeof(struct ieee_types_bss_co_2040) +
+                           sizeof(struct ieee80211_tdls_lnkie) +
+                           (2 + sizeof(struct ieee80211_vht_cap)) +
+                           4 + /*AID*/
+                           (2 + sizeof(struct ieee80211_ht_operation)) +
+                           extra_ies_len);
 
     if (!skb)
         return 0;
@@ -762,15 +750,15 @@ rwnx_tdls_send_mgmt_packet_data(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_v
 
     if (action_code == WLAN_PUB_ACTION_TDLS_DISCOVER_RES) {
         u64 cookie;
-        #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
         struct cfg80211_mgmt_tx_params params;
 
         params.len = skb->len;
         params.buf = skb->data;
         ret = rwnx_start_mgmt_xmit(rwnx_vif, NULL, &params, false, &cookie);
-        #else
+#else
         ret = rwnx_start_mgmt_xmit(rwnx_vif, NULL, NULL, false, 0, skb->data, skb->len, false, false, &cookie);
-        #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
 
         return ret;
     }
@@ -789,7 +777,7 @@ rwnx_tdls_send_mgmt_packet_data(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_v
     ret = rwnx_select_txq(rwnx_vif, skb);
     ret = rwnx_start_xmit(skb, rwnx_vif->ndev);
 
-   return ret;
+    return ret;
 
 fail:
     dev_kfree_skb(skb);

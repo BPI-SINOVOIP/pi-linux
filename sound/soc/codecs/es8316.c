@@ -23,6 +23,13 @@
 #include <sound/jack.h>
 #include "es8316.h"
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+/* 12.288MHz MCLK, 48kHz LRCK */
+#define NR_SUPPORTED_MCLK_LRCK_RATIOS 4
+static const unsigned int supported_mclk_lrck_ratios[] = {
+        256, 384, 512, 768
+};
+#else
 /* In slave mode at single speed, the codec is documented as accepting 5
  * MCLK/LRCK ratios, but we also add ratio 400, which is commonly used on
  * Intel Cherry Trail platforms (19.2MHz MCLK, 48kHz LRCK).
@@ -31,6 +38,7 @@
 static const unsigned int supported_mclk_lrck_ratios[] = {
 	256, 384, 400, 512, 768, 1024
 };
+#endif
 
 struct es8316_priv {
 	struct mutex lock;
@@ -371,7 +379,7 @@ static int es8316_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 
 		return 0;
 	}
-
+	dev_dbg(component->dev, "set sysclk freq: %d\n",  freq);
 	ret = clk_set_rate(es8316->mclk, freq);
 	if (ret)
 		return ret;
@@ -466,9 +474,12 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 	u16 lrck_divider;
 	int i;
 
+	dev_dbg(component->dev, "set rate: %d\n", params_rate(params));
+
 	/* Validate supported sample rates that are autodetected from MCLK */
 	for (i = 0; i < NR_SUPPORTED_MCLK_LRCK_RATIOS; i++) {
 		const unsigned int ratio = supported_mclk_lrck_ratios[i];
+		dev_dbg(component->dev, "ratio %d, es8316->sysclk: %d\n", ratio, es8316->sysclk);
 
 		if (es8316->sysclk % ratio != 0)
 			continue;
@@ -499,6 +510,8 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 	default:
 		return -EINVAL;
 	}
+
+	dev_dbg(component->dev, "wordlen: %d, bclk_divider: %d\n", wordlen, bclk_divider);
 
 	snd_soc_component_update_bits(component, ES8316_SERDATA_DAC,
 			    ES8316_SERDATA2_LEN_MASK, wordlen);
@@ -756,6 +769,20 @@ static int es8316_probe(struct snd_soc_component *component)
 	 * and quality for Intel CHT platforms.
 	 */
 	snd_soc_component_write(component, ES8316_CLKMGR_ADCOSR, 0x32);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	/*DAC*/
+	snd_soc_component_write(component,  ES8316_CPHP_ICAL_VOL, 0x00);
+	snd_soc_component_write(component,  ES8316_HPMIX_VOL, 0xBB);
+	snd_soc_component_write(component, ES8316_DAC_VOLL, 0x11);
+	snd_soc_component_write(component, ES8316_DAC_VOLR, 0x01);
+	snd_soc_component_write(component,  ES8316_HPMIX_SWITCH, 0x88);
+
+	/*ADC*/
+	snd_soc_component_write(component, ES8316_ADC_PGAGAIN, 0x70);
+	snd_soc_component_write(component, ES8316_ADC_VOLUME, 0x2A);
+	snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL, 0x10);
+#endif
 
 	return 0;
 }

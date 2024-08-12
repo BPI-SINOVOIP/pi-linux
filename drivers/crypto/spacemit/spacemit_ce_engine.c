@@ -1733,6 +1733,12 @@ static int crypto_engine_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(dev, "Unable to set dma mask\n");
+		return ret;
+	}
+
 	in_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_in, DMA_TO_DEVICE, GFP_KERNEL);
 	out_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_out, DMA_FROM_DEVICE, GFP_KERNEL);
 	ctrl = kmalloc(sizeof(struct aes_clk_reset_ctrl), GFP_KERNEL);
@@ -1741,7 +1747,7 @@ static int crypto_engine_probe(struct platform_device *pdev)
 		return PTR_ERR(ctrl->clk);
 	clk_prepare_enable(ctrl->clk);
 
-	ctrl->reset = devm_reset_control_get_optional(&pdev->dev, NULL);
+	ctrl->reset = devm_reset_control_get_optional_shared(&pdev->dev, NULL);
 	if(IS_ERR(ctrl->reset))
 		return PTR_ERR(ctrl->reset);
 	reset_control_deassert(ctrl->reset);
@@ -1826,13 +1832,6 @@ static int crypto_engine_probe(struct platform_device *pdev)
 	ret = sysfs_create_group(&dev->kobj, &engine_operations);
 	if (ret) {
 		dev_err_once(dev,"sysfs_create_group failed\n");
-		return ret;
-	}
-
-
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
-	if (ret) {
-		dev_err(dev, "Unable to set dma mask\n");
 		return ret;
 	}
 

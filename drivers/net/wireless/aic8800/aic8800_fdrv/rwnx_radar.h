@@ -27,9 +27,9 @@ enum rwnx_radar_chain {
 enum rwnx_radar_detector {
     RWNX_RADAR_DETECT_DISABLE = 0, /* Ignore radar pulses */
     RWNX_RADAR_DETECT_ENABLE  = 1, /* Process pattern detection but do not
-                                      report radar to upper layer (for test) */
+									  report radar to upper layer (for test) */
     RWNX_RADAR_DETECT_REPORT  = 2  /* Process pattern detection and report
-                                      radar to upper layer. */
+									  radar to upper layer. */
 };
 
 #ifdef CONFIG_RWNX_RADAR
@@ -118,22 +118,28 @@ struct rwnx_radar {
 };
 
 static inline bool rwnx_radar_detection_init(struct rwnx_radar *radar)
-{return true;}
+{
+    return true;
+}
 
 static inline void rwnx_radar_detection_deinit(struct rwnx_radar *radar)
 {}
 
 static inline bool rwnx_radar_set_domain(struct rwnx_radar *radar,
-                                         enum nl80211_dfs_regions region)
-{return true;}
+        enum nl80211_dfs_regions region)
+{
+    return true;
+}
 
 static inline void rwnx_radar_detection_enable(struct rwnx_radar *radar,
-                                               u8 enable, u8 chain)
+        u8 enable, u8 chain)
 {}
 
 static inline bool rwnx_radar_detection_is_enable(struct rwnx_radar *radar,
-                                                 u8 chain)
-{return false;}
+        u8 chain)
+{
+    return false;
+}
 
 static inline void rwnx_radar_start_cac(struct rwnx_radar *radar,
                                         u32 cac_time_ms, struct rwnx_vif *vif)
@@ -146,14 +152,18 @@ static inline void rwnx_radar_detection_enable_on_cur_channel(struct rwnx_hw *rw
 {}
 
 static inline int rwnx_radar_dump_pattern_detector(char *buf, size_t len,
-                                                   struct rwnx_radar *radar,
-                                                   u8 chain)
-{return 0;}
+        struct rwnx_radar *radar,
+        u8 chain)
+{
+    return 0;
+}
 
 static inline int rwnx_radar_dump_radar_detected(char *buf, size_t len,
-                                                 struct rwnx_radar *radar,
-                                                 u8 chain)
-{return 0;}
+        struct rwnx_radar *radar,
+        u8 chain)
+{
+    return 0;
+}
 
 #endif /* CONFIG_RWNX_RADAR */
 

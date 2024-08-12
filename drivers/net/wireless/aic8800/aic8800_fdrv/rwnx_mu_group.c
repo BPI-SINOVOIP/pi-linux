@@ -31,7 +31,7 @@ void rwnx_mu_group_sta_init(struct rwnx_sta *sta,
 
     if (!vht_cap ||
         !(vht_cap->vht_cap_info & IEEE80211_VHT_CAP_MU_BEAMFORMEE_CAPABLE)) {
-            sta->group_info.map = RWNX_SU_GROUP;
+        sta->group_info.map = RWNX_SU_GROUP;
     }
 }
 
@@ -58,7 +58,7 @@ void rwnx_mu_group_sta_del(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta)
         for (i = 0; i < CONFIG_USER_MAX; i++) {
             if (group->users[i] == sta) {
                 group->users[i] = NULL;
-                group->user_cnt --;
+                group->user_cnt--;
                 /* Don't keep group with only one user */
                 if (group->user_cnt == 1) {
                     for (j = 0; j < CONFIG_USER_MAX; j++) {
@@ -67,7 +67,7 @@ void rwnx_mu_group_sta_del(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta)
                             group->users[j]->group_info.map &= ~BIT_ULL(group->group_id);
                             if (group->users[j]->group_info.group == group_id)
                                 group->users[j]->group_info.group = 0;
-                            group->user_cnt --;
+                            group->user_cnt--;
                             break;
                         }
                     }
@@ -81,7 +81,7 @@ void rwnx_mu_group_sta_del(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta)
         }
 
         WARN((i == CONFIG_USER_MAX), "sta %d doesn't belongs to group %d",
-            sta->sta_idx, group_id);
+             sta->sta_idx, group_id);
     }
 
     sta->group_info.map = 0;
@@ -223,13 +223,13 @@ void rwnx_mu_group_add_users(struct rwnx_mu_info *mu,
         for (; j < CONFIG_USER_MAX ; j++) {
             if (group->users[j] == NULL) {
                 group->users[j] = users[i];
-                users[i]->group_info.cnt ++;
+                users[i]->group_info.cnt++;
                 users[i]->group_info.map |= BIT_ULL(group_id);
 
                 rwnx_mu_group_move_head(&(mu->update_sta),
                                         &(users[i]->group_info.update));
-                group->user_cnt ++;
-                j ++;
+                group->user_cnt++;
+                j++;
                 break;
             }
 
@@ -437,7 +437,7 @@ void rwnx_mu_group_work(struct work_struct *ws)
         list_del(&sta->group_info.active);
     }
 
-    if (! list_empty(&mu->update_sta)) {
+    if (!list_empty(&mu->update_sta)) {
         list_for_each_entry_safe(sta, next, &mu->update_sta, group_info.update) {
             rwnx_send_mu_group_update_req(rwnx_hw, sta);
             list_del(&sta->group_info.update);
@@ -618,7 +618,7 @@ void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw)
 
         /* reorder list of group with more that 2 users */
         update = 1;
-        while(update) {
+        while (update) {
             update = 0;
             for (i = 0; i < cnt - 1; i++) {
                 if (traffic[order[i]] < traffic[order[i + 1]]) {
@@ -631,7 +631,7 @@ void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw)
         }
 
         /* now assign group in traffic order */
-        for (i = 0; i < cnt ; i ++) {
+        for (i = 0; i < cnt; i++) {
             struct rwnx_mu_group *group;
             group_id = order[i];
 
@@ -639,7 +639,7 @@ void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw)
                 continue;
 
             group = rwnx_mu_group_from_id(mu, group_id);
-            for (j = 0; j < CONFIG_USER_MAX ; j++) {
+            for (j = 0; j < CONFIG_USER_MAX; j++) {
                 if (group->users[j]) {
                     trace_mu_group_selection(group->users[j], group_id);
                     group->users[j]->group_info.group = group_id;
@@ -654,6 +654,6 @@ void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw)
     }
 
     mu->next_group_select = jiffies +
-        msecs_to_jiffies(RWNX_MU_GROUP_SELECT_INTERVAL);
+                            msecs_to_jiffies(RWNX_MU_GROUP_SELECT_INTERVAL);
     mu->next_group_select |= 1;
 }

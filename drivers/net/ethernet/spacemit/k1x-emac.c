@@ -460,7 +460,7 @@ static void emac_get_tx_hwtstamp(struct emac_priv *priv,
 		return;
 
 	/* get the valid tstamp */
-	ns = priv->hwptp->get_tx_timestamp(priv->iobase);
+	ns = priv->hwptp->get_tx_timestamp(priv);
 
 	memset(&shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
 	shhwtstamp.hwtstamp = ns_to_ktime(ns);
@@ -491,7 +491,7 @@ static void emac_get_rx_hwtstamp(struct emac_priv *priv, struct emac_rx_desc *p,
 
 	/* Check if timestamp is available */
 	if (p->ptp_pkt && p->rx_timestamp) {
-		ns = priv->hwptp->get_rx_timestamp(priv->iobase);
+		ns = priv->hwptp->get_rx_timestamp(priv);
 		netdev_dbg(priv->ndev, "get valid RX hw timestamp %llu\n", ns);
 		shhwtstamp = skb_hwtstamps(skb);
 		memset(shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
@@ -612,23 +612,23 @@ static int emac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
 	priv->hwts_tx_en = config.tx_type == HWTSTAMP_TX_ON;
 
 	if (!priv->hwts_tx_en && !priv->hwts_rx_en)
-		priv->hwptp->config_hw_tstamping(priv->iobase, 0, 0, 0);
+		priv->hwptp->config_hw_tstamping(priv, 0, 0, 0);
 	else {
 
-		priv->hwptp->config_hw_tstamping(priv->iobase, 1, rx_ptp_type, ptp_event_msg_id);
+		priv->hwptp->config_hw_tstamping(priv, 1, rx_ptp_type, ptp_event_msg_id);
 
 		/* initialize system time */
 		ktime_get_real_ts64(&now);
-		priv->hwptp->init_systime(priv->iobase, timespec64_to_ns(&now));
+		priv->hwptp->init_systime(priv, timespec64_to_ns(&now));
 
 		/* program Increment reg */
-		priv->hwptp->config_systime_increment(priv->iobase, priv->ptp_clk_rate, priv->ptp_clk_rate);
+		priv->hwptp->config_systime_increment(priv, priv->ptp_clk_rate, priv->ptp_clk_rate);
 
-		ns_ptp = priv->hwptp->get_systime(priv->iobase);
+		ns_ptp = priv->hwptp->get_phc_time(priv);
 		ktime_get_real_ts64(&now);
 		/* check the diff between ptp timer and system time */
 		if (abs(timespec64_to_ns(&now) - ns_ptp) > 5000)
-			priv->hwptp->init_systime(priv->iobase, timespec64_to_ns(&now));
+			priv->hwptp->init_systime(priv, timespec64_to_ns(&now));
 	}
 	return copy_to_user(ifr->ifr_data, &config,
 			    sizeof(struct hwtstamp_config)) ? -EFAULT : 0;
@@ -911,24 +911,11 @@ int emac_up(struct emac_priv *priv)
 #ifdef CONFIG_PM_SLEEP
 	pm_runtime_get_sync(&pdev->dev);
 #endif
-	if (priv->ref_clk_frm_soc) {
-		ret = clk_prepare_enable(priv->phy_clk);
-		if (ret < 0) {
-			pr_err("failed to enable phy clock: %d\n", ret);
-			goto err;
-		}
-	}
-
-	ret = clk_prepare_enable(priv->mac_clk);
-	if (ret < 0) {
-		pr_err("failed to enable mac clock: %d\n", ret);
-		goto disable_phy_clk;
-	}
 
 	ret = emac_phy_connect(ndev);
 	if (ret) {
 		pr_err("%s  phy_connet failed\n", __func__);
-		goto disable_mac_clk;
+		goto err;
 	}
 	/* init hardware */
 	emac_init_hw(priv);
@@ -980,11 +967,6 @@ request_irq_failed:
 		phy_stop(ndev->phydev);
 		phy_disconnect(ndev->phydev);
 	}
-disable_mac_clk:
-		clk_disable_unprepare(priv->mac_clk);
-disable_phy_clk:
-	if (priv->ref_clk_frm_soc)
-		clk_disable_unprepare(priv->phy_clk);
 err:
 #ifdef CONFIG_PM_SLEEP
 	pm_runtime_put_sync(&pdev->dev);
@@ -1029,10 +1011,6 @@ int emac_down(struct emac_priv *priv)
 
 	emac_reset_hw(priv);
 	netif_carrier_off(ndev);
-
-	clk_disable_unprepare(priv->mac_clk);
-	if (priv->ref_clk_frm_soc)
-		clk_disable_unprepare(priv->phy_clk);
 
 #ifdef CONFIG_PM_SLEEP
 	pm_runtime_put_sync(&pdev->dev);
@@ -2322,8 +2300,6 @@ static int emac_mdio_init(struct emac_priv *priv)
 		return -ENODEV;
 	}
 
-	/* Indicate that the MAC is responsible for PHY PM */
-	priv->phy->mac_managed_pm = true;
 err_put_node:
 	of_node_put(mii_np);
 	return ret;
@@ -2775,10 +2751,6 @@ static int emac_probe(struct platform_device *pdev)
 
 	netif_napi_add(ndev, &priv->napi, emac_rx_poll);
 
-	if (priv->ref_clk_frm_soc)
-		clk_disable_unprepare(priv->phy_clk);
-	clk_disable_unprepare(priv->mac_clk);
-
 	return 0;
 err_mdio_deinit:
 	emac_mdio_deinit(priv);
@@ -2826,13 +2798,35 @@ static int emac_resume(struct device *dev)
 {
 	struct emac_priv *priv = dev_get_drvdata(dev);
 	struct net_device *ndev = priv->ndev;
+	int ret;
 
-	if (!netif_running(ndev))
+	if (priv->ref_clk_frm_soc) {
+		ret = clk_prepare_enable(priv->phy_clk);
+		if (ret < 0) {
+			pr_err("failed to enable phy clock: %d\n", ret);
+			goto err;
+		}
+	}
+
+	ret = clk_prepare_enable(priv->mac_clk);
+	if (ret < 0) {
+		pr_err("failed to enable mac clock: %d\n", ret);
+		goto disable_phy_clk;
+	}
+
+	if (!netif_running(ndev)) {
 		return 0;
+	}
 
 	emac_open(ndev);
 	netif_device_attach(ndev);
 	return 0;
+
+disable_phy_clk:
+	if (priv->ref_clk_frm_soc)
+		clk_disable_unprepare(priv->phy_clk);
+err:
+	return ret;
 }
 
 static int emac_suspend(struct device *dev)
@@ -2840,11 +2834,17 @@ static int emac_suspend(struct device *dev)
 	struct emac_priv *priv = dev_get_drvdata(dev);
 	struct net_device *ndev = priv->ndev;
 
-
-	if (!ndev || !netif_running(ndev))
+	if (!ndev || !netif_running(ndev)) {
+		clk_disable_unprepare(priv->mac_clk);
+		if (priv->ref_clk_frm_soc)
+			clk_disable_unprepare(priv->phy_clk);
 		return 0;
+	}
 
 	emac_close(ndev);
+	clk_disable_unprepare(priv->mac_clk);
+	if (priv->ref_clk_frm_soc)
+		clk_disable_unprepare(priv->phy_clk);
 	netif_device_detach(ndev);
 	return 0;
 }

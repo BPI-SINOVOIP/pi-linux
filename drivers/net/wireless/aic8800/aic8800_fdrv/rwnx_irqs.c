@@ -34,7 +34,6 @@ irqreturn_t rwnx_irq_hdlr(int irq, void *dev_id)
 void rwnx_task(unsigned long data)
 {
     struct rwnx_hw *rwnx_hw = (struct rwnx_hw *)data;
-    REG_SW_SET_PROFILING(rwnx_hw, SW_PROF_RWNX_IPC_IRQ_HDLR);
 
 #if 0
     struct rwnx_plat *rwnx_plat = rwnx_hw->plat;
@@ -56,12 +55,11 @@ void rwnx_task(unsigned long data)
     //    rwnx_hw->stats.last_rx = now;
     //if (statuses & IPC_IRQ_E2A_TXCFM)
     //    rwnx_hw->stats.last_tx = now;
-	AICWFDBG(LOGTRACE, "rwnx_task\n");
+
     spin_lock_bh(&rwnx_hw->tx_lock);
     rwnx_hwq_process_all(rwnx_hw);
     spin_unlock_bh(&rwnx_hw->tx_lock);
 #if 0
     enable_irq(rwnx_platform_get_irq(rwnx_plat));
 #endif
-    REG_SW_CLEAR_PROFILING(rwnx_hw, SW_PROF_RWNX_IPC_IRQ_HDLR);
 }

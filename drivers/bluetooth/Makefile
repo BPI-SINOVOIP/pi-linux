@@ -26,6 +26,8 @@ obj-$(CONFIG_BT_BCM)		+= btbcm.o
 obj-$(CONFIG_BT_RTL)		+= btrtl.o
 obj-$(CONFIG_BT_QCA)		+= btqca.o
 obj-$(CONFIG_BT_MTK)		+= btmtk.o
+obj-$(CONFIG_BT_HCIBTUSB_RTLBTUSB)	+= rtk_btusb.o
+rtk_btusb-objs			:= rtk_bt.o rtk_misc.o rtk_coex.o
 
 obj-$(CONFIG_BT_VIRTIO)		+= virtio_bt.o
 

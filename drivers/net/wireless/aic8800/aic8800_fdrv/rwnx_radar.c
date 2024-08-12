@@ -102,21 +102,21 @@ struct radar_detector_specs {
 #define WIDTH_UPPER(X) (X)
 
 #define ETSI_PATTERN_SHORT(ID, WMIN, WMAX, PMIN, PMAX, PPB)             \
-    {                                                                   \
-        ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),                       \
-            (PRF2PRI(PMAX) - PRI_TOLERANCE),                            \
-            (PRF2PRI(PMIN) + PRI_TOLERANCE), 1, PPB,                    \
-            PPB_THRESH(PPB), PRI_TOLERANCE,  RADAR_WAVEFORM_SHORT       \
-            }
+	{                                                                   \
+		ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),                       \
+			(PRF2PRI(PMAX) - PRI_TOLERANCE),                            \
+			(PRF2PRI(PMIN) + PRI_TOLERANCE), 1, PPB,                    \
+			PPB_THRESH(PPB), PRI_TOLERANCE,  RADAR_WAVEFORM_SHORT       \
+			}
 
 #define ETSI_PATTERN_INTERLEAVED(ID, WMIN, WMAX, PMIN, PMAX, PRFMIN, PRFMAX, PPB) \
-    {                                                                   \
-        ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),                       \
-            (PRF2PRI(PMAX) * PRFMIN- PRI_TOLERANCE),                    \
-            (PRF2PRI(PMIN) * PRFMAX + PRI_TOLERANCE),                   \
-            PRFMAX, PPB * PRFMAX,                                       \
-            PPB_THRESH(PPB), PRI_TOLERANCE, RADAR_WAVEFORM_INTERLEAVED  \
-            }
+	{                                                                   \
+		ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),                       \
+			(PRF2PRI(PMAX) * PRFMIN- PRI_TOLERANCE),                    \
+			(PRF2PRI(PMIN) * PRFMAX + PRI_TOLERANCE),                   \
+			PRFMAX, PPB * PRFMAX,                                       \
+			PPB_THRESH(PPB), PRI_TOLERANCE, RADAR_WAVEFORM_INTERLEAVED  \
+			}
 
 /* radar types as defined by ETSI EN-301-893 v1.7.1 */
 static const struct radar_detector_specs etsi_radar_ref_types_v17_riu[] = {
@@ -147,12 +147,12 @@ static const struct radar_types etsi_radar_types_v17 = {
 };
 
 #define FCC_PATTERN(ID, WMIN, WMAX, PMIN, PMAX, PRF, PPB, TYPE) \
-    {                                                           \
-        ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),               \
-            PMIN - PRI_TOLERANCE,                               \
-            PMAX * PRF + PRI_TOLERANCE, PRF, PPB * PRF,         \
-            PPB_THRESH(PPB), PRI_TOLERANCE, TYPE                \
-            }
+	{                                                           \
+		ID, WIDTH_LOWER(WMIN), WIDTH_UPPER(WMAX),               \
+			PMIN - PRI_TOLERANCE,                               \
+			PMAX * PRF + PRI_TOLERANCE, PRF, PPB * PRF,         \
+			PPB_THRESH(PPB), PRI_TOLERANCE, TYPE                \
+			}
 
 static const struct radar_detector_specs fcc_radar_ref_types_riu[] = {
     FCC_PATTERN(0,  0,   8, 1428, 1428, 1,  18, RADAR_WAVEFORM_SHORT),
@@ -442,7 +442,7 @@ bool pulse_queue_enqueue(struct pri_detector *pde, u64 ts)
     if (p == NULL) {
         p = kmalloc(sizeof(*p), GFP_ATOMIC);
         if (p == NULL) {
-             return false;
+            return false;
         }
     }
     INIT_LIST_HEAD(&p->head);
@@ -539,7 +539,7 @@ bool pde_short_create_sequences(struct pri_detector *pde,
         ps.last_ts = ts;
         ps.pri = ts - p->ts;
         ps.dur = ps.pri * (pde->rs->ppb - 1)
-            + 2 * pde->rs->max_pri_tolerance;
+                 + 2 * pde->rs->max_pri_tolerance;
 
         p2 = p;
         tmp_false_count = 0;
@@ -654,7 +654,7 @@ u32 pde_short_add_to_existing_seqs(struct pri_detector *pde, u64 ts)
  * @return The first complete sequence, and NULL if no sequence is complete.
  */
 static
-struct pri_sequence * pde_short_check_detection(struct pri_detector *pde)
+struct pri_sequence *pde_short_check_detection(struct pri_detector *pde)
 {
     struct pri_sequence *ps;
 
@@ -709,7 +709,7 @@ static void pri_detector_reset(struct pri_detector *pde, u64 ts);
  */
 static
 struct pri_sequence *pde_short_add_pulse(struct pri_detector *pde,
-                                         u16 len, u64 ts, u16 pri)
+        u16 len, u64 ts, u16 pri)
 {
     u32 max_updated_seq;
     struct pri_sequence *ps;
@@ -833,7 +833,7 @@ struct pri_sequence *pde_long_add_pulse(struct pri_detector *pde,
         if (delta_ts < rs->pri_max) {
             /* ignore pulse too close from previous one */
         } else if  ((delta_ts >= rs->pri_min) &&
-              (delta_ts <= rs->pri_max)) {
+                    (delta_ts <= rs->pri_max)) {
             /* this is a new pulse in the current burst, ignore it
                (i.e don't queue it) */
             ps->count_falses++;
@@ -1022,7 +1022,7 @@ static void dfs_pattern_detector_reset(struct dfs_pattern_detector *dpd)
     for (i = 0; i < dpd->num_radar_types; i++) {
         if (!list_empty(&dpd->detectors[i]))
             list_for_each_entry(pde, &dpd->detectors[i], head)
-                pri_detector_reset(pde, dpd->last_pulse_ts);
+            pri_detector_reset(pde, dpd->last_pulse_ts);
     }
 
     dpd->last_pulse_ts = 0;
@@ -1042,7 +1042,7 @@ static void dfs_pattern_detector_exit(struct dfs_pattern_detector *dpd)
     for (i = 0; i < dpd->num_radar_types; i++) {
         if (!list_empty(&dpd->detectors[i]))
             list_for_each_entry_safe(pde, pde0, &dpd->detectors[i], head)
-                pri_detector_exit(pde);
+            pri_detector_exit(pde);
     }
 
     kfree(dpd);
@@ -1061,8 +1061,8 @@ static void dfs_pattern_detector_pri_overflow(struct dfs_pattern_detector *dpd)
     for (i = 0; i < dpd->num_radar_types; i++) {
         if (!list_empty(&dpd->detectors[i]))
             list_for_each_entry(pde, &dpd->detectors[i], head)
-                if (pde->ops->reset_on_pri_overflow)
-                    pri_detector_reset(pde, dpd->last_pulse_ts);
+            if (pde->ops->reset_on_pri_overflow)
+                pri_detector_reset(pde, dpd->last_pulse_ts);
     }
 }
 
@@ -1083,8 +1083,8 @@ static void dfs_pattern_detector_pri_overflow(struct dfs_pattern_detector *dpd)
  * @return True is the pulse complete a radar pattern, false otherwise
  */
 static bool dfs_pattern_detector_add_pulse(struct dfs_pattern_detector *dpd,
-                                           enum rwnx_radar_chain chain,
-                                           u16 freq, u16 pri, u16 len, u32 now)
+        enum rwnx_radar_chain chain,
+        u16 freq, u16 pri, u16 len, u32 now)
 {
     u32 i;
 
@@ -1197,7 +1197,7 @@ bool dfs_pattern_detector_set_domain(struct dfs_pattern_detector *dpd,
     for (i = 0; i < dpd->num_radar_types; i++) {
         if (!list_empty(&dpd->detectors[i]))
             list_for_each_entry_safe(pde, pde0, &dpd->detectors[i], head)
-                pri_detector_exit(pde);
+            pri_detector_exit(pde);
     }
 
     if (chain == RWNX_RADAR_RIU)
@@ -1371,12 +1371,12 @@ static void rwnx_radar_process_pulse(struct work_struct *ws)
 
                 radar->detected[chain].freq[idx] = (s16)freq + (2 * p->freq);
                 radar->detected[chain].time[idx] = ktime_get_real_seconds();
-                radar->detected[chain].index = ((idx + 1 ) %
+                radar->detected[chain].index = ((idx + 1) %
                                                 NX_NB_RADAR_DETECTED);
                 radar->detected[chain].count++;
                 /* no need to process next pulses for this chain */
                 break;
-             }
+            }
         }
     }
 }
@@ -1396,9 +1396,9 @@ static void rwnx_radar_cac_work(struct work_struct *ws)
 
     ctxt = &rwnx_hw->chanctx_table[radar->cac_vif->ch_index];
     cfg80211_cac_event(radar->cac_vif->ndev,
-                    #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
                        &ctxt->chan_def,
-                    #endif
+#endif
                        NL80211_RADAR_CAC_FINISHED, GFP_KERNEL);
     rwnx_send_apm_stop_cac_req(rwnx_hw, radar->cac_vif);
     rwnx_chanctx_unlink(radar->cac_vif);
@@ -1412,12 +1412,12 @@ bool rwnx_radar_detection_init(struct rwnx_radar *radar)
     spin_lock_init(&radar->lock);
 
     radar->dpd[RWNX_RADAR_RIU] = dfs_pattern_detector_init(NL80211_DFS_UNSET,
-                                                           RWNX_RADAR_RIU);
+                                 RWNX_RADAR_RIU);
     if (radar->dpd[RWNX_RADAR_RIU] == NULL)
         return false;
 
     radar->dpd[RWNX_RADAR_FCU] = dfs_pattern_detector_init(NL80211_DFS_UNSET,
-                                                           RWNX_RADAR_FCU);
+                                 RWNX_RADAR_FCU);
     if (radar->dpd[RWNX_RADAR_FCU] == NULL) {
         rwnx_radar_detection_deinit(radar);
         return false;
@@ -1459,7 +1459,7 @@ bool rwnx_radar_set_domain(struct rwnx_radar *radar,
 
 void rwnx_radar_detection_enable(struct rwnx_radar *radar, u8 enable, u8 chain)
 {
-    if (chain < RWNX_RADAR_LAST ) {
+    if (chain < RWNX_RADAR_LAST) {
 #ifdef CREATE_TRACE_POINTS
         trace_radar_enable_detection(radar->dpd[chain]->region, enable, chain);
 #endif
@@ -1496,9 +1496,9 @@ void rwnx_radar_cancel_cac(struct rwnx_radar *radar)
         ctxt = &rwnx_hw->chanctx_table[radar->cac_vif->ch_index];
         rwnx_send_apm_stop_cac_req(rwnx_hw, radar->cac_vif);
         cfg80211_cac_event(radar->cac_vif->ndev,
-                        #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
                            &ctxt->chan_def,
-                        #endif
+#endif
                            NL80211_RADAR_CAC_ABORTED, GFP_KERNEL);
         rwnx_chanctx_unlink(radar->cac_vif);
     }
@@ -1588,7 +1588,7 @@ int rwnx_radar_dump_pattern_detector(char *buf, size_t len,
             }
             size_needed += sizeof(info);
 
-        return size_needed;
+            return size_needed;
         }
     }
 
@@ -1622,7 +1622,7 @@ int rwnx_radar_dump_radar_detected(char *buf, size_t len,
 
     if (buf == NULL) {
         return (count * sizeof(info)) + 1;
-     }
+    }
 
     idx = (detect->index - detect->count) % NX_NB_RADAR_DETECTED;
 
@@ -1637,7 +1637,7 @@ int rwnx_radar_dump_radar_detected(char *buf, size_t len,
         write += res;
         len -= res;
 
-        idx = (idx + 1 ) % NX_NB_RADAR_DETECTED;
+        idx = (idx + 1) % NX_NB_RADAR_DETECTED;
     }
 
     return write;

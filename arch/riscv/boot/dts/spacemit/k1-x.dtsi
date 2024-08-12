@@ -45,19 +45,17 @@
 			model = "Spacemit(R) X60";
 			reg = <0>;
 			status = "okay";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu0_intc: interrupt-controller {
@@ -73,19 +71,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu1_intc: interrupt-controller {
@@ -101,19 +97,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu2_intc: interrupt-controller {
@@ -129,19 +123,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu3_intc: interrupt-controller {
@@ -157,19 +149,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu4_intc: interrupt-controller {
@@ -185,19 +175,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu5_intc: interrupt-controller {
@@ -213,19 +201,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu6_intc: interrupt-controller {
@@ -241,19 +227,17 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu7_intc: interrupt-controller {
@@ -268,7 +252,7 @@
 			cache-block-size = <64>;
 			cache-level = <2>;
 			cache-size = <524288>;
-			cache-sets = <1024>;
+			cache-sets = <512>;
 			cache-unified;
 		};
 
@@ -277,7 +261,7 @@
 			cache-block-size = <64>;
 			cache-level = <2>;
 			cache-size = <524288>;
-			cache-sets = <1024>;
+			cache-sets = <512>;
 			cache-unified;
 		};
 
@@ -312,99 +296,6 @@
 				exit-latency-us = <1200>;
 				min-residency-us = <2800>;
 				wakeup-latency-us = <1600>;
-			};
-		};
-
-		clst0_core_opp_table: opp_table0 {
-			compatible = "operating-points-v2";
-			opp-shared;
-
-			clocks = <&ccu CLK_CPU_C0_ACE>, <&ccu CLK_CPU_C0_TCM>, <&ccu CLK_CCI550>;
-			clock-names = "ace","tcm", "cci";
-			cci-hz = /bits/ 64 <614000000>;
-
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				tcm-hz = /bits/ 64 <800000000>;
-				ace-hz = /bits/ 64 <800000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1228800000 {
-				opp-hz = /bits/ 64 <1228800000>;
-				tcm-hz = /bits/ 64 <614400000>;
-				ace-hz = /bits/ 64 <614400000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1000000000 {
-				opp-hz = /bits/ 64 <1000000000>;
-				tcm-hz = /bits/ 64 <500000000>;
-				ace-hz = /bits/ 64 <500000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				opp-microvolt = <950000>;
-				tcm-hz = /bits/ 64 <409500000>;
-				ace-hz = /bits/ 64 <409500000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp614400000 {
-				opp-hz = /bits/ 64 <614400000>;
-				tcm-hz = /bits/ 64 <307200000>;
-				ace-hz = /bits/ 64 <307200000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-		};
-
-		clst1_core_opp_table: opp_table1 {
-			compatible = "operating-points-v2";
-			opp-shared;
-
-			clocks = <&ccu CLK_CPU_C1_ACE>, <&ccu CLK_CCI550>;
-			clock-names = "ace", "cci";
-			cci-hz = /bits/ 64 <614000000>;
-
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				ace-hz = /bits/ 64 <800000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1228800000 {
-				opp-hz = /bits/ 64 <1228800000>;
-				ace-hz = /bits/ 64 <614400000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1000000000 {
-				opp-hz = /bits/ 64 <1000000000>;
-				ace-hz = /bits/ 64 <500000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				ace-hz = /bits/ 64 <409500000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp614400000 {
-				opp-hz = /bits/ 64 <614400000>;
-				ace-hz = /bits/ 64 <307200000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
 			};
 		};
 	};
@@ -468,6 +359,7 @@
 		area_reserved@80000000 {
 			/* dram area is 0~2GB, and 4GB~, the 2GB~4GB is io area */
 			reg = <0x0 0x80000000 0x0 0x40800000>;
+			no-map;
 		};
 
 		/* sram area, used for rcpu code & data & heap space */
@@ -527,7 +419,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		/* dram mapping for dma/usb/sdh/audio/crypto for ex. */
+		/* dram mapping for usb/sdh for ex. */
 		dram_range0: dram_range@0 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
@@ -537,7 +429,7 @@
 			status = "okay";
 		};
 
-		/* dram mapping for vpu/gpu/v2d/jpu for ex. */
+		/* dram mapping for vpu/gpu/dpu for ex. */
 		dram_range1: dram_range@1 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
@@ -548,12 +440,46 @@
 			status = "okay";
 		};
 
+		/* dram mapping for pcie for ex. */
 		dram_range2: dram_range@2 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
 				     <0x0 0xb8000000 0x1 0x38000000 0x3 0x48000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for v2d/isp/csi/vi/cpp for ex. */
+		dram_range3: dram_range@3 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x0 0x80000000 0x1 0x00000000 0x1 0x80000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for dma&users for ex. */
+		dram_range4: dram_range@4 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x1 0x00000000 0x1 0x80000000 0x3 0x00000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for eth/crypto/jpu for ex. */
+		dram_range5: dram_range@5 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x0 0x80000000 0x1 0x00000000 0x0 0x80000000>;
 			#interconnect-cells = <0>;
 			status = "okay";
 		};
@@ -583,8 +509,9 @@
 				<0x0 0xd8440000 0x0 0x98>,
 				<0x0 0xc0000000 0x0 0x4280>,
 				<0x0 0xf0610000 0x0 0x20>,
-				<0x0 0xc0880000 0x0 0x2050>;
-			reg-names = "mpmu", "apmu", "apbc", "apbs", "ciu", "dciu", "ddrc", "apbc2", "rcpu";
+				<0x0 0xc0880000 0x0 0x2050>,
+				<0x0 0xc0888000 0x0 0x30>;
+			reg-names = "mpmu", "apmu", "apbc", "apbs", "ciu", "dciu", "ddrc", "apbc2", "rcpu", "rcpu2";
 			clocks = <&vctcxo_24>, <&vctcxo_3>, <&vctcxo_1>, <&pll1_2457p6_vco>,
 				<&clk_32k>;
 			clock-names = "vctcxo_24", "vctcxo_3", "vctcxo_1", "pll1_2457p6_vco",
@@ -603,8 +530,9 @@
 				<0x0 0xd8440000 0x0 0x98>,
 				<0x0 0xc0000000 0x0 0x4280>,
 				<0x0 0xf0610000 0x0 0x20>,
-				<0x0 0xc0880000 0x0 0x2050>;
-			reg-names = "mpmu", "apmu", "apbc", "apbs", "ciu", "dciu", "ddrc", "apbc2", "rcpu";
+				<0x0 0xc0880000 0x0 0x2050>,
+				<0x0 0xc0888000 0x0 0x30>;
+			reg-names = "mpmu", "apmu", "apbc", "apbs", "ciu", "dciu", "ddrc", "apbc2", "rcpu", "rcpu2";
 			#reset-cells = <1>;
 			status = "okay";
 		};
@@ -630,8 +558,9 @@
 		};
 
 		pinctrl: pinctrl@d401e000 {
-			compatible = "pinconf-single";
-			reg = <0x0 0xd401e000 0x0 0x400>;
+			compatible = "pinconf-single-aib";
+			reg = <0x0 0xd401e000 0x0 0x400>,
+				<0x0 0xd4019800 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#pinctrl-cells = <2>;
@@ -639,6 +568,16 @@
 
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0xff77>;
+
+			clocks = <&ccu CLK_AIB>;
+			clock-names = "clk_aib";
+			resets = <&reset RESET_AIB>;
+			reset-names = "aib_rst";
+
+			interrupt-parent = <&intc>;
+			interrupts = <60>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 
 			range: gpio-range {
 				#pinctrl-single,gpio-range-cells = <3>;
@@ -794,8 +733,10 @@
 			dmas = <&pdma0 DMA_UART0_RX 1
 				&pdma0 DMA_UART0_TX 1>;
 			dma-names = "rx", "tx";
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
+			reg-shift = <2>;
+			reg-io-width = <4>;
 			status = "ok";
 		};
 
@@ -811,13 +752,13 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
 
 		uart3: uart@d4017200 {
-			compatible = "spcaemit,pxa-uart";
+			compatible = "spacemit,pxa-uart";
 			reg = <0x0 0xd4017200 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <45>;
@@ -828,7 +769,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -845,7 +786,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -862,7 +803,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -879,7 +820,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -896,7 +837,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -913,7 +854,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -930,7 +871,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -978,7 +919,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "ok";
 		};
@@ -1010,7 +951,7 @@
 			resets = <&reset RESET_SSPA0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1031,7 +972,7 @@
 			resets = <&reset RESET_SSPA1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1050,7 +991,7 @@
 			resets = <&reset RESET_SEC_SSP2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1071,7 +1012,7 @@
 			resets = <&reset RESET_SSP3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1093,7 +1034,7 @@
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
-			spacemit,i2c-fast-mode;
+			/* spacemit,i2c-fast-mode; */
 			/* spacemit,i2c-high-mode; */
 			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
 			spacemit,i2c-clk-rate = <32000000>;
@@ -1103,7 +1044,7 @@
 			spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1125,7 +1066,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1135,7 +1076,7 @@
                         spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
                         status = "disabled";
                 };
@@ -1157,7 +1098,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1167,7 +1108,7 @@
                         spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
                         status = "disabled";
                 };
@@ -1182,7 +1123,7 @@
                         interrupt-parent = <&intc>;
                         interrupts = <39>;
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1192,7 +1133,7 @@
                         spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
                         status = "disabled";
                 };
@@ -1214,7 +1155,7 @@
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
-			spacemit,i2c-fast-mode;
+			/* spacemit,i2c-fast-mode; */
 			/* spacemit,i2c-high-mode; */
 			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
 			spacemit,i2c-clk-rate = <32000000>;
@@ -1224,7 +1165,7 @@
 			spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1246,7 +1187,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1256,7 +1197,7 @@
                         spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
                         status = "disabled";
                 };
@@ -1288,7 +1229,7 @@
 			spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1320,7 +1261,7 @@
 			spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1352,7 +1293,7 @@
                         spacemit,apb_clock = <52000000>;
                         power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
                         cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
                         status = "disabled";
                 };
@@ -1557,6 +1498,17 @@
 			status = "disabled";
 		};
 
+		rpwm2: pwm@c0888300 {
+			compatible = "spacemit,k1x-pwm";
+			reg = <0x0 0xc0888300 0x0 0x10>;
+			#pwm-cells = <1>;
+			clocks = <&ccu CLK_RCPU2_PWM>;
+			resets = <&reset RESET_RCPU2_PWM>;
+			k1x,pwm-disable-fd;
+			rcpu-pwm;
+			status = "disabled";
+		};
+
 		timer0: timer@d4014000 {
 			compatible = "spacemit,soc-timer";
 			reg = <0x0 0xd4014000 0x0 0xc8>;
@@ -1607,7 +1559,7 @@
 			interrupts = <35>;
 			interrupt-parent = <&intc>;
 			spa,wdt-disabled;
-			status = "ok";
+			status = "disabled";
 		};
 
 		reboot: handler@d4282f90 {
@@ -1636,8 +1588,19 @@
 			clock-names = "per","ipg";
 			resets = <&reset RESET_CAN0>;
 			fsl,clk-source = <0>;
-			interconnects = <&dram_range0>;
-			interconnect-names = "dma-mem";
+			status = "disabled";
+		};
+
+		flexcan1: fdcan@c0870000 {
+			compatible = "spacemit,k1x-flexcan";
+			reg = <0x0 0xc0870000 0x0 0x4000>;
+			interrupt-parent = <&intc>;
+			clock-frequency = <20000000>;
+			fsl,clk-source = <0>;
+			clocks = <&ccu CLK_RCPU_CAN>,<&ccu CLK_RCPU_CAN_BUS>;
+			clock-names = "per","ipg";
+			resets = <&reset RESET_RCPU_CAN>;
+			rcpu-can;
 			status = "disabled";
 		};
 
@@ -1689,7 +1652,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range5>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1713,7 +1676,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range5>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1768,8 +1731,9 @@
 
 		ehci: ehci@c0900100 {
 			compatible = "spacemit,mv-ehci";
-			reg = <0x0 0xc0900100 0x0 0x4000>;
-			interrupts = <105>;
+			reg = <0x0 0xc0900100 0x0 0x4000>,
+				  <0x0 0xd428287c 0x0 0x4>;
+			interrupts = <105>,<106>;
 			interrupt-parent = <&intc>;
 			spacemit,ehci-name = "mv-ehci";
 			spacemit,otg-force-a-bus-req;
@@ -1795,8 +1759,9 @@
 
 		ehci1: ehci1@c0980100 {
 			compatible = "spacemit,mv-ehci";
-			reg = <0x0 0xc0980100 0x0 0x4000>;
-			interrupts = <118>;
+			reg = <0x0 0xc0980100 0x0 0x4000>,
+				  <0x0 0xd4282bc4 0x0 0x4>;
+			interrupts = <118>,<148>;
 			interrupt-parent = <&intc>;
 			spacemit,ehci-name = "mv-ehci";
 			spacemit,otg-force-a-bus-req;
@@ -1840,10 +1805,14 @@
 			compatible = "spacemit,k1-x-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
+			reg = <0x0 0xd4282bc8 0x0 0x4>;
 			resets = <&reset RESET_USB3_0>;
 			reset-names = "ctl_rst";
 			clocks = <&ccu CLK_USB30>;
 			clock-names = "usbdrd30";
+			phys = <&combphy PHY_TYPE_USB3>;
+			phy-names = "usb3-phy";
+			usb-phy = <&usb2phy>;
 			interrupt-parent = <&intc>;
 			interrupts = <149>;
 			ranges;
@@ -1856,9 +1825,6 @@
 				reg = <0x0 0xc0a00000 0x0 0x10000>;
 				interrupt-parent = <&intc>;
 				interrupts = <125>;
-				phys = <&combphy PHY_TYPE_USB3>;
-				phy-names = "usb3-phy";
-				usb-phy = <&usb2phy>;
 			};
 		};
 
@@ -1927,7 +1893,7 @@
 			compatible = "k1x,dwc-pcie";
 			reg = <0x0 0xca000000 0x0 0x00001000>, /* dbi */
 			      <0x0 0xca300000 0x0 0x0001ff24>, /* atu registers */
-			      <0x0 0x80000000 0x0 0x00002000>, /* config space */
+			      <0x0 0x8f000000 0x0 0x00002000>, /* config space */
 			      <0x0 0xd4282bcc 0x0 0x00000008>, /* k1x soc config addr */
 			      <0x0 0xc0b20000 0x0 0x00001000>, /* phy ahb */
 			      <0x0 0xc0b10000 0x0 0x00001000>, /* phy addr */
@@ -1949,8 +1915,8 @@
 			device_type = "pci";
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x01000000 0x0 0x80002000 0 0x80002000 0x0 0x100000>,
-				<0x02000000 0x0 0x80102000 0 0x80102000 0x0 0x0f000000>;
+			ranges = <0x01000000 0x0 0x8f002000 0 0x8f002000 0x0 0x100000>,
+				 <0x02000000 0x0 0x80000000 0 0x80000000 0x0 0x0f000000>;
 			interconnects = <&dram_range2>;
 			interconnect-names = "dma-mem";
 
@@ -1976,7 +1942,7 @@
 			compatible = "k1x,dwc-pcie";
 			reg = <0x0 0xca400000 0x0 0x00001000>, /* dbi */
 			      <0x0 0xca700000 0x0 0x0001ff24>, /* atu registers */
-			      <0x0 0x90000000 0x0 0x00002000>, /* config space */
+			      <0x0 0x9f000000 0x0 0x00002000>, /* config space */
 			      <0x0 0xd4282bd4 0x0 0x00000008>, /* k1x soc config addr */
 			      <0x0 0xc0c20000 0x0 0x00001000>, /* phy ahb */
 			      <0x0 0xc0c10000 0x0 0x00001000>, /* phy addr */
@@ -1998,8 +1964,8 @@
 			device_type = "pci";
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x01000000 0x0 0x90002000 0 0x90002000 0x0 0x100000>,
-				<0x02000000 0x0 0x90102000 0 0x90102000 0x0 0x0f000000>;
+			ranges = <0x01000000 0x0 0x9f002000 0 0x9f002000 0x0 0x100000>,
+				 <0x02000000 0x0 0x90000000 0 0x90000000 0x0 0x0f000000>;
 			interconnects = <&dram_range2>;
 			interconnect-names = "dma-mem";
 
@@ -2025,7 +1991,7 @@
 			compatible = "k1x,dwc-pcie";
 			reg = <0x0 0xca800000 0x0 0x00001000>, /* dbi */
 			      <0x0 0xcab00000 0x0 0x0001ff24>, /* atu registers */
-			      <0x0 0xa0000000 0x0 0x00002000>, /* config space */
+			      <0x0 0xb7000000 0x0 0x00002000>, /* config space */
 			      <0x0 0xd4282bdc 0x0 0x00000008>, /* k1x soc config addr */
 			      <0x0 0xc0d20000 0x0 0x00001000>, /* phy ahb */
 			      <0x0 0xc0d10000 0x0 0x00001000>, /* phy addr */
@@ -2047,8 +2013,8 @@
 			device_type = "pci";
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x01000000 0x0 0xa0002000 0 0xa0002000 0x0 0x100000>,
-				<0x02000000 0x0 0xa0102000 0 0xa0102000 0x0 0x10000000>;
+			ranges = <0x01000000 0x0 0xb7002000 0 0xb7002000 0x0 0x100000>,
+				 <0x02000000 0x0 0xa0000000 0 0xa0000000 0x0 0x17000000>;
 			interconnects = <&dram_range2>;
 			interconnect-names = "dma-mem";
 
@@ -2099,7 +2065,7 @@
 			k1x,qspi-rx-dma = <1>;
 			dmas = <&pdma0 45 1>;
 			dma-names = "tx-dma";
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -2124,106 +2090,7 @@
                         status = "okay";
                 };
 
-		thermal-zones {
-			cluster0_thermal {
-				polling-delay = <0>;
-				polling-delay-passive = <0>;
-				thermal-sensors = <&thermal 3>;
-
-				trips {
-					cls0_trip0: cls0-trip-point0 {
-						temperature = <95000>;
-						hysteresis = <5000>;
-						type = "passive";
-					};
-
-					cls0_trip1: cls0-trip-point1 {
-						temperature = <105000>;
-						hysteresis = <5000>;
-						type = "passive";
-					};
-
-					cls0_trip2: cls0-trip-point2 {
-						temperature = <115000>;
-						hysteresis = <5000>;
-						type = "critical";
-					};
-				};
-
-				cooling-maps {
-					map0 {
-						trip = <&cls0_trip0>;
-/*
-						cooling-device = <&{/cpus/cpu@3/thermal-hotplug} 0 1>;
-*/
-						cooling-device = <&cpu_0 1 2>,
-								 <&cpu_1 1 2>,
-								 <&cpu_2 1 2>,
-								 <&cpu_3 1 2>;
-					};
-
-					map1 {
-						trip = <&cls0_trip1>;
-/*
-						cooling-device = <&{/cpus/cpu@3/thermal-hotplug} 0 1>;
-*/
-						cooling-device = <&cpu_0 3 3>,
-								 <&cpu_1 3 3>,
-								 <&cpu_2 3 3>,
-								 <&cpu_3 3 3>;
-					};
-				};
-			};
-
-			cluster1_thermal {
-				polling-delay = <0>;
-				polling-delay-passive = <0>;
-				thermal-sensors = <&thermal 4>;
-
-				trips {
-					cls1_trip0: cls1-trip-point0 {
-						temperature = <95000>;
-						hysteresis = <5000>;
-						type = "passive";
-					};
-
-					cls1_trip1: cls1-trip-point1 {
-						temperature = <105000>;
-						hysteresis = <5000>;
-						type = "passive";
-					};
-
-					cls1_trip2: cls1-trip-point2 {
-						temperature = <115000>;
-						hysteresis = <5000>;
-						type = "critical";
-					};
-				};
-
-				cooling-maps {
-					map0 {
-						trip = <&cls1_trip0>;
-/*
-						cooling-device = <&{/cpus/cpu@7/thermal-hotplug} 0 1>;
-*/
-						cooling-device = <&cpu_4 1 2>,
-								 <&cpu_5 1 2>,
-								 <&cpu_6 1 2>,
-								 <&cpu_7 1 2>;
-					};
-
-					map1 {
-						trip = <&cls1_trip1>;
-/*
-						cooling-device = <&{/cpus/cpu@7/thermal-hotplug} 0 1>;
-*/
-						cooling-device = <&cpu_4 3 3>,
-								 <&cpu_5 3 3>,
-								 <&cpu_6 3 3>,
-								 <&cpu_7 3 3>;
-					};
-				};
-			};
+		thermal_zones: thermal-zones {
 		};
 
 		tcm: tcm@0xd8000000 {
@@ -2259,13 +2126,11 @@
 			interrupts = <74>;
 			clocks = <&ccu CLK_VPU>;
 			clock-names = "vpu_clk";
-			assigned-clocks = <&ccu CLK_VPU>;
-			assigned-clock-parents = <&ccu CLK_PLL1_819>;
-			assigned-clock-rates = <819200000>;
 			power-domains = <&power K1X_PMU_VPU_PWR_DOMAIN>;
 			resets = <&reset RESET_VPU>;
 			interconnects = <&dram_range1>;
 			interconnect-names = "dma-mem";
+			clk,pm-runtime,no-sleep;
 			status = "okay";
 		};
 
@@ -2280,7 +2145,7 @@
 			reset-names= "v2d_reset";
 			interrupt-parent = <&intc>;
 			interrupts = <86>;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range3>;
 			interconnect-names = "dma-mem";
 			status = "ok";
 		};
@@ -2306,7 +2171,7 @@
 			jpu,cclk-min-frequency = <409000000>;
 			jpu,cclk-default-frequency = <614000000>;
 			page-size = <4>;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range5>;
 			interconnect-names = "dma-mem";
 			clk,pm-runtime,no-sleep;
 			status = "okay";
@@ -2341,7 +2206,22 @@
 			num-engines = <1>;
 			clocks = <&ccu CLK_AES>;
 			resets = <&reset RESET_AES>;
+			interconnects = <&dram_range5>;
+			interconnect-names = "dma-mem";
 			status = "okay";
+		};
+
+		efuse: fuse@f0702800 {
+			compatible = "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x0 0xf0702800 0x400>;
+			status = "disabled";
+		};
+
+		socinfo: socinfo@0 {
+			compatible = "spacemit,socinfo-k1x";
+			status = "disabled";
 		};
 
 		ciu: ciu@d4282c00 {
@@ -2442,7 +2322,7 @@
 		resets = <&reset RESET_SSPA0>;
 		reset-names = "sspa-rst";
 		assigned-clocks = <&ccu CLK_SSPA0>;
-		assigned-clock-rates = <3072000>;
+		assigned-clock-rates = <1536000>;
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
 		status = "disabled";
 	};
@@ -2457,7 +2337,7 @@
 		resets = <&reset RESET_SSPA1>;
 		reset-names = "sspa-rst";
 		assigned-clocks = <&ccu CLK_SSPA1>;
-		assigned-clock-rates = <3072000>;
+		assigned-clock-rates = <1536000>;
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
 		status = "disabled";
 	};
@@ -2484,6 +2364,8 @@
 		compatible = "spacemit,simple-audio-card";
 		simple-audio-card,name = "snd-hdmi";
 		status = "disabled";
+		interconnects = <&dram_range4>;
+		interconnect-names = "dma-mem";
 		simple-audio-card,cpu {
 			sound-dai = <&hdmi_sspa>;
 		};
@@ -2495,11 +2377,12 @@
 		};
 	};
 
-	sound_es8326: snd-card@1 {
+	sound_codec: snd-card@1 {
 		compatible = "spacemit,simple-audio-card";
-		simple-audio-card,name = "snd-es8326";
 		simple-audio-card,format = "i2s";
 		status = "disabled";
+		interconnects = <&dram_range4>;
+		interconnect-names = "dma-mem";
 		spacemit,init-jack;
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0>;

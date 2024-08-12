@@ -6,6 +6,8 @@
 		compatible = "spacemit,saturn-hdmi";
 		reg = <0 0xc0440000 0 0x2A000>;
 		ports = <&dpu_online2_hdmi>;
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 	};
 
 	dpu_online2_hdmi: port@c0440000 {
@@ -13,6 +15,8 @@
 		interrupt-parent = <&intc>;
 		interrupts = <139>, <138>;
 		interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
 		resets = <&reset RESET_HDMI>;
@@ -20,6 +24,8 @@
 		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
 		pipeline-id = <ONLINE2>;
 		ip = "spacemit-saturn";
+		type = <HDMI>;
+		clk,pm-runtime,no-sleep;
 		status = "disabled";
 
 		dpu_online2_hdmi_out: endpoint@0 {
@@ -38,7 +44,10 @@
 		interrupts = <136>;
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
+		resets = <&reset RESET_HDMI>;
+		reset-names= "hdmi_reset";
 		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
+		clk,pm-runtime,no-sleep;
 		status = "disabled";
 
 		port {

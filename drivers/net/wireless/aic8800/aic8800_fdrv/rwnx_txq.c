@@ -19,34 +19,41 @@
 #ifdef CONFIG_RWNX_FULLMAC
 const int nx_tid_prio[NX_NB_TID_PER_STA] = {7, 6, 5, 4, 3, 0, 2, 1};
 
+#ifdef CONFIG_TX_NETIF_FLOWCTRL
+extern int tx_fc_low_water;
+extern int tx_fc_high_water;
+#endif
+
 static inline int rwnx_txq_sta_idx(struct rwnx_sta *sta, u8 tid)
 {
-    if (is_multicast_sta(sta->sta_idx)){
-        if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-            ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-            g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-                return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + sta->vif_idx;
-        }else{
-                return NX_FIRST_VIF_TXQ_IDX + sta->vif_idx;
-        }	
-    }else{
+    if (is_multicast_sta(sta->sta_idx)) {
+        if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+           ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+             g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+            return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + sta->vif_idx;
+        } else {
+            return NX_FIRST_VIF_TXQ_IDX + sta->vif_idx;
+        }
+    } else {
         return (sta->sta_idx * NX_NB_TXQ_PER_STA) + tid;
     }
 }
 
 static inline int rwnx_txq_vif_idx(struct rwnx_vif *vif, u8 type)
 {
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + master_vif_idx(vif) + (type * NX_VIRT_DEV_MAX);
-    }else{
+
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + master_vif_idx(vif) + (type * NX_VIRT_DEV_MAX);
+    } else {
         return NX_FIRST_VIF_TXQ_IDX + master_vif_idx(vif) + (type * NX_VIRT_DEV_MAX);
     }
+
 }
 
 struct rwnx_txq *rwnx_txq_sta_get(struct rwnx_sta *sta, u8 tid,
-                                  struct rwnx_hw * rwnx_hw)
+                                  struct rwnx_hw *rwnx_hw)
 {
     if (tid >= NX_NB_TXQ_PER_STA)
         tid = 0;
@@ -90,20 +97,21 @@ static void rwnx_txq_init(struct rwnx_txq *txq, int idx, u8 status,
 #ifdef CONFIG_RWNX_FULLMAC
                           struct rwnx_sta *sta, struct net_device *ndev
 #endif
-                          )
+                         )
 {
     int i;
     int nx_first_unk_txq_idx = NX_FIRST_UNK_TXQ_IDX;
     int nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX;
     int nx_first_vif_txq_idx = NX_FIRST_VIF_TXQ_IDX;
-	
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            nx_first_unk_txq_idx = NX_FIRST_UNK_TXQ_IDX_FOR_OLD_IC;
-            nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
-            nx_first_vif_txq_idx = NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC;
+
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_first_unk_txq_idx = NX_FIRST_UNK_TXQ_IDX_FOR_OLD_IC;
+        nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
+        nx_first_vif_txq_idx = NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC;
     }
+
 
 
     txq->idx = idx;
@@ -155,7 +163,7 @@ void rwnx_txq_flush(struct rwnx_hw *rwnx_hw, struct rwnx_txq *txq)
     struct sk_buff *skb;
 
 
-    while((skb = skb_dequeue(&txq->sk_list)) != NULL) {
+    while ((skb = skb_dequeue(&txq->sk_list)) != NULL) {
         struct rwnx_sw_txhdr *sw_txhdr = ((struct rwnx_txhdr *)skb->data)->sw_hdr;
 
 #ifdef CONFIG_RWNX_AMSDUS_TX
@@ -163,14 +171,14 @@ void rwnx_txq_flush(struct rwnx_hw *rwnx_hw, struct rwnx_txq *txq)
             struct rwnx_amsdu_txhdr *amsdu_txhdr;
             list_for_each_entry(amsdu_txhdr, &sw_txhdr->amsdu.hdrs, list) {
                 //dma_unmap_single(rwnx_hw->dev, amsdu_txhdr->dma_addr,
-                  //               amsdu_txhdr->map_len, DMA_TO_DEVICE);
+                //				 amsdu_txhdr->map_len, DMA_TO_DEVICE);
                 dev_kfree_skb_any(amsdu_txhdr->skb);
             }
         }
 #endif
         kmem_cache_free(rwnx_hw->sw_txhdr_cache, sw_txhdr);
         //dma_unmap_single(rwnx_hw->dev, sw_txhdr->dma_addr, sw_txhdr->map_len,
-          //               DMA_TO_DEVICE);
+        //				 DMA_TO_DEVICE);
 
 #ifdef CONFIG_RWNX_FULLMAC
         dev_kfree_skb_any(skb);
@@ -236,7 +244,7 @@ void rwnx_txq_vif_init(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
  * @rwnx_hw: main driver data
  * @rwnx_vif: Pointer on VIF
  */
-void rwnx_txq_vif_deinit(struct rwnx_hw * rwnx_hw, struct rwnx_vif *rwnx_vif)
+void rwnx_txq_vif_deinit(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif)
 {
     struct rwnx_txq *txq;
 
@@ -343,12 +351,11 @@ void rwnx_txq_offchan_init(struct rwnx_vif *rwnx_vif)
     struct rwnx_txq *txq;
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
     }
-
 
     txq = &rwnx_hw->txq[nx_off_chan_txq_idx];
     rwnx_txq_init(txq, nx_off_chan_txq_idx, RWNX_TXQ_STOP_CHAN,
@@ -366,12 +373,13 @@ void rwnx_txq_offchan_init(struct rwnx_vif *rwnx_vif)
 void rwnx_txq_offchan_deinit(struct rwnx_vif *rwnx_vif)
 {
     struct rwnx_txq *txq;
+
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
     }
 
     txq = &rwnx_vif->rwnx_hw->txq[nx_off_chan_txq_idx];
@@ -466,7 +474,7 @@ static inline bool rwnx_txq_skb_ready(struct rwnx_txq *txq)
         return ((txq->nb_ready_mac80211 > 0) || !skb_queue_empty(&txq->sk_list));
     else
 #endif
-    return !skb_queue_empty(&txq->sk_list);
+        return !skb_queue_empty(&txq->sk_list);
 }
 
 /**
@@ -482,9 +490,8 @@ static inline bool rwnx_txq_skb_ready(struct rwnx_txq *txq)
  */
 void rwnx_txq_start(struct rwnx_txq *txq, u16 reason)
 {
-    BUG_ON(txq==NULL);
-    if (txq->idx != TXQ_INACTIVE && (txq->status & reason))
-    {
+    BUG_ON(txq == NULL);
+    if (txq->idx != TXQ_INACTIVE && (txq->status & reason)) {
 #ifdef CREATE_TRACE_POINTS
         trace_txq_start(txq, reason);
 #endif
@@ -505,9 +512,8 @@ void rwnx_txq_start(struct rwnx_txq *txq, u16 reason)
  */
 void rwnx_txq_stop(struct rwnx_txq *txq, u16 reason)
 {
-    BUG_ON(txq==NULL);
-    if (txq->idx != TXQ_INACTIVE)
-    {
+    BUG_ON(txq == NULL);
+    if (txq->idx != TXQ_INACTIVE) {
 #ifdef CREATE_TRACE_POINTS
         trace_txq_stop(txq, reason);
 #endif
@@ -538,7 +544,7 @@ void rwnx_txq_sta_start(struct rwnx_sta *rwnx_sta, u16 reason
 #ifdef CONFIG_RWNX_FULLMAC
                         , struct rwnx_hw *rwnx_hw
 #endif
-                        )
+                       )
 {
     struct rwnx_txq *txq;
     int tid;
@@ -571,7 +577,7 @@ void rwnx_txq_sta_stop(struct rwnx_sta *rwnx_sta, u16 reason
 #ifdef CONFIG_RWNX_FULLMAC
                        , struct rwnx_hw *rwnx_hw
 #endif
-                       )
+                      )
 {
     struct rwnx_txq *txq;
     int tid;
@@ -619,16 +625,13 @@ void rwnx_txq_tdls_sta_stop(struct rwnx_vif *rwnx_vif, u16 reason,
 #endif
 
 #ifdef CONFIG_RWNX_FULLMAC
-static inline
-void rwnx_txq_vif_for_each_sta(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                               void (*f)(struct rwnx_sta *, u16, struct rwnx_hw *),
-                               u16 reason)
+static inline void rwnx_txq_vif_for_each_sta(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
+        void (*f)(struct rwnx_sta *, u16, struct rwnx_hw *), u16 reason)
 {
 
     switch (RWNX_VIF_TYPE(rwnx_vif)) {
     case NL80211_IFTYPE_STATION:
-    case NL80211_IFTYPE_P2P_CLIENT:
-    {
+    case NL80211_IFTYPE_P2P_CLIENT: {
         if (rwnx_vif->tdls_status == TDLS_LINK_ACTIVE)
             f(rwnx_vif->sta.tdls_sta, reason, rwnx_hw);
         if (!WARN_ON(rwnx_vif->sta.ap == NULL))
@@ -637,11 +640,9 @@ void rwnx_txq_vif_for_each_sta(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vi
     }
     case NL80211_IFTYPE_AP_VLAN:
         rwnx_vif = rwnx_vif->ap_vlan.master;
-        fallthrough;
     case NL80211_IFTYPE_AP:
     case NL80211_IFTYPE_MESH_POINT:
-    case NL80211_IFTYPE_P2P_GO:
-    {
+    case NL80211_IFTYPE_P2P_GO: {
         struct rwnx_sta *sta;
         list_for_each_entry(sta, &rwnx_vif->ap.sta_list, list) {
             f(sta, reason, rwnx_hw);
@@ -653,7 +654,6 @@ void rwnx_txq_vif_for_each_sta(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vi
         break;
     }
 }
-
 #endif
 
 /**
@@ -716,8 +716,6 @@ void rwnx_txq_vif_stop(struct rwnx_vif *rwnx_vif, u16 reason,
                        struct rwnx_hw *rwnx_hw)
 {
     struct rwnx_txq *txq;
-
-    //RWNX_DBG(RWNX_FN_ENTRY_STR);
 #ifdef CREATE_TRACE_POINTS
     trace_txq_vif_stop(rwnx_vif->vif_index);
 #endif
@@ -753,10 +751,10 @@ void rwnx_txq_offchan_start(struct rwnx_hw *rwnx_hw)
     struct rwnx_txq *txq;
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
     }
 
 
@@ -824,14 +822,11 @@ void rwnx_txq_sta_switch_vif(struct rwnx_sta *sta, struct rwnx_vif *old_vif,
 int rwnx_txq_queue_skb(struct sk_buff *skb, struct rwnx_txq *txq,
                        struct rwnx_hw *rwnx_hw,  bool retry)
 {
-#ifndef CONFIG_ONE_TXQ
-    unsigned long flags;
-#endif
 
 #ifdef CONFIG_RWNX_FULLMAC
     if (unlikely(txq->sta && txq->sta->ps.active)) {
         txq->sta->ps.pkt_ready[txq->ps_id]++;
-#ifdef CREATE_TRACE_POINT
+#ifdef CREATE_TRACE_POINTS
         trace_ps_queue(txq->sta);
 #endif
         if (txq->sta->ps.pkt_ready[txq->ps_id] == 1) {
@@ -845,7 +840,11 @@ int rwnx_txq_queue_skb(struct sk_buff *skb, struct rwnx_txq *txq,
         skb_queue_tail(&txq->sk_list, skb);
     } else {
         if (txq->last_retry_skb)
+#ifdef CONFIG_GKI
+            rwnx_skb_append(txq->last_retry_skb, skb, &txq->sk_list);
+#else
             skb_append(txq->last_retry_skb, skb, &txq->sk_list);
+#endif
         else
             skb_queue_head(&txq->sk_list, skb);
 
@@ -858,28 +857,31 @@ int rwnx_txq_queue_skb(struct sk_buff *skb, struct rwnx_txq *txq,
     /* Flowctrl corresponding netdev queue if needed */
 #ifdef CONFIG_RWNX_FULLMAC
 #ifndef CONFIG_ONE_TXQ
+
+#ifdef CONFIG_TX_NETIF_FLOWCTRL
+    if ((txq->ndev_idx != NDEV_NO_TXQ) && ((skb_queue_len(&txq->sk_list) > RWNX_NDEV_FLOW_CTRL_STOP) &&
+                                           !rwnx_hw->sdiodev->flowctrl)) {
+//		  (atomic_read(&rwnx_hw->sdiodev->tx_priv->tx_pktcnt) >= tx_fc_high_water))) {
+#else
     /* If too many buffer are queued for this TXQ stop netdev queue */
-    spin_lock_irqsave(&rwnx_hw->usbdev->tx_flow_lock, flags);
-    if ((txq->ndev_idx != NDEV_NO_TXQ) && !rwnx_hw->usbdev->tbusy && ((skb_queue_len(&txq->sk_list) > RWNX_NDEV_FLOW_CTRL_STOP))) {
+    if ((txq->ndev_idx != NDEV_NO_TXQ) &&
+        (skb_queue_len(&txq->sk_list) > RWNX_NDEV_FLOW_CTRL_STOP)) {
+#endif
+
         txq->status |= RWNX_TXQ_NDEV_FLOW_CTRL;
         netif_stop_subqueue(txq->ndev, txq->ndev_idx);
-#ifdef CREATE_TRACE_POINTS
+#ifdef CREATE_TRACE_POINT
         trace_txq_flowctrl_stop(txq);
 #endif
     }
-    spin_unlock_irqrestore(&rwnx_hw->usbdev->tx_flow_lock, flags);
-
 #endif /* CONFIG_ONE_TXQ */
 #else /* ! CONFIG_RWNX_FULLMAC */
 
     if (!retry && ++txq->hwq->len == txq->hwq->len_stop) {
-#ifdef CREATE_TRACE_POINTS
-         trace_hwq_flowctrl_stop(txq->hwq->id);
-#endif
-         ieee80211_stop_queue(rwnx_hw->hw, txq->hwq->id);
-         rwnx_hw->stats.queues_stops++;
-     }
-
+        trace_hwq_flowctrl_stop(txq->hwq->id);
+        ieee80211_stop_queue(rwnx_hw->hw, txq->hwq->id);
+        rwnx_hw->stats.queues_stops++;
+    }
 #endif /* CONFIG_RWNX_FULLMAC */
 
     /* add it in the hwq list if not stopped and not yet present */
@@ -1174,7 +1176,7 @@ bool rwnx_txq_select_user(struct rwnx_hw *rwnx_hw, bool mu_lock,
     if (group_id > 0)
         pos = rwnx_mu_group_sta_get_pos(rwnx_hw, sta, group_id);
 
-  check_user:
+check_user:
     /* check that we can push on this user position */
 #if CONFIG_USER_MAX == 2
     id = (pos + 1) & 0x1;
@@ -1192,7 +1194,7 @@ bool rwnx_txq_select_user(struct rwnx_hw *rwnx_hw, bool mu_lock,
     }
 #endif
 
-  end:
+end:
     rwnx_txq_set_mu_info(rwnx_hw, txq, group_id, pos);
 #endif /* CONFIG_RWNX_MUMIMO_TX */
 
@@ -1233,9 +1235,6 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
     struct rwnx_txq *txq, *next;
     int user, credit_map = 0;
     bool mu_enable;
-#ifndef CONFIG_ONE_TXQ
-    unsigned long flags;
-#endif
 #ifdef CREATE_TRACE_POINTS
     trace_process_hw_queue(hwq);
 #endif
@@ -1255,20 +1254,23 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
 #endif
         /* sanity check for debug */
         BUG_ON(!(txq->status & RWNX_TXQ_IN_HWQ_LIST));
-		if(txq->idx == TXQ_INACTIVE){
-			printk("%s txq->idx == TXQ_INACTIVE \r\n", __func__);
-			continue;
-		}
+        if(txq->idx == TXQ_INACTIVE) {
+            printk("%s txq->idx == TXQ_INACTIVE \r\n", __func__);
+            rwnx_txq_del_from_hw_list(txq);
+            rwnx_txq_flush(rwnx_hw, txq);
+            continue;
+        }
         BUG_ON(txq->idx == TXQ_INACTIVE);
         BUG_ON(txq->credits <= 0);
         BUG_ON(!rwnx_txq_skb_ready(txq));
 
-        if (!rwnx_txq_select_user(rwnx_hw, mu_enable, txq, hwq, &user))
+        if (!rwnx_txq_select_user(rwnx_hw, mu_enable, txq, hwq, &user)) {
+            printk("select user:%d\n", user);
             continue;
+        }
 
         txq_empty = rwnx_txq_get_skb_to_push(rwnx_hw, hwq, txq, user,
                                              &sk_list_push);
-
         while ((skb = __skb_dequeue(&sk_list_push)) != NULL) {
             txhdr = (struct rwnx_txhdr *)skb->data;
             rwnx_tx_push(rwnx_hw, txhdr, 0);
@@ -1279,10 +1281,10 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
             txq->pkt_sent = 0;
         } else if (rwnx_txq_is_scheduled(txq)) {
             /* txq not empty,
-               - To avoid starving need to process other txq in the list
-               - For better aggregation, need to send "as many consecutive
-               pkt as possible" for he same txq
-               ==> Add counter to trigger txq switch
+            - To avoid starving need to process other txq in the list
+            - For better aggregation, need to send "as many consecutive
+            pkt as possible" for he same txq
+            ==> Add counter to trigger txq switch
             */
             if (txq->pkt_sent > hwq->size) {
                 txq->pkt_sent = 0;
@@ -1302,17 +1304,20 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
         }
 #ifndef CONFIG_ONE_TXQ
         /* restart netdev queue if number of queued buffer is below threshold */
-	    spin_lock_irqsave(&rwnx_hw->usbdev->tx_flow_lock, flags);
-		if (unlikely(txq->status & RWNX_TXQ_NDEV_FLOW_CTRL) &&            
-			skb_queue_len(&txq->sk_list) < RWNX_NDEV_FLOW_CTRL_RESTART) {
+#ifdef CONFIG_TX_NETIF_FLOWCTRL
+        if (unlikely(txq->status & RWNX_TXQ_NDEV_FLOW_CTRL) &&
+            (skb_queue_len(&txq->sk_list) < RWNX_NDEV_FLOW_CTRL_RESTART)) {
+#else
+        if (unlikely(txq->status & RWNX_TXQ_NDEV_FLOW_CTRL) &&
+            skb_queue_len(&txq->sk_list) < RWNX_NDEV_FLOW_CTRL_RESTART) {
+#endif
+
             txq->status &= ~RWNX_TXQ_NDEV_FLOW_CTRL;
-	    if(!rwnx_hw->usbdev->tbusy)
-		netif_wake_subqueue(txq->ndev, txq->ndev_idx);
+            netif_wake_subqueue(txq->ndev, txq->ndev_idx);
 #ifdef CREATE_TRACE_POINTS
             trace_txq_flowctrl_restart(txq);
 #endif
         }
-	spin_unlock_irqrestore(&rwnx_hw->usbdev->tx_flow_lock, flags);
 #endif /* CONFIG_ONE_TXQ */
 #endif /* CONFIG_RWNX_FULLMAC */
     }

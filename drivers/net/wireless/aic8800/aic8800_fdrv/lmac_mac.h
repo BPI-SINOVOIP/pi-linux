@@ -21,8 +21,7 @@
 #include "lmac_types.h"
 
 /// Interface types
-enum mac_vif_type
-{
+enum mac_vif_type {
     /// ESS STA interface
     VIF_STA,
     /// IBSS STA interface
@@ -41,8 +40,7 @@ enum mac_vif_type
 #define MAC_ADDR_LEN 6
 
 /// MAC address structure.
-struct mac_addr
-{
+struct mac_addr {
     /// Array of 16-bit words that make up the MAC address.
     u16_l array[MAC_ADDR_LEN/2];
 };
@@ -51,8 +49,7 @@ struct mac_addr
 #define MAC_SSID_LEN 32
 
 /// SSID.
-struct mac_ssid
-{
+struct mac_ssid {
     /// Actual length of the SSID.
     u8_l length;
     /// Array containing the SSID name.
@@ -60,16 +57,14 @@ struct mac_ssid
 };
 
 /// BSS type
-enum mac_bss_type
-{
+enum mac_bss_type {
     INFRASTRUCTURE_MODE = 1,
     INDEPENDENT_BSS_MODE,
     ANY_BSS_MODE
 };
 
 /// Channel Band
-enum mac_chan_band
-{
+enum mac_chan_band {
     /// 2.4GHz Band
     PHY_BAND_2G4,
     /// 5GHz band
@@ -79,8 +74,7 @@ enum mac_chan_band
 };
 
 /// Operating Channel Bandwidth
-enum mac_chan_bandwidth
-{
+enum mac_chan_bandwidth {
     /// 20MHz BW
     PHY_CHNL_BW_20,
     /// 40MHz BW
@@ -102,8 +96,7 @@ enum mac_chan_bandwidth
 #define MAC_DOMAINCHANNEL_5G_MAX 28
 
 /// Channel Flag
-enum mac_chan_flags
-{
+enum mac_chan_flags {
     /// Cannot initiate radiation on this channel
     CHAN_NO_IR = BIT(0),
     /// Channel is not allowed
@@ -113,8 +106,7 @@ enum mac_chan_flags
 };
 
 /// Primary Channel definition
-struct mac_chan_def
-{
+struct mac_chan_def {
     /// Frequency of the channel (in MHz)
     u16_l freq;
     /// RF band (@ref mac_chan_band)
@@ -126,8 +118,7 @@ struct mac_chan_def
 };
 
 /// Operating Channel
-struct mac_chan_op
-{
+struct mac_chan_op {
     /// Band (@ref mac_chan_band)
     u8_l band;
     /// Channel type (@ref mac_chan_bandwidth)
@@ -145,8 +136,7 @@ struct mac_chan_op
 };
 
 /// Cipher suites (order is important as it is used by MACHW)
-enum mac_cipher_suite
-{
+enum mac_cipher_suite {
     /// 00-0F-AC 1
     MAC_CIPHER_WEP40 = 0,
     /// 00-0F-AC 2
@@ -178,8 +168,7 @@ enum mac_cipher_suite
 };
 
 /// Authentication and Key Management suite
-enum mac_akm_suite
-{
+enum mac_akm_suite {
     /// No security
     MAC_AKM_NONE,
     /// Pre RSN (WEP or WPA)
@@ -224,8 +213,7 @@ enum mac_akm_suite
 };
 
 /// Scan result element, parsed from beacon or probe response frames.
-struct mac_scan_result
-{
+struct mac_scan_result {
     /// Scan result is valid
     bool valid_flag;
     /// Network BSSID.
@@ -248,15 +236,10 @@ struct mac_scan_result
     u16_l pairwise_cipher;
     /// RSSI of the scanned BSS (in dBm)
     s8_l rssi;
-    ///Multi-BSSID index (0 if this is the reference (i.e. transmitted) BSSID)
-    u8_l mluti_bssid_index;
-    ///Maximum BSSID indicator
-    u8_l max_bssid_indicator;
 };
 
 /// Legacy rate 802.11 definitions
-enum mac_legacy_rates
-{
+enum mac_legacy_rates {
     /// DSSS/CCK 1Mbps
     MAC_RATE_1MBPS   =   2,
     /// DSSS/CCK 2Mbps
@@ -284,8 +267,7 @@ enum mac_legacy_rates
 };
 
 /// BSS Membership Selector definitions
-enum mac_bss_membership
-{
+enum mac_bss_membership {
     /// HT PHY
     MAC_BSS_MEMBERSHIP_HT_PHY = 127,
     /// VHT PHY
@@ -296,8 +278,7 @@ enum mac_bss_membership
 #define MAC_RATESET_LEN 12
 
 /// Structure containing the legacy rateset of a station
-struct mac_rateset
-{
+struct mac_rateset {
     /// Number of legacy rates supported
     u8_l length;
     /// Array of legacy rates
@@ -308,8 +289,7 @@ struct mac_rateset
 #define MAC_SEC_KEY_LEN 32  // TKIP keys 256 bits (max length) with MIC keys
 
 /// Structure defining a security key
-struct mac_sec_key
-{
+struct mac_sec_key {
     /// Key material length
     u8_l length;
     /// Key material
@@ -317,8 +297,7 @@ struct mac_sec_key
 };
 
 /// Access Category enumeration
-enum mac_ac
-{
+enum mac_ac {
     /// Background
     AC_BK = 0,
     /// Best-effort
@@ -332,8 +311,7 @@ enum mac_ac
 };
 
 /// Traffic ID enumeration
-enum mac_tid
-{
+enum mac_tid {
     /// TID_0. Mapped to @ref AC_BE as per 802.11 standard.
     TID_0,
     /// TID_1. Mapped to @ref AC_BK as per 802.11 standard.
@@ -360,8 +338,7 @@ enum mac_tid
 #define MAX_MCS_LEN 16 // 16 * 8 = 128
 
 /// MAC HT capability information element
-struct mac_htcapability
-{
+struct mac_htcapability {
     /// HT capability information
     u16_l ht_capa_info;
     /// A-MPDU parameters
@@ -377,8 +354,7 @@ struct mac_htcapability
 };
 
 /// MAC VHT capability information element
-struct mac_vhtcapability
-{
+struct mac_vhtcapability {
     /// VHT capability information
     u32_l vht_capa_info;
     /// RX MCS map
@@ -399,8 +375,7 @@ struct mac_vhtcapability
 #define MAC_HE_PPE_THRES_MAX_LEN 25
 
 /// Structure listing the per-NSS, per-BW supported MCS combinations
-struct mac_he_mcs_nss_supp
-{
+struct mac_he_mcs_nss_supp {
     /// per-NSS supported MCS in RX, for BW <= 80MHz
     u16_l rx_mcs_80;
     /// per-NSS supported MCS in TX, for BW <= 80MHz
@@ -416,8 +391,7 @@ struct mac_he_mcs_nss_supp
 };
 
 /// MAC HE capability information element
-struct mac_hecapability
-{
+struct mac_hecapability {
     /// MAC HE capabilities
     u8_l mac_cap_info[MAC_HE_MAC_CAPA_LEN];
     /// PHY HE capabilities
@@ -429,8 +403,7 @@ struct mac_hecapability
 };
 
 /// Station flags
-enum mac_sta_flags
-{
+enum mac_sta_flags {
     /// Bit indicating that a STA has QoS (WMM) capability
     STA_QOS_CAPA = BIT(0),
     /// Bit indicating that a STA has HT capability
@@ -446,8 +419,7 @@ enum mac_sta_flags
 };
 
 /// Connection flags
-enum mac_connection_flags
-{
+enum mac_connection_flags {
     /// Flag indicating whether the control port is controlled by host or not
     CONTROL_PORT_HOST = BIT(0),
     /// Flag indicating whether the control port frame shall be sent unencrypted
@@ -458,8 +430,8 @@ enum mac_connection_flags
     WPA_WPA2_IN_USE = BIT(3),
     /// Flag indicating whether MFP is in use
     MFP_IN_USE = BIT(4),
-	//  Flag indicating Roam
-	REASSOCIATION = BIT(5),
+    //  Flag indicating Roam
+    REASSOCIATION = BIT(5),
 };
 
 #ifdef CONFIG_HE_FOR_OLD_KERNEL
@@ -491,20 +463,6 @@ enum mac_connection_flags
 #define IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB		0x10
 #define IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB	0x20
 
-struct ieee80211_he_cap_elem {
-	u8 mac_cap_info[6];
-	u8 phy_cap_info[11];
-} __packed;
-
-struct ieee80211_he_mcs_nss_supp {
-	__le16 rx_mcs_80;
-	__le16 tx_mcs_80;
-	__le16 rx_mcs_160;
-	__le16 tx_mcs_160;
-	__le16 rx_mcs_80p80;
-	__le16 tx_mcs_80p80;
-} __packed;
-
 #define IEEE80211_HE_PPE_THRES_MAX_LEN		25
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
@@ -512,17 +470,17 @@ struct ieee80211_he_mcs_nss_supp {
 /* Element ID Extensions for Element ID 255 */
 
 enum ieee80211_eid_ext {
-	WLAN_EID_EXT_ASSOC_DELAY_INFO = 1,
-	WLAN_EID_EXT_FILS_REQ_PARAMS = 2,
-	WLAN_EID_EXT_FILS_KEY_CONFIRM = 3,
-	WLAN_EID_EXT_FILS_SESSION = 4,
-	WLAN_EID_EXT_FILS_HLP_CONTAINER = 5,
-	WLAN_EID_EXT_FILS_IP_ADDR_ASSIGN = 6,
-	WLAN_EID_EXT_KEY_DELIVERY = 7,
-	WLAN_EID_EXT_FILS_WRAPPED_DATA = 8,
-	WLAN_EID_EXT_FILS_PUBLIC_KEY = 12,
-	WLAN_EID_EXT_FILS_NONCE = 13,
-	WLAN_EID_EXT_FUTURE_CHAN_GUIDANCE = 14,
+    WLAN_EID_EXT_ASSOC_DELAY_INFO = 1,
+    WLAN_EID_EXT_FILS_REQ_PARAMS = 2,
+    WLAN_EID_EXT_FILS_KEY_CONFIRM = 3,
+    WLAN_EID_EXT_FILS_SESSION = 4,
+    WLAN_EID_EXT_FILS_HLP_CONTAINER = 5,
+    WLAN_EID_EXT_FILS_IP_ADDR_ASSIGN = 6,
+    WLAN_EID_EXT_KEY_DELIVERY = 7,
+    WLAN_EID_EXT_FILS_WRAPPED_DATA = 8,
+    WLAN_EID_EXT_FILS_PUBLIC_KEY = 12,
+    WLAN_EID_EXT_FILS_NONCE = 13,
+    WLAN_EID_EXT_FUTURE_CHAN_GUIDANCE = 14,
 
 };
 
@@ -550,39 +508,57 @@ enum ieee80211_eid_ext {
 #define WLAN_EID_EXT_EHT_OPERATION  106
 #define WLAN_EID_EXT_EHT_MULTI_LINK  107
 #define WLAN_EID_EXT_EHT_CAPABILITY  108
-
 #endif
 
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+#include <linux/ieee80211.h>
+#else
+struct ieee80211_he_cap_elem {
+    u8 mac_cap_info[6];
+    u8 phy_cap_info[11];
+} __packed;
+
+struct ieee80211_he_mcs_nss_supp {
+    __le16 rx_mcs_80;
+    __le16 tx_mcs_80;
+    __le16 rx_mcs_160;
+    __le16 tx_mcs_160;
+    __le16 rx_mcs_80p80;
+    __le16 tx_mcs_80p80;
+} __packed;
+
 struct ieee80211_sta_he_cap {
-	bool has_he;
-	struct ieee80211_he_cap_elem he_cap_elem;
-	struct ieee80211_he_mcs_nss_supp he_mcs_nss_supp;
-	u8 ppe_thres[IEEE80211_HE_PPE_THRES_MAX_LEN];
+    bool has_he;
+    struct ieee80211_he_cap_elem he_cap_elem;
+    struct ieee80211_he_mcs_nss_supp he_mcs_nss_supp;
+    u8 ppe_thres[IEEE80211_HE_PPE_THRES_MAX_LEN];
 };
 
 struct ieee80211_sband_iftype_data {
-	u16 types_mask;
-	struct ieee80211_sta_he_cap he_cap;
+    u16 types_mask;
+    struct ieee80211_sta_he_cap he_cap;
 };
+#endif
 #endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0) || defined(CONFIG_VHT_FOR_OLD_KERNEL)
 struct ieee80211_vht_mcs_info {
-	__le16 rx_mcs_map;
-	__le16 rx_highest;
-	__le16 tx_mcs_map;
-	__le16 tx_highest;
+    __le16 rx_mcs_map;
+    __le16 rx_highest;
+    __le16 tx_mcs_map;
+    __le16 tx_highest;
 } __packed;
 
 struct ieee80211_vht_cap {
-	__le32 vht_cap_info;
-	struct ieee80211_vht_mcs_info supp_mcs;
+    __le32 vht_cap_info;
+    struct ieee80211_vht_mcs_info supp_mcs;
 };
 #define WLAN_EID_VHT_CAPABILITY             191
 
 struct ieee80211_sta_vht_cap {
-	bool vht_supported;
-	u32 cap; /* use IEEE80211_VHT_CAP_ */
-	struct ieee80211_vht_mcs_info vht_mcs;
+    bool vht_supported;
+    u32 cap; /* use IEEE80211_VHT_CAP_ */
+    struct ieee80211_vht_mcs_info vht_mcs;
 };
 #endif
 #endif // LMAC_MAC_H_

@@ -18,10 +18,6 @@
 #include "rwnx_txq.h"
 #include "hal_desc.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-#define IEEE80211_NUM_TIDS              16
-#endif
-
 #define RWNX_HWQ_BK                     0
 #define RWNX_HWQ_BE                     1
 #define RWNX_HWQ_VI                     2
@@ -29,8 +25,8 @@
 #define RWNX_HWQ_BCMC                   4
 #define RWNX_HWQ_NB                     NX_TXQ_CNT
 #define RWNX_HWQ_ALL_ACS (RWNX_HWQ_BK | RWNX_HWQ_BE | RWNX_HWQ_VI | RWNX_HWQ_VO)
-#define RWNX_HWQ_ALL_ACS_BIT ( BIT(RWNX_HWQ_BK) | BIT(RWNX_HWQ_BE) |    \
-                               BIT(RWNX_HWQ_VI) | BIT(RWNX_HWQ_VO) )
+#define RWNX_HWQ_ALL_ACS_BIT (BIT(RWNX_HWQ_BK) | BIT(RWNX_HWQ_BE) |    \
+							  BIT(RWNX_HWQ_VI) | BIT(RWNX_HWQ_VO))
 
 #define RWNX_TX_LIFETIME_MS             1000
 #define RWNX_TX_MAX_RATES               NX_TX_MAX_RATES
@@ -38,8 +34,8 @@
 #define RWNX_SWTXHDR_ALIGN_SZ           4
 #define RWNX_SWTXHDR_ALIGN_MSK (RWNX_SWTXHDR_ALIGN_SZ - 1)
 #define RWNX_SWTXHDR_ALIGN_PADS(x) \
-                    ((RWNX_SWTXHDR_ALIGN_SZ - ((x) & RWNX_SWTXHDR_ALIGN_MSK)) \
-                     & RWNX_SWTXHDR_ALIGN_MSK)
+					((RWNX_SWTXHDR_ALIGN_SZ - ((x) & RWNX_SWTXHDR_ALIGN_MSK)) \
+					 & RWNX_SWTXHDR_ALIGN_MSK)
 #if RWNX_SWTXHDR_ALIGN_SZ & RWNX_SWTXHDR_ALIGN_MSK
 #error bad RWNX_SWTXHDR_ALIGN_SZ
 #endif
@@ -127,15 +123,12 @@ struct rwnx_sw_txhdr {
 #ifdef CONFIG_RWNX_AMSDUS_TX
     struct rwnx_amsdu amsdu;
 #endif
-	u32 need_cfm;
+    u32 need_cfm;
     struct sk_buff *skb;
 
     size_t map_len;
     dma_addr_t dma_addr;
     struct txdesc_api desc;
-    u8 raw_frame;
-    u8 fixed_rate;
-    u16 rate_config;
 };
 
 /**
@@ -161,18 +154,15 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
 #else
 int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
                          struct ieee80211_channel *channel, bool offchan,
-                         unsigned int wait, const u8* buf, size_t len,
-                    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
+                         unsigned int wait, const u8 *buf, size_t len,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
                          bool no_cck,
-                    #endif
-                    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
+#endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
                          bool dont_wait_for_ack,
-                    #endif
+#endif
                          u64 *cookie);
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
-#ifdef CONFIG_RWNX_MON_XMIT
-int rwnx_start_monitor_if_xmit(struct sk_buff *skb, struct net_device *dev);
-#endif
 int rwnx_txdatacfm(void *pthis, void *host_id);
 
 struct rwnx_hw;

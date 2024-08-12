@@ -14,8 +14,7 @@
 #include "reg_access.h"
 #include "hal_desc.h"
 
-struct rwnx_v7
-{
+struct rwnx_v7 {
     u8 *pci_bar0_vaddr;
     u8 *pci_bar1_vaddr;
 };
@@ -38,7 +37,7 @@ static int rwnx_v7_platform_disable(struct rwnx_hw *rwnx_hw)
 
 static void rwnx_v7_platform_deinit(struct rwnx_plat *rwnx_plat)
 {
-    #ifdef CONFIG_PCI
+#ifdef CONFIG_PCI
     struct rwnx_v7 *rwnx_v7 = (struct rwnx_v7 *)rwnx_plat->priv;
 
     pci_disable_device(rwnx_plat->pci_dev);
@@ -47,11 +46,11 @@ static void rwnx_v7_platform_deinit(struct rwnx_plat *rwnx_plat)
     pci_release_regions(rwnx_plat->pci_dev);
     pci_clear_master(rwnx_plat->pci_dev);
     pci_disable_msi(rwnx_plat->pci_dev);
-    #endif
+#endif
     kfree(rwnx_plat);
 }
 
-static u8* rwnx_v7_get_address(struct rwnx_plat *rwnx_plat, int addr_name,
+static u8 *rwnx_v7_get_address(struct rwnx_plat *rwnx_plat, int addr_name,
                                unsigned int offset)
 {
     struct rwnx_v7 *rwnx_v7 = (struct rwnx_v7 *)rwnx_plat->priv;
@@ -120,7 +119,7 @@ int rwnx_v7_platform_init(struct pci_dev *pci_dev, struct rwnx_plat **rwnx_plat)
     int ret = 0;
 
     *rwnx_plat = kzalloc(sizeof(struct rwnx_plat) + sizeof(struct rwnx_v7),
-                        GFP_KERNEL);
+                         GFP_KERNEL);
     if (!*rwnx_plat)
         return -ENOMEM;
 
@@ -130,35 +129,39 @@ int rwnx_v7_platform_init(struct pci_dev *pci_dev, struct rwnx_plat **rwnx_plat)
     pci_read_config_word(pci_dev, PCI_COMMAND, &pci_cmd);
     pci_cmd |= PCI_COMMAND_PARITY | PCI_COMMAND_SERR;
     pci_write_config_word(pci_dev, PCI_COMMAND, pci_cmd);
-    pci_write_config_byte(pci_dev, PCI_CACHE_LINE_SIZE, L1_CACHE_BYTES >> 2);
+    //pci_write_config_byte(pci_dev, PCI_CACHE_LINE_SIZE, L1_CACHE_BYTES >> 2);
 
-    if ((ret = pci_enable_device(pci_dev))) {
+    ret = pci_enable_device(pci_dev);
+    if (ret) {
         dev_err(&(pci_dev->dev), "pci_enable_device failed\n");
         goto out_enable;
     }
 
     pci_set_master(pci_dev);
 
-    if ((ret = pci_request_regions(pci_dev, KBUILD_MODNAME))) {
+#if 0
+    ret = pci_request_regions(pci_dev, KBUILD_MODNAME);
+    if (ret) {
         dev_err(&(pci_dev->dev), "pci_request_regions failed\n");
         goto out_request;
     }
-
-    #ifdef CONFIG_PCI
-    if (pci_enable_msi(pci_dev))
-    {
+#endif
+#ifdef CONFIG_PCI
+    if (pci_enable_msi(pci_dev)) {
         dev_err(&(pci_dev->dev), "pci_enable_msi failed\n");
         goto out_msi;
 
     }
-    #endif
+#endif
 
-    if (!(rwnx_v7->pci_bar0_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 0))) {
+    rwnx_v7->pci_bar0_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 0);
+    if (!rwnx_v7->pci_bar0_vaddr) {
         dev_err(&(pci_dev->dev), "pci_ioremap_bar(%d) failed\n", 0);
         ret = -ENOMEM;
         goto out_bar0;
     }
-    if (!(rwnx_v7->pci_bar1_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 1))) {
+    rwnx_v7->pci_bar1_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 1);
+    if (!rwnx_v7->pci_bar1_vaddr) {
         dev_err(&(pci_dev->dev), "pci_ioremap_bar(%d) failed\n", 1);
         ret = -ENOMEM;
         goto out_bar1;
@@ -173,20 +176,20 @@ int rwnx_v7_platform_init(struct pci_dev *pci_dev, struct rwnx_plat **rwnx_plat)
 
     return 0;
 
-  out_bar1:
+out_bar1:
     iounmap(rwnx_v7->pci_bar0_vaddr);
-  out_bar0:
+out_bar0:
 #ifdef CONFIG_PCI
     pci_disable_msi(pci_dev);
-  out_msi:
+out_msi:
 #endif
     pci_release_regions(pci_dev);
-  out_request:
+//out_request:
 #ifdef CONFIG_PCI
     pci_clear_master(pci_dev);
 #endif
     pci_disable_device(pci_dev);
-  out_enable:
+out_enable:
     kfree(*rwnx_plat);
     return ret;
 }

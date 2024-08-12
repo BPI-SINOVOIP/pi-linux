@@ -36,7 +36,7 @@ static const char *rwnx_find_tag(const u8 *file_data, unsigned int file_size,
         /* Check if this line contains the expected tag */
         if ((line_size == (strlen(tag_name) + tag_len)) &&
             (!strncmp(&file_data[line_start], tag_name, strlen(tag_name))))
-            return (&file_data[line_start + strlen(tag_name)]);
+            return &file_data[line_start + strlen(tag_name)];
 
         /* Move to next line */
         line_start = curr + 1;
@@ -59,7 +59,8 @@ int rwnx_parse_configfile(struct rwnx_hw *rwnx_hw, const char *filename,
 
     RWNX_DBG(RWNX_FN_ENTRY_STR);
 
-    if ((ret = request_firmware(&config_fw, filename, rwnx_hw->dev))) {
+    ret = request_firmware(&config_fw, filename, rwnx_hw->dev);
+    if (ret) {
         printk(KERN_CRIT "%s: Failed to get %s (%d)\n", __func__, filename, ret);
         return ret;
     }
@@ -97,7 +98,8 @@ int rwnx_parse_phy_configfile(struct rwnx_hw *rwnx_hw, const char *filename,
 
     RWNX_DBG(RWNX_FN_ENTRY_STR);
 
-    if ((ret = request_firmware(&config_fw, filename, rwnx_hw->dev))) {
+    ret = request_firmware(&config_fw, filename, rwnx_hw->dev);
+    if (ret) {
         printk(KERN_CRIT "%s: Failed to get %s (%d)\n", __func__, filename, ret);
         return ret;
     }

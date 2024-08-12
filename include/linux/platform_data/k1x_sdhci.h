@@ -52,6 +52,7 @@ struct rx_tuning {
 	u32 card_cid[4];
 	u8 window_limit;
 	u8 tuning_fail;
+	u8 window_type;
 };
 
 /*
@@ -89,6 +90,7 @@ struct k1x_sdhci_platdata {
 	u32 curr_dllcfg1;
 	u32 new_dllcfg1;
 	u8 dllcfg1_odd_reset;
+	u32 rx_tuning_freq;
 };
 
 #endif /* _K1X_SDHCI_H_ */

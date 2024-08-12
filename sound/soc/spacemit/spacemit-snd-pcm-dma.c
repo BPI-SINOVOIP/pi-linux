@@ -34,31 +34,17 @@
 #define HDMI_TXDATA              0x80
 #define HDMI_PERIOD_SIZE         480
 
-#define L_CH                            0
-#define R_CH                            1
 #define SAMPLE_PRESENT_FLAG_OFFSET      31
 #define AUDIO_FRAME_START_BIT_OFFSET    30
-#define SAMPLE_FLAT_BIT_OFFSET          29
-#define NOT_USED_OFFSET                 28
 #define PARITY_BIT_OFFSET               27
 #define CHANNEL_STATUS_OFFSET           26
-#define USER_DATA_OFFSET                25
 #define VALID_OFFSET                    24
-
-#define IEC958_AES0_CONSUMER            (0<<0)	/* 0 = consumer, 1 = professional */
-#define IEC958_AES0_AUDIO               (0<<1)	/* 0 = audio, 1 = non-audio */
-#define IEC958_AES3_CON_FS_48000        (2<<0)	/* 48kHz */
-#define IEC958_AES0_CON_NOT_COPYRIGHT   (1<<2)	/* 0 = copyright, 1 = not copyright */
-#define IEC958_AES0_CON_EMPHASIS_NONE   (0<<3)	/* none emphasis */
-#define IEC958_AES1_CON_GENERAL         (0x00)
-#define IEC958_AES2_CON_SOURCE_UNSPEC   (0<<0)	/* unspecified */
-#define IEC958_AES2_CON_CHANNEL_UNSPEC  (0<<4)	/* unspecified */
-#define IEC958_AES3_CON_CLOCK_1000PPM   (0<<4)	/* 1000 ppm */
-#define IEC958_AES4_CON_WORDLEN_24_20   (5<<1)	/* 24-bit or 20-bit */
-#define IEC958_AES4_CON_MAX_WORDLEN_24  (1<<0)	/* 0 = 20-bit, 1 = 24-bit */
 
 #define CS_CTRL1 ((1 << SAMPLE_PRESENT_FLAG_OFFSET) | (1 << AUDIO_FRAME_START_BIT_OFFSET))
 #define CS_CTRL2 ((1 << SAMPLE_PRESENT_FLAG_OFFSET) | (0 << AUDIO_FRAME_START_BIT_OFFSET))
+
+#define CS_SAMPLING_FREQUENCY           25
+#define CS_MAX_SAMPLE_WORD              32
 
 #define P2(n) n, n^1, n^1, n
 #define P4(n) P2(n), P2(n^1), P2(n^1), P2(n)
@@ -96,11 +82,9 @@ struct hdmi_codec_priv {
     uint32_t srate;
     uint32_t channels;
     uint8_t iec_offset;
-    uint8_t ch_sn;
-    uint8_t cs[24];
 };
 
-struct hdmi_codec_priv hdmi_ptr = {0};
+static struct hdmi_codec_priv hdmi_ptr = {0};
 static const bool ParityTable256[256] =
 {
     P6(0), P6(1), P6(1), P6(0)
@@ -118,8 +102,7 @@ static int spacemit_snd_dma_init(struct device *paraent, struct spacemit_snd_soc
 
 static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
-			    SNDRV_PCM_INFO_BATCH |
-			    SNDRV_PCM_INFO_PAUSE,
+			    SNDRV_PCM_INFO_BATCH,
 	.formats          = SNDRV_PCM_FMTBIT_S16_LE,
 	.rates            = SNDRV_PCM_RATE_48000,
 	.rate_min         = SNDRV_PCM_RATE_48000,
@@ -135,8 +118,7 @@ static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 
 static const struct snd_pcm_hardware spacemit_snd_pcm_hardware_hdmi = {
 	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
-			    SNDRV_PCM_INFO_BATCH |
-			    SNDRV_PCM_INFO_PAUSE,
+			    SNDRV_PCM_INFO_BATCH,
 	.formats	  = SNDRV_PCM_FMTBIT_S16_LE,
 	.rates		  = SNDRV_PCM_RATE_48000,
 	.rate_min	  = SNDRV_PCM_RATE_48000,
@@ -569,8 +551,12 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		if (runtime->info & SNDRV_PCM_INFO_PAUSE)
 			dmaengine_pause(dmadata->dma_chan);
-		else
+		else {
 			dmaengine_terminate_async(dmadata->dma_chan);
+			dmadata->playback_data = 0;
+			dmadata->pos = 0;
+			spacemit_update_stream_status(dev, dmadata->stream, false);
+		}
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 	case SNDRV_PCM_TRIGGER_RESUME:
@@ -593,6 +579,7 @@ spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_sub
 	struct dma_tx_state state;
 	enum dma_status status;
 	unsigned int buf_size;
+	unsigned int preriod_size;
 	unsigned int pos = 0;
 	unsigned long flags;
 
@@ -600,8 +587,9 @@ spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_sub
 	status = dmaengine_tx_status(dmadata->dma_chan, dmadata->cookie, &state);
 	if (status == DMA_IN_PROGRESS || status == DMA_PAUSED) {
 		buf_size = I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4;
+		preriod_size = I2S_PERIOD_SIZE * 4;
 		if (state.residue > 0 && state.residue <= buf_size) {
-			pos = (buf_size - state.residue);
+			pos = ((buf_size - state.residue) / preriod_size) * preriod_size;
 		}
 		runtime->delay = bytes_to_frames(runtime, state.in_flight_bytes);
 	}
@@ -623,18 +611,7 @@ spacemit_snd_pcm_hdmi_pointer(struct snd_soc_component *component, struct snd_pc
 	struct spacemit_snd_dmadata *dmadata = substream->runtime->private_data;
 	return bytes_to_frames(substream->runtime, dmadata->pos);
 }
-static void hdmi_create_cs(struct hdmi_codec_priv *hdmi_priv)
-{
-    uint8_t *cs;
-    memset(hdmi_priv->cs, 0, sizeof(hdmi_priv->cs));
-    cs = hdmi_priv->cs;
-    cs[0] = IEC958_AES0_CONSUMER | IEC958_AES0_AUDIO | IEC958_AES0_CON_NOT_COPYRIGHT | IEC958_AES0_CON_EMPHASIS_NONE;
-    cs[1] = IEC958_AES1_CON_GENERAL;
-    cs[2] = IEC958_AES2_CON_SOURCE_UNSPEC | IEC958_AES2_CON_CHANNEL_UNSPEC;
-    cs[3] = IEC958_AES3_CON_CLOCK_1000PPM | IEC958_AES3_CON_FS_48000;
-    cs[4] = IEC958_AES4_CON_WORDLEN_24_20 | IEC958_AES4_CON_MAX_WORDLEN_24;		//24bits
 
-}
 static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -677,10 +654,8 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 	substream->runtime->private_data = dmadata;
 
 	if (dmadata->dma_id == DMA_HDMI) {
-		hdmi_ptr.ch_sn = L_CH;
         hdmi_ptr.iec_offset = 0;
         hdmi_ptr.srate = 48000;
-        hdmi_create_cs(&hdmi_ptr);
 	}
 unlock:
 	spin_unlock_irqrestore(&dev->lock, flags);
@@ -704,7 +679,6 @@ static int spacemit_snd_pcm_close(struct snd_soc_component *component, struct sn
 	}
 	dmaengine_terminate_all(chan);
 	if (dmadata->dma_id == DMA_HDMI) {
-		hdmi_ptr.ch_sn = L_CH;
 		hdmi_ptr.iec_offset = 0;
 	}
 unlock:
@@ -733,7 +707,7 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 	struct snd_card *card = rtd->card->snd_card;
 	struct snd_pcm *pcm = rtd->pcm;
 
-	printk("%s enter, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
+	pr_debug("%s enter, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
 
 	if (!component) {
 		pr_err("%s: coundn't find component %s\n", __FUNCTION__, DRV_NAME);
@@ -747,7 +721,7 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 	}
 	if (dev->dmadata->dma_id == DMA_HDMI) {
 		chan_num = 1;
-		printk("%s playback_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
+		pr_debug("%s playback_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
 	}else{
 		chan_num = 2;
 	}
@@ -812,7 +786,7 @@ static void spacemit_snd_pcm_remove(struct snd_soc_component *component)
 	int chan_num;
 	struct spacemit_snd_soc_device *dev = snd_soc_component_get_drvdata(component);
 
-	pr_info("%s enter\n", __FUNCTION__);
+	pr_debug("%s enter\n", __FUNCTION__);
 
 	if (dev->dmadata->dma_id == DMA_HDMI) {
 		chan_num = 1;
@@ -830,72 +804,66 @@ static void spacemit_snd_pcm_remove(struct snd_soc_component *component)
 		dev->dmadata[i].dma_chan = NULL;
 	}
 }
-static void hdmi_set_cs_channel_sn(struct hdmi_codec_priv *hdmi_priv)
-{
-    hdmi_priv->cs[2] &= 0x0f;
-    if (hdmi_priv->ch_sn == L_CH) {
-        hdmi_priv->cs[2] |= (0x1 << 4);
-        hdmi_priv->ch_sn = R_CH;
-    } else if (hdmi_priv->ch_sn == R_CH)  {
-        hdmi_priv->cs[2] |= (0x2 << 4);
-        hdmi_priv->ch_sn = L_CH;
-    }
-}
-
-static uint32_t get_cs_bit(struct hdmi_codec_priv *hdmi_priv)
-{
-    unsigned long tmp = 0;
-    int cs_idx;
-    int bit_idx;
-    cs_idx = hdmi_priv->iec_offset >> 3;
-    bit_idx = hdmi_priv->iec_offset - (cs_idx << 3);
-
-    tmp = hdmi_priv->cs[cs_idx] >> bit_idx;
-
-    return (uint32_t)tmp&0x1;
-}
 
 static uint32_t parity_even(uint32_t sample)
 {
 	bool parity = 0;
-    sample ^= sample >> 16;
-    sample ^= sample >> 8;
-    parity = ParityTable256[sample & 0xff];
-    if (parity)
-        return 1;
-    else
-        return 0;
+	sample ^= sample >> 16;
+	sample ^= sample >> 8;
+	parity = ParityTable256[sample & 0xff];
+	if (parity)
+		return 1;
+	else
+		return 0;
+}
+
+static int32_t cal_cs_status_48kHz(int32_t offset)
+{
+	if ((offset == CS_SAMPLING_FREQUENCY) || (offset == CS_MAX_SAMPLE_WORD))
+	{
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 static void hdmi_reformat(void *dst, void *src, int len)
 {
-    uint32_t *dst32 = (uint32_t *)dst;
-    uint16_t *src16 = (uint16_t *)src;
-    struct hdmi_codec_priv *dw = &hdmi_ptr;
-    uint16_t frm_cnt = len;
-    uint32_t ctrl;
-    uint32_t sample,parity;
-    dw->channels = 2;
-    while (frm_cnt--) {
-        for (int i = 0; i < dw->channels; i++) {
-            hdmi_set_cs_channel_sn(dw);
-            if (dw->iec_offset == 0) {
-                ctrl = CS_CTRL1 | (get_cs_bit(dw) << CHANNEL_STATUS_OFFSET);
-            }  else {
-                ctrl = CS_CTRL2 | (get_cs_bit(dw) << CHANNEL_STATUS_OFFSET);
-            }
+	uint32_t *dst32 = (uint32_t *)dst;
+	uint16_t *src16 = (uint16_t *)src;
+	struct hdmi_codec_priv *dw = &hdmi_ptr;
+	uint16_t frm_cnt = len;
+	uint32_t ctrl;
+	uint32_t sample,parity;
+	dw->channels = 2;
+	while (frm_cnt--) {
+		for (int i = 0; i < dw->channels; i++) {
+			//bit 0-23
+			sample = ((uint32_t)(*src16++) << 8);
+			//bit 24
+			sample = sample | (1 << VALID_OFFSET);
+			//bit 26
+			sample = sample | (cal_cs_status_48kHz(dw->iec_offset) << CHANNEL_STATUS_OFFSET);
+			//bit 27
+			parity = parity_even(sample);
+			sample = sample | (parity << PARITY_BIT_OFFSET);
 
-            sample = ((uint32_t)(*src16++) << 8)| ctrl;
-            parity = parity_even(sample);
-            sample = sample | (parity << PARITY_BIT_OFFSET);
-            *dst32++ = sample;
-        }
+			//bit 30 31
+			if (dw->iec_offset == 0) {
+				ctrl = CS_CTRL1;
+			}  else {
+				ctrl = CS_CTRL2;
+			}
+			sample = sample | ctrl;
 
-        dw->iec_offset++;
-        if (dw->iec_offset >= 192){
-            dw->iec_offset = 0;
+			*dst32++ = sample;
 		}
-    };
+
+		dw->iec_offset++;
+		if (dw->iec_offset >= 192){
+			dw->iec_offset = 0;
+		}
+	}
 }
 
 static int spacemit_snd_pcm_copy(struct snd_soc_component *component, struct snd_pcm_substream *substream, int channel, 
@@ -940,7 +908,7 @@ static const struct snd_soc_component_driver spacemit_snd_dma_component = {
 	.hw_free	   = spacemit_snd_pcm_hw_free,
 	.trigger	   = spacemit_snd_pcm_trigger,
 	.pointer	   = spacemit_snd_pcm_pointer,
-	.pcm_construct = spacemit_snd_pcm_new
+	.pcm_construct = spacemit_snd_pcm_new,
 };
 
 static const struct snd_soc_component_driver spacemit_snd_dma_component_hdmi = {
@@ -971,12 +939,12 @@ static int spacemit_snd_dma_pdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	printk("%s enter: dev name %s\n", __func__, dev_name(&pdev->dev));
+	pr_debug("%s enter: dev name %s\n", __func__, dev_name(&pdev->dev));
 
 	if (of_device_is_compatible(np, "spacemit,spacemit-snd-dma-hdmi")){
 		device->dmadata->dma_id = DMA_HDMI;
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		printk("%s, start=0x%lx, end=0x%lx\n", __FUNCTION__, (unsigned long)res->start, (unsigned long)res->end);
+		pr_debug("%s, start=0x%lx, end=0x%lx\n", __FUNCTION__, (unsigned long)res->start, (unsigned long)res->end);
 		priv.phy_addr = res->start;
 		priv.buf_base = devm_ioremap_resource(&pdev->dev, res);
 		if (IS_ERR(priv.buf_base)) {
@@ -1012,6 +980,7 @@ static const struct of_device_id spacemit_snd_dma_ids[] = {
 	{ .compatible = "spacemit,spacemit-snd-dma0", },
 	{ .compatible = "spacemit,spacemit-snd-dma1", },
 	{ .compatible = "spacemit,spacemit-snd-dma-hdmi", },
+	{},
 };
 #endif
 
@@ -1021,13 +990,13 @@ static struct platform_driver spacemit_snd_dma_pdrv = {
 		.of_match_table = of_match_ptr(spacemit_snd_dma_ids),
 	},
 	.probe = spacemit_snd_dma_pdev_probe,
-	.remove = spacemit_snd_dma_pdev_remove
+	.remove = spacemit_snd_dma_pdev_remove,
 };
 
 #if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
 int spacemit_snd_register_dmaclient_pdrv(void)
 {
-	printk("%s enter\n", __FUNCTION__);
+	pr_debug("%s enter\n", __FUNCTION__);
 	return platform_driver_register(&spacemit_snd_dma_pdrv);
 }
 EXPORT_SYMBOL(spacemit_snd_register_dmaclient_pdrv);
@@ -1038,7 +1007,11 @@ void spacemit_snd_unregister_dmaclient_pdrv(void)
 }
 EXPORT_SYMBOL(spacemit_snd_unregister_dmaclient_pdrv);
 #else
-module_platform_driver(spacemit_snd_dma_pdrv);
+static int spacemit_snd_pcm_init(void)
+{
+	return platform_driver_register(&spacemit_snd_dma_pdrv);
+}
+late_initcall_sync(spacemit_snd_pcm_init);
 #endif
 
 MODULE_DESCRIPTION("SPACEMIT ASoC PCM Platform Driver");

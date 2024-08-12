@@ -5,12 +5,8 @@
 		dsi-work-mode = <1>; /* video burst mode*/
 		dsi-lane-number = <4>;
 		dsi-color-format = "rgb888";
-		phy-bit-clock = <911000>;	/* kbps */
-		phy-escape-clock = <52000>;/* kHz */
-
 		width-mm = <142>;
 		height-mm = <228>;
-
 		use-dcs-write;
 
 		/*mipi info*/
@@ -26,7 +22,8 @@
 		work-mode = <0>;
 		rgb-mode = <3>;
 		lane-number = <4>;
-		phy-freq = <1000000>;
+		phy-bit-clock = <1000000000>;
+		phy-esc-clock = <76800000>;
 		split-enable = <0>;
 		eotp-enable = <0>;
 		burst-mode = <2>;
@@ -88,7 +85,7 @@
 			39 01 00 02 C2 08
 			39 01 00 02 C4 10
 			39 01 00 02 CC 00
-			//39 01 00 03 11 b2 41//EDFAULT:0X40,????BISTB
+			// 39 01 00 02 B2 41 // BIST pattern
 			39 01 00 02 B0 02
 			39 01 00 02 C0 00
 			39 01 00 02 C1 0A
@@ -143,7 +140,7 @@
 
 		display-timings {
 			timing0 {
-				clock-frequency = <156400000>;
+				clock-frequency = <143000000>;
 				hactive = <1200>;
 				hfront-porch = <80>;
 				hback-porch = <40>;

@@ -18,16 +18,16 @@
 #define FW_LOG_SIZE (10240)
 
 struct rwnx_fw_log_buf {
-	uint8_t *data;
-	uint8_t *start;
-	uint8_t *end;
-	uint8_t *dataend;
-	uint32_t size;
+    uint8_t *data;
+    uint8_t *start;
+    uint8_t *end;
+    uint8_t *dataend;
+    uint32_t size;
 };
 
 struct rwnx_fw_log {
-	struct rwnx_fw_log_buf buf;
-	spinlock_t lock;
+    struct rwnx_fw_log_buf buf;
+    spinlock_t lock;
 };
 
 int rwnx_fw_log_init(struct rwnx_fw_log *fw_log);

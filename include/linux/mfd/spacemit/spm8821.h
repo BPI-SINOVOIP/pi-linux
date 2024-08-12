@@ -22,7 +22,7 @@ enum SPM8821_reg {
 	SPM8821_ID_SWITCH1,
 };
 
-#define SPACEMIT_SPM8821_MAX_REG	0xA8
+#define SPACEMIT_SPM8821_MAX_REG	0xB0
 
 #define SPM8821_BUCK_VSEL_MASK		0xff
 #define SMP8821_BUCK_EN_MASK		0x1
@@ -80,6 +80,11 @@ enum SPM8821_reg {
 #define SPM8821_SW_SHUTDOWN_BIT_MSK	0x4
 #define SPM8821_SW_RESET_BIT_MSK	0x2
 
+#define SPM8821_NON_RESET_REG		0xAB
+#define SPM8821_RESTART_CFG_BIT_MSK	0x3
+
+#define SPM8821_SLEEP_REG_OFFSET	0x1
+
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
 		.reg_bits = 8,	\
@@ -101,7 +106,7 @@ enum SPM8821_reg {
 #define SPM8821_BUCK_LINER_RANGE					\
 static const struct linear_range spm8821_buck_ranges[] = {		\
         REGULATOR_LINEAR_RANGE(500000, 0x0, 0xaa, 5000),		\
-        REGULATOR_LINEAR_RANGE(1375000, 0xab, 0xfe, 25000),		\
+        REGULATOR_LINEAR_RANGE(1375000, 0xab, 0xff, 25000),		\
 };
 
 
@@ -690,26 +695,6 @@ static const struct rtc_regdesc spm8821_regdesc = {		\
 		.msk = 0x3f,					\
 	},							\
 								\
-	.rtc_sec_a = {						\
-		.reg = 0x19,					\
-		.msk = 0xff,					\
-	},							\
-								\
-	.rtc_sec_b = {						\
-		.reg = 0x1a,					\
-		.msk = 0xff,					\
-	},							\
-								\
-	.rtc_sec_c = {						\
-		.reg = 0x1b,					\
-		.msk = 0xff,					\
-	},							\
-								\
-	.rtc_sec_d = {						\
-		.reg = 0x1c,					\
-		.msk = 0xff,					\
-	},							\
-								\
 	.alarm_s = {						\
 		.reg = 0x13,					\
 		.msk = 0x3f,					\
@@ -785,6 +770,10 @@ static struct mfd_match_data spm8821_mfd_match_data = {		\
 		.reg = SPM8821_PWR_CTRL2,			\
 		.bit = SPM8821_SW_RESET_BIT_MSK,		\
 	},							\
+	.non_reset = {						\
+		.reg = SPM8821_NON_RESET_REG,			\
+		.bit = SPM8821_RESTART_CFG_BIT_MSK,		\
+	},							\
 };
 
 #define SPM8821_PINCTRL_MATCH_DATA				\
@@ -803,6 +792,7 @@ static struct regulator_match_data spm8821_regulator_match_data = {	\
 	.nr_desc = ARRAY_SIZE(spm8821_reg),				\
 	.desc = spm8821_reg,						\
 	.name = "spm8821",						\
+	.sleep_reg_offset = SPM8821_SLEEP_REG_OFFSET,			\
 };
 
 #endif /* __SPM8821_H__ */

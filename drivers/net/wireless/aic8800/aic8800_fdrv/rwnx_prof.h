@@ -89,10 +89,10 @@ enum {
 // TO DO: update this
 
 #define REG_SW_SET_PROFILING_CHAN(env, bit)             \
-    rwnx_prof_set((struct rwnx_hw*)env, BIT(bit))
+	rwnx_prof_set((struct rwnx_hw *)env, BIT(bit))
 
 #define REG_SW_CLEAR_PROFILING_CHAN(env, bit) \
-    rwnx_prof_clear((struct rwnx_hw*)env, BIT(bit))
+	rwnx_prof_clear((struct rwnx_hw *)env, BIT(bit))
 
 #else
 #define SW_PROF_CHAN_CTXT_CFM_HDL_BIT       (0)
@@ -112,16 +112,16 @@ enum {
 #ifdef CONFIG_RWNX_SW_PROFILING
 /* Macros for SW PRofiling registers access */
 #define REG_SW_SET_PROFILING(env, bit)                  \
-    rwnx_prof_set((struct rwnx_hw*)env, BIT(bit))
+	rwnx_prof_set((struct rwnx_hw *)env, BIT(bit))
 
 #define REG_SW_SET_HOSTBUF_IDX_PROFILING(env, val)      \
-    rwnx_prof_set((struct rwnx_hw*)env, val<<(SW_PROF_HOSTBUF_IDX))
+	rwnx_prof_set((struct rwnx_hw *)env, val << (SW_PROF_HOSTBUF_IDX))
 
 #define REG_SW_CLEAR_PROFILING(env, bit)                \
-    rwnx_prof_clear((struct rwnx_hw*)env, BIT(bit))
+	rwnx_prof_clear((struct rwnx_hw *)env, BIT(bit))
 
 #define REG_SW_CLEAR_HOSTBUF_IDX_PROFILING(env)                         \
-    rwnx_prof_clear((struct rwnx_hw*)env,0x0F<<(SW_PROF_HOSTBUF_IDX))
+	rwnx_prof_clear((struct rwnx_hw *)env, 0x0F << (SW_PROF_HOSTBUF_IDX))
 
 #else
 #define REG_SW_SET_PROFILING(env, value)            do {} while (0)

@@ -1245,14 +1245,11 @@ spacemit_i2c_xfer(struct i2c_adapter *adapt, struct i2c_msg msgs[], int num)
 	 * software power down command to pmic via i2c interface
 	 * with local irq disabled, so just enter PIO mode at once
 	*/
-	if (unlikely(irqs_disabled()
+	if (unlikely(spacemit_i2c_restart_notify == true
 #ifdef CONFIG_DEBUG_FS
 		|| spacemit_i2c->dbgfs_mode == SPACEMIT_I2C_MODE_PIO
 #endif
 		)) {
-
-		if(!spacemit_i2c_restart_notify)
-			dev_warn(spacemit_i2c->dev, "%s: i2c transfer called with irq off!\n", __func__);
 
 		spacemit_i2c->msgs = msgs;
 		spacemit_i2c->num = num;
@@ -1344,10 +1341,12 @@ xfer_retry:
 							spacemit_i2c->timeout);
 		if (unlikely(time_left == 0)) {
 			dev_alert(spacemit_i2c->dev, "msg completion timeout\n");
+			synchronize_irq(spacemit_i2c->irq);
+			disable_irq(spacemit_i2c->irq);
 			spacemit_i2c_bus_reset(spacemit_i2c);
 			spacemit_i2c_reset(spacemit_i2c);
 			ret = -ETIMEDOUT;
-			goto err_xfer;
+			goto timeout_xfex;
 		}
 	}
 
@@ -1358,6 +1357,7 @@ err_xfer:
 err_recover:
 	disable_irq(spacemit_i2c->irq);
 
+timeout_xfex:
 	/* disable spacemit i2c */
 	spacemit_i2c_disable(spacemit_i2c);
 
@@ -1876,13 +1876,12 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	}
 
 	ret = devm_request_irq(spacemit_i2c->dev, spacemit_i2c->irq, spacemit_i2c_int_handler,
-			IRQF_NO_SUSPEND | IRQF_ONESHOT,
+			IRQF_NO_SUSPEND | IRQF_NO_AUTOEN,
 			dev_name(spacemit_i2c->dev), spacemit_i2c);
 	if (ret) {
 		dev_err(spacemit_i2c->dev, "failed to request irq\n");
 		goto err_out;
 	}
-	disable_irq(spacemit_i2c->irq);
 
 	ret = spacemit_i2c_prepare_dma(spacemit_i2c);
 	if (ret) {

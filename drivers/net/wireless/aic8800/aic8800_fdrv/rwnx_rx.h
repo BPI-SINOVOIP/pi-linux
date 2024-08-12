@@ -19,8 +19,7 @@
 #define DHCP_OPTION_MESSAGE_TYPE 53 /* RFC 2132 9.6, important for DHCP */
 #define DHCP_OPTION_END 255
 
-enum rx_status_bits
-{
+enum rx_status_bits {
     /// The buffer can be forwarded to the networking stack
     RX_STAT_FORWARD = 1 << 0,
     /// A new buffer has to be allocated
@@ -97,16 +96,14 @@ struct rx_vector_1_old {
     u32    reserved_1d        : 8;
 };
 
-struct rx_leg_vect
-{
+struct rx_leg_vect {
     u8    dyn_bw_in_non_ht     : 1;
     u8    chn_bw_in_non_ht     : 2;
     u8    rsvd_nht             : 4;
     u8    lsig_valid           : 1;
 } __packed;
 
-struct rx_ht_vect
-{
+struct rx_ht_vect {
     u16   sounding             : 1;
     u16   smoothing            : 1;
     u16   short_gi             : 1;
@@ -119,8 +116,7 @@ struct rx_ht_vect
     u16   length               :16;
 } __packed;
 
-struct rx_vht_vect
-{
+struct rx_vht_vect {
     u8   sounding              : 1;
     u8   beamformed            : 1;
     u8   short_gi              : 1;
@@ -139,8 +135,7 @@ struct rx_vht_vect
     u32  rsvd_vht4             : 4;
 } __packed;
 
-struct rx_he_vect
-{
+struct rx_he_vect {
     u8   sounding              : 1;
     u8   beamformed            : 1;
     u8   gi_type               : 2;
@@ -185,8 +180,7 @@ struct rx_vector_1 {
     u32    leg_rate           : 4;
     s32    rssi1              : 8;
 
-    union
-    {
+    union {
         struct rx_leg_vect leg;
         struct rx_ht_vect ht;
         struct rx_vht_vect vht;
@@ -281,8 +275,7 @@ struct hw_vect {
 //#ifdef CONFIG_RWNX_MON_DATA
 #if 0
 /// MAC header backup descriptor
-struct mon_machdrdesc
-{
+struct mon_machdrdesc {
     /// Length of the buffer
     u32 buf_len;
     /// Buffer containing mac header, LLC and SNAP
@@ -349,13 +342,8 @@ struct DHCPInfo {
     u8 options[308]; /* 312 - cookie */
 };
 
-u8 rwnx_unsup_rx_vec_ind(void *pthis, void *hostid);
-u8 rwnx_rxdataind(void *pthis, void *hostid);
 u8 rwnx_rxdataind_aicwf(struct rwnx_hw *rwnx_hw, void *hostid, void *rx_priv);
 int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv);
-#ifdef CONFIG_USB_MSG_IN_EP
-int aicwf_process_msg_rxframes(struct aicwf_rx_priv *rx_priv);
-#endif
 
 #ifdef AICWF_ARP_OFFLOAD
 void arpoffload_proc(struct sk_buff *skb, struct rwnx_vif *rwnx_vif);
@@ -363,19 +351,21 @@ void arpoffload_proc(struct sk_buff *skb, struct rwnx_vif *rwnx_vif);
 #ifdef AICWF_RX_REORDER
 struct recv_msdu *reord_rxframe_alloc(spinlock_t *lock, struct list_head *q);
 void reord_rxframe_free(spinlock_t *lock, struct list_head *q, struct list_head *list);
-struct reord_ctrl_info *reord_init_sta( struct aicwf_rx_priv *rx_priv, const u8 *mac_addr);
+struct reord_ctrl_info *reord_init_sta(struct aicwf_rx_priv *rx_priv, const u8 *mac_addr);
 void reord_deinit_sta(struct aicwf_rx_priv *rx_priv, struct reord_ctrl_info *reord_info);
 int reord_need_check(struct reord_ctrl *preorder_ctrl, u16 seq_num);
 int reord_rxframe_enqueue(struct reord_ctrl *preorder_ctrl, struct recv_msdu *prframe);
 void reord_timeout_worker(struct work_struct *work);
 int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prframe);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 void reord_timeout_handler (ulong data);
 #else
 void reord_timeout_handler (struct timer_list *t);
 #endif
 
 #endif
+void rwnx_rxdata_process_amsdu(struct rwnx_hw *rwnx_hw, struct sk_buff *skb, u8 vif_idx,
+                               struct sk_buff_head *list);
 
 #ifdef CONFIG_HE_FOR_OLD_KERNEL
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 197)

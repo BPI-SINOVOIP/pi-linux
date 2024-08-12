@@ -14,8 +14,6 @@
 #include <linux/bitops.h>
 #include <linux/ieee80211.h>
 
-#include <net/mac80211.h>
-
 #ifdef CONFIG_RWNX_FULLMAC
 /**
  * Fullmac TXQ configuration:
@@ -57,22 +55,21 @@
 #define NX_NB_TXQ_PER_STA (NX_NB_TID_PER_STA + 1)
 #define NX_NB_TXQ_PER_VIF 2
 #define NX_NB_TXQ ((NX_NB_TXQ_PER_STA * NX_REMOTE_STA_MAX) +    \
-                   (NX_NB_TXQ_PER_VIF * NX_VIRT_DEV_MAX) + 1)
+				   (NX_NB_TXQ_PER_VIF * NX_VIRT_DEV_MAX) + 1)
 
 #define NX_FIRST_VIF_TXQ_IDX (NX_REMOTE_STA_MAX * NX_NB_TXQ_PER_STA)
 #define NX_FIRST_BCMC_TXQ_IDX  NX_FIRST_VIF_TXQ_IDX
 #define NX_FIRST_UNK_TXQ_IDX  (NX_FIRST_BCMC_TXQ_IDX + NX_VIRT_DEV_MAX)
 
+#define NX_OFF_CHAN_TXQ_IDX (NX_FIRST_VIF_TXQ_IDX +                     \
+							 (NX_VIRT_DEV_MAX * NX_NB_TXQ_PER_VIF))
+
 #define NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC (NX_REMOTE_STA_MAX_FOR_OLD_IC * NX_NB_TXQ_PER_STA)
 #define NX_FIRST_BCMC_TXQ_IDX_FOR_OLD_IC  NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC
 #define NX_FIRST_UNK_TXQ_IDX_FOR_OLD_IC  (NX_FIRST_BCMC_TXQ_IDX_FOR_OLD_IC + NX_VIRT_DEV_MAX)
 
-
-#define NX_OFF_CHAN_TXQ_IDX (NX_FIRST_VIF_TXQ_IDX +                     \
-                             (NX_VIRT_DEV_MAX * NX_NB_TXQ_PER_VIF))
-
 #define NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC (NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC +                     \
-                             (NX_VIRT_DEV_MAX * NX_NB_TXQ_PER_VIF))
+							(NX_VIRT_DEV_MAX * NX_NB_TXQ_PER_VIF))
 
 
 #define NX_BCMC_TXQ_TYPE 0
@@ -84,7 +81,7 @@
  * Need to allocate the maximum case.
  * AP : all STAs + 1 BC/MC
  */
-#define NX_NB_NDEV_TXQ ((NX_NB_TID_PER_STA * NX_REMOTE_STA_MAX) + 1 )
+#define NX_NB_NDEV_TXQ ((NX_NB_TID_PER_STA * NX_REMOTE_STA_MAX) + 1)
 #define NX_NB_NDEV_TXQ_FOR_OLD_IC ((NX_NB_TID_PER_STA * NX_REMOTE_STA_MAX_FOR_OLD_IC) + 1)
 
 #define NX_BCMC_TXQ_NDEV_IDX (NX_NB_TID_PER_STA * NX_REMOTE_STA_MAX)
@@ -172,7 +169,7 @@ enum rwnx_txq_flags {
     RWNX_TXQ_STOP_MU_POS  = BIT(6),
     RWNX_TXQ_STOP         = (RWNX_TXQ_STOP_FULL | RWNX_TXQ_STOP_CSA |
                              RWNX_TXQ_STOP_STA_PS | RWNX_TXQ_STOP_VIF_PS |
-                             RWNX_TXQ_STOP_CHAN) ,
+                             RWNX_TXQ_STOP_CHAN),
     RWNX_TXQ_NDEV_FLOW_CTRL = BIT(7),
 };
 
@@ -197,6 +194,14 @@ enum rwnx_txq_flags {
  * @push_limit: number of packet to push before removing the txq from hwq list.
  *              (we always have push_limit < skb_queue_len(sk_list))
  * @tid: TID
+ *
+ * SOFTMAC specific:
+ * @baw: Block Ack window information
+ * @amsdu_anchor: pointer to rwnx_sw_txhdr of the first subframe of the A-MSDU.
+ *                NULL if no A-MSDU frame is in construction
+ * @amsdu_ht_len_cap:
+ * @amsdu_vht_len_cap:
+ * @nb_ready_mac80211: Number of buffer ready in mac80211 txq
  *
  * FULLMAC specific
  * @ps_id: Index to use for Power save mode (LEGACY or UAPSD)
@@ -276,15 +281,15 @@ static inline bool rwnx_txq_is_scheduled(struct rwnx_txq *txq)
  */
 #ifdef CONFIG_MAC80211_TXQ
 #define foreach_sta_txq(sta, txq, tid, rwnx_hw)                         \
-    for (tid = 0, txq = rwnx_txq_sta_get(sta, 0);                       \
-         tid < NX_NB_TXQ_PER_STA;                                       \
-         tid++, txq = rwnx_txq_sta_get(sta, tid))
+	for (tid = 0, txq = rwnx_txq_sta_get(sta, 0);                       \
+		 tid < NX_NB_TXQ_PER_STA;                                       \
+		 tid++, txq = rwnx_txq_sta_get(sta, tid))
 
 #elif defined(CONFIG_RWNX_FULLMAC) /* CONFIG_RWNX_FULLMAC */
 #define foreach_sta_txq(sta, txq, tid, rwnx_hw)                          \
-    for (tid = 0, txq = rwnx_txq_sta_get(sta, 0, rwnx_hw);               \
-         tid < (is_multicast_sta(sta->sta_idx) ? 1 : NX_NB_TXQ_PER_STA); \
-         tid++, txq++)
+	for (tid = 0, txq = rwnx_txq_sta_get(sta, 0, rwnx_hw);               \
+		 tid < (is_multicast_sta(sta->sta_idx) ? 1 : NX_NB_TXQ_PER_STA); \
+		 tid++, txq++)
 
 #endif
 
@@ -302,9 +307,9 @@ static inline bool rwnx_txq_is_scheduled(struct rwnx_txq *txq)
  */
 #ifdef CONFIG_RWNX_FULLMAC
 #define foreach_sta_txq_prio(sta, txq, tid, i, rwnx_hw)                          \
-    for (i = 0, tid = nx_tid_prio[0], txq = rwnx_txq_sta_get(sta, tid, rwnx_hw); \
-         i < NX_NB_TID_PER_STA;                                                  \
-         i++, tid = nx_tid_prio[i], txq = rwnx_txq_sta_get(sta, tid, rwnx_hw))
+	for (i = 0, tid = nx_tid_prio[0], txq = rwnx_txq_sta_get(sta, tid, rwnx_hw); \
+		 i < NX_NB_TID_PER_STA;                                                  \
+		 i++, tid = nx_tid_prio[i], txq = rwnx_txq_sta_get(sta, tid, rwnx_hw))
 #endif
 
 /**
@@ -316,20 +321,20 @@ static inline bool rwnx_txq_is_scheduled(struct rwnx_txq *txq)
  */
 #ifdef CONFIG_MAC80211_TXQ
 #define foreach_vif_txq(vif, txq, ac)                                   \
-    for (ac = RWNX_HWQ_BK, txq = rwnx_txq_vif_get(vif, ac);             \
-         ac < NX_NB_TXQ_PER_VIF;                                        \
-         ac++, txq = rwnx_txq_vif_get(vif, ac))
+	for (ac = RWNX_HWQ_BK, txq = rwnx_txq_vif_get(vif, ac);             \
+		 ac < NX_NB_TXQ_PER_VIF;                                        \
+		 ac++, txq = rwnx_txq_vif_get(vif, ac))
 
 #else
 #define foreach_vif_txq(vif, txq, ac)                                   \
-    for (ac = RWNX_HWQ_BK, txq = &vif->txqs[0];                         \
-         ac < NX_NB_TXQ_PER_VIF;                                        \
-         ac++, txq++)
+	for (ac = RWNX_HWQ_BK, txq = &vif->txqs[0];                         \
+		 ac < NX_NB_TXQ_PER_VIF;                                        \
+		 ac++, txq++)
 #endif
 
 #ifdef CONFIG_RWNX_FULLMAC
 struct rwnx_txq *rwnx_txq_sta_get(struct rwnx_sta *sta, u8 tid,
-                                  struct rwnx_hw * rwnx_hw);
+                                  struct rwnx_hw *rwnx_hw);
 struct rwnx_txq *rwnx_txq_vif_get(struct rwnx_vif *vif, u8 type);
 #endif /* CONFIG_RWNX_FULLMAC */
 
@@ -344,12 +349,12 @@ static inline u8 rwnx_txq_vif_get_status(struct rwnx_vif *rwnx_vif)
     return (txq->status & (RWNX_TXQ_STOP_CHAN | RWNX_TXQ_STOP_VIF_PS));
 }
 
-void rwnx_txq_vif_init(struct rwnx_hw * rwnx_hw, struct rwnx_vif *vif,
+void rwnx_txq_vif_init(struct rwnx_hw *rwnx_hw, struct rwnx_vif *vif,
                        u8 status);
-void rwnx_txq_vif_deinit(struct rwnx_hw * rwnx_hw, struct rwnx_vif *vif);
-void rwnx_txq_sta_init(struct rwnx_hw * rwnx_hw, struct rwnx_sta *rwnx_sta,
+void rwnx_txq_vif_deinit(struct rwnx_hw *rwnx_hw, struct rwnx_vif *vif);
+void rwnx_txq_sta_init(struct rwnx_hw *rwnx_hw, struct rwnx_sta *rwnx_sta,
                        u8 status);
-void rwnx_txq_sta_deinit(struct rwnx_hw * rwnx_hw, struct rwnx_sta *rwnx_sta);
+void rwnx_txq_sta_deinit(struct rwnx_hw *rwnx_hw, struct rwnx_sta *rwnx_sta);
 #ifdef CONFIG_RWNX_FULLMAC
 void rwnx_txq_unk_vif_init(struct rwnx_vif *rwnx_vif);
 void rwnx_txq_unk_vif_deinit(struct rwnx_vif *vif);

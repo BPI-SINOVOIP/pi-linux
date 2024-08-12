@@ -18,23 +18,23 @@
 int rwnx_send_reset(struct rwnx_hw *rwnx_hw);
 int rwnx_send_start(struct rwnx_hw *rwnx_hw);
 int rwnx_send_version_req(struct rwnx_hw *rwnx_hw, struct mm_version_cfm *cfm);
-int rwnx_send_add_if(struct rwnx_hw *rwnx_hw, const unsigned char *mac,
-                     enum nl80211_iftype iftype, bool p2p, struct mm_add_if_cfm *cfm);
-int rwnx_send_remove_if(struct rwnx_hw *rwnx_hw, u8 vif_index, bool defer);
+int rwnx_send_add_if (struct rwnx_hw *rwnx_hw, const unsigned char *mac,
+                      enum nl80211_iftype iftype, bool p2p, struct mm_add_if_cfm *cfm);
+int rwnx_send_remove_if (struct rwnx_hw *rwnx_hw, u8 vif_index, bool defer);
 int rwnx_send_set_channel(struct rwnx_hw *rwnx_hw, int phy_idx,
                           struct mm_set_channel_cfm *cfm);
 int rwnx_send_key_add(struct rwnx_hw *rwnx_hw, u8 vif_idx, u8 sta_idx, bool pairwise,
                       u8 *key, u8 key_len, u8 key_idx, u8 cipher_suite,
                       struct mm_key_add_cfm *cfm);
 int rwnx_send_key_del(struct rwnx_hw *rwnx_hw, uint8_t hw_key_idx);
-int rwnx_send_bcn(struct rwnx_hw *rwnx_hw,u8 *buf, u8 vif_idx, u16 bcn_len);
+int rwnx_send_bcn(struct rwnx_hw *rwnx_hw, u8 *buf, u8 vif_idx, u16 bcn_len);
 
 int rwnx_send_bcn_change(struct rwnx_hw *rwnx_hw, u8 vif_idx, u32 bcn_addr,
                          u16 bcn_len, u16 tim_oft, u16 tim_len, u16 *csa_oft);
 int rwnx_send_tim_update(struct rwnx_hw *rwnx_hw, u8 vif_idx, u16 aid,
                          u8 tx_status);
 int rwnx_send_roc(struct rwnx_hw *rwnx_hw, struct rwnx_vif *vif,
-              struct ieee80211_channel *chan, unsigned int duration, struct mm_remain_on_channel_cfm *roc_cfm);
+                  struct ieee80211_channel *chan, unsigned int duration, struct mm_remain_on_channel_cfm *roc_cfm);
 int rwnx_send_cancel_roc(struct rwnx_hw *rwnx_hw);
 int rwnx_send_set_power(struct rwnx_hw *rwnx_hw,  u8 vif_idx, s8 pwr,
                         struct mm_set_power_cfm *cfm);
@@ -45,9 +45,9 @@ int rwnx_send_tdls_chan_switch_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwn
                                    u8 oper_class, struct cfg80211_chan_def *chandef,
                                    struct tdls_chan_switch_cfm *cfm);
 int rwnx_send_tdls_cancel_chan_switch_req(struct rwnx_hw *rwnx_hw,
-                                          struct rwnx_vif *rwnx_vif,
-                                          struct rwnx_sta *rwnx_sta,
-                                          struct tdls_cancel_chan_switch_cfm *cfm);
+        struct rwnx_vif *rwnx_vif,
+        struct rwnx_sta *rwnx_sta,
+        struct tdls_cancel_chan_switch_cfm *cfm);
 
 #ifdef CONFIG_RWNX_P2P_DEBUGFS
 int rwnx_send_p2p_oppps_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
@@ -59,7 +59,7 @@ int rwnx_send_p2p_noa_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 
 #ifdef AICWF_ARP_OFFLOAD
 int rwnx_send_arpoffload_en_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
-                          u32_l ipaddr,  u8_l enable);
+                                u32_l ipaddr,  u8_l enable);
 #endif
 int rwnx_send_rf_config_req(struct rwnx_hw *rwnx_hw, u8_l ofst, u8_l sel, u8_l *tbl, u16_l len);
 int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *cfm);
@@ -89,8 +89,8 @@ int rwnx_send_sm_disconnect_req(struct rwnx_hw *rwnx_hw,
                                 struct rwnx_vif *rwnx_vif,
                                 u16 reason);
 int rwnx_send_sm_external_auth_required_rsp(struct rwnx_hw *rwnx_hw,
-                                            struct rwnx_vif *rwnx_vif,
-                                            u16 status);
+        struct rwnx_vif *rwnx_vif,
+        u16 status);
 int rwnx_send_apm_start_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *vif,
                             struct cfg80211_ap_settings *settings,
                             struct apm_start_cfm *cfm,
@@ -99,7 +99,7 @@ int rwnx_send_apm_stop_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *vif);
 int rwnx_send_scanu_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
                         struct cfg80211_scan_request *param);
 int rwnx_send_scanu_cancel_req(struct rwnx_hw *rwnx_hw,
-                              struct scan_cancel_cfm *cfm);
+                               struct scan_cancel_cfm *cfm);
 
 int rwnx_send_apm_start_cac_req(struct rwnx_hw *rwnx_hw, struct rwnx_vif *vif,
                                 struct cfg80211_chan_def *chandef,
@@ -148,6 +148,11 @@ int rwnx_send_dbg_set_mod_filter_req(struct rwnx_hw *rwnx_hw, u32 filter);
 #ifdef CONFIG_RFTEST
 int rwnx_send_rftest_req(struct rwnx_hw *rwnx_hw, u32_l cmd, u32_l argc, u8_l *argv, struct dbg_rftest_cmd_cfm *cfm);
 #endif
+#ifdef CONFIG_MCU_MESSAGE
+int rwnx_send_dbg_custom_msg_req(struct rwnx_hw *rwnx_hw,
+                                 u32 cmd, void *buf, u32 len, u32 action,
+                                 struct dbg_custom_msg_cfm *cfm);
+#endif
 int rwnx_send_dbg_set_sev_filter_req(struct rwnx_hw *rwnx_hw, u32 filter);
 int rwnx_send_dbg_get_sys_stat_req(struct rwnx_hw *rwnx_hw,
                                    struct dbg_get_sys_stat_cfm *cfm);
@@ -155,25 +160,27 @@ int rwnx_send_dbg_mem_block_write_req(struct rwnx_hw *rwnx_hw, u32 mem_addr,
                                       u32 mem_size, u32 *mem_data);
 int rwnx_send_dbg_start_app_req(struct rwnx_hw *rwnx_hw, u32 boot_addr,
                                 u32 boot_type);
-int rwnx_send_dbg_gpio_write_req(struct rwnx_hw *rwnx_hw, u8_l gpio_idx, u8_l gpio_val);
-int rwnx_send_dbg_gpio_read_req(struct rwnx_hw *rwnx_hw, u8_l gpio_idx, struct dbg_gpio_read_cfm *cfm);
-int rwnx_send_dbg_gpio_init_req(struct rwnx_hw *rwnx_hw, u8_l gpio_idx, u8_l gpio_dir, u8_l gpio_val);
 int rwnx_send_cfg_rssi_req(struct rwnx_hw *rwnx_hw, u8 vif_index, int rssi_thold, u32 rssi_hyst);
+int rwnx_send_disable_agg_req(struct rwnx_hw *rwnx_hw, u8_l agg_disable, u8_l agg_disable_rx, u8_l sta_idx);
 int rwnx_send_coex_req(struct rwnx_hw *rwnx_hw, u8_l disable_coexnull, u8_l enable_nullcts);
 int rwnx_send_get_sta_info_req(struct rwnx_hw *rwnx_hw, u8_l sta_idx, struct mm_get_sta_info_cfm *cfm);
 int rwnx_send_set_stack_start_req(struct rwnx_hw *rwnx_hw, u8_l on, u8_l efuse_valid, u8_l set_vendor_info,
-					u8_l fwtrace_redir_en, struct mm_set_stack_start_cfm *cfm);
+                                  u8_l fwtrace_redir_en, struct mm_set_stack_start_cfm *cfm);
 int rwnx_send_txop_req(struct rwnx_hw *rwnx_hw, uint16_t *txop, u8_l long_nav_en, u8_l cfe_en);
-int rwnx_send_vendor_hwconfig_req(struct rwnx_hw *rwnx_hw, uint32_t hwconfig_id, int32_t *param);
-
+int rwnx_send_set_temp_comp_req(struct rwnx_hw *rwnx_hw, struct mm_set_vendor_swconfig_cfm *cfm);
+int rwnx_send_vendor_hwconfig_req(struct rwnx_hw *rwnx_hw, uint32_t hwconfig_id, int32_t *param, int32_t *param_out);
+int rwnx_send_vendor_swconfig_req(struct rwnx_hw *rwnx_hw, uint32_t swconfig_id, int32_t *param_in, int32_t *param_out);
+int rwnx_send_mask_set_ext_flags_req(struct rwnx_hw *rwnx_hw, uint32_t flags_mask, uint32_t flags_val, struct mm_set_vendor_swconfig_cfm *cfm);
 int rwnx_send_get_fw_version_req(struct rwnx_hw *rwnx_hw, struct mm_get_fw_version_cfm *cfm);
 int rwnx_send_txpwr_idx_req(struct rwnx_hw *rwnx_hw);
 int rwnx_send_txpwr_ofst_req(struct rwnx_hw *rwnx_hw);
-int rwnx_send_set_filter(struct rwnx_hw *rwnx_hw, uint32_t filter);
+int rwnx_send_txpwr_ofst2x_req(struct rwnx_hw *rwnx_hw);
 int rwnx_send_txpwr_lvl_req(struct rwnx_hw *rwnx_hw);
-#ifdef CONFIG_USB_BT
-int rwnx_send_reboot(struct rwnx_hw *rwnx_hw);
-#endif // CONFIG_USB_BT
+int rwnx_send_txpwr_lvl_v3_req(struct rwnx_hw *rwnx_hw);
+int rwnx_send_txpwr_lvl_adj_req(struct rwnx_hw *rwnx_hw);
 
+#ifdef CONFIG_SDIO_BT
+int rwnx_sdio_bt_send_req(struct rwnx_hw *rwnx_hw,uint32_t len, struct sk_buff *skb);
+#endif
 
 #endif /* _RWNX_MSG_TX_H_ */

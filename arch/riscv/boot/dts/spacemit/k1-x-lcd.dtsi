@@ -6,6 +6,8 @@
 		compatible = "spacemit,saturn-le";
 		reg = <0 0xC0340000 0 0x2A000>;
 		ports = <&dpu_online2_dsi>;
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 	};
 
 	dpu_online2_dsi: port@c0340000 {
@@ -13,6 +15,8 @@
 		interrupt-parent = <&intc>;
 		interrupts = <90>, <89>;
 		interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 		clocks = <&ccu CLK_DPU_PXCLK>,
 			<&ccu CLK_DPU_MCLK>,
 			<&ccu CLK_DPU_HCLK>,
@@ -28,6 +32,8 @@
 		pipeline-id = <ONLINE2>;
 		ip = "spacemit-saturn";
 		spacemit-dpu-min-mclk = <40960000>;
+		type = <DSI>;
+		clk,pm-runtime,no-sleep;
 		status = "disabled";
 
 		dpu_online2_dsi_out: endpoint@0 {

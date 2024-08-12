@@ -116,29 +116,33 @@
 /*
  * Maximum number of payload addresses and lengths present in the descriptor
  */
+#ifdef CONFIG_RWNX_SPLIT_TX_BUF
 #define NX_TX_PAYLOAD_MAX      6
+#else
+#define NX_TX_PAYLOAD_MAX      1
+#endif
 
 /*
  * Message struct/ID API version
  */
-#define MSG_API_VER  15
+#define MSG_API_VER  33
 
 /*
  ****************************************************************************************
  */
 // c.f LMAC/src/tx/tx_swdesc.h
 /// Descriptor filled by the Host
-struct hostdesc
-{
+struct hostdesc {
     /// Pointer to packet payload
     //u32_l packet_addr;
     /// Size of the payload
     u16_l packet_len;
-	u16_l flags_ext;
+    u16_l flags_ext;
 
+    u32_l hostid;
 #ifdef CONFIG_RWNX_FULLMAC
     /// Address of the status descriptor in host memory (used for confirmation upload)
-    u32_l status_desc_addr;
+    //u32_l status_desc_addr;
     /// Destination Address
     struct mac_addr eth_dest_addr;
     /// Source Address
@@ -153,7 +157,7 @@ struct hostdesc
     /// Padding between the buffer control structure and the MPDU in host memory
     u8_l padding;
 #endif /* CONFIG_RWNX_FULLMAC */
-	u8_l ac;
+    u8_l ac;
     /// Packet TID (0xFF if not a QoS frame)
     u8_l tid;
     /// Interface Id
@@ -173,8 +177,7 @@ struct hostdesc
 };
 
 /// Descriptor filled by the UMAC
-struct umacdesc
-{
+struct umacdesc {
 #ifdef CONFIG_RWNX_AGG_TX
     ///First Sequence Number of the BlockAck window
     u16_l sn_win;
@@ -185,15 +188,13 @@ struct umacdesc
 #endif //(CONFIG_RWNX_AGG_TX)
 };
 
-struct txdesc_api
-{
+struct txdesc_api {
     /// Information provided by Host
     struct hostdesc host;
 };
 
 
-struct txdesc_host
-{
+struct txdesc_host {
     u32_l ready;
 
     /// API of the embedded part
@@ -202,8 +203,7 @@ struct txdesc_host
 
 /// Comes from ipc_dma.h
 /// Element in the pool of TX DMA bridge descriptors.
-struct dma_desc
-{
+struct dma_desc {
     /** Application subsystem address which is used as source address for DMA payload
       * transfer*/
     u32_l            src;
@@ -223,8 +223,7 @@ struct dma_desc
 #define LA_CONF_LEN          10
 
 /// Structure containing the configuration data of a logic analyzer
-struct la_conf_tag
-{
+struct la_conf_tag {
     u32_l conf[LA_CONF_LEN];
     u32_l trace_len;
     u32_l diag_conf;
@@ -234,8 +233,7 @@ struct la_conf_tag
 #define LA_MEM_LEN       (1024 * 1024)
 
 /// Type of errors
-enum
-{
+enum {
     /// Recoverable error, not requiring any action from Upper MAC
     DBG_ERROR_RECOVERABLE = 0,
     /// Fatal error, requiring Upper MAC to reset Lower MAC and HW and restart operation
@@ -264,8 +262,7 @@ enum
 #define DBG_THD_MEM_LEN      (10 * 1024)
 
 /// Structure containing the information about the PHY channel that is used
-struct phy_channel_info
-{
+struct phy_channel_info {
     /// PHY channel information 1
     u32_l info1;
     /// PHY channel information 2
@@ -273,8 +270,7 @@ struct phy_channel_info
 };
 
 /// Debug information forwarded to host when an error occurs
-struct dbg_debug_info_tag
-{
+struct dbg_debug_info_tag {
     /// Type of error (0: recoverable, 1: fatal)
     u32_l error_type;
     /// Pointer to the first RX Header Descriptor chained to the MAC HW
@@ -312,8 +308,7 @@ struct dbg_debug_info_tag
 };
 
 /// Full debug dump that is forwarded to host in case of error
-struct dbg_debug_dump_tag
-{
+struct dbg_debug_dump_tag {
     /// Debug information
     struct dbg_debug_info_tag dbg_info;
 
@@ -335,8 +330,7 @@ struct dbg_debug_dump_tag
 #define RADAR_PULSE_MAX   4
 
 /// Definition of an array of radar pulses
-struct radar_pulse_array_desc
-{
+struct radar_pulse_array_desc {
     /// Buffer containing the radar pulses
     u32_l pulse[RADAR_PULSE_MAX];
     /// Index of the radar detection chain that detected those pulses
@@ -351,12 +345,11 @@ struct radar_pulse {
     u32_l fom:4;  /** Figure of Merit */
     u32_l len:6;  /** Length of the current radar pulse (resolution is 2us) */
     u32_l rep:16; /** Time interval between the previous radar event
-                      and the current one (in us) */
+					  and the current one (in us) */
 };
 
 /// Definition of a RX vector descriptor
-struct rx_vector_desc
-{
+struct rx_vector_desc {
     /// PHY channel information
     struct phy_channel_info phy_info;
 
@@ -368,8 +361,7 @@ struct rx_vector_desc
 };
 
 ///
-struct rxdesc_tag
-{
+struct rxdesc_tag {
     /// Host Buffer Address
     u32_l host_id;
     /// Length
@@ -497,23 +489,20 @@ struct rxdesc_tag
 /** IPC header structure.  This structure is stored at the beginning of every IPC message.
  * @warning This structure's size must NOT exceed 4 bytes in length.
  */
-struct ipc_header
-{
+struct ipc_header {
     /// IPC message type.
     u16_l type;
     /// IPC message size in number of bytes.
     u16_l size;
 };
 
-struct ipc_msg_elt
-{
+struct ipc_msg_elt {
     /// Message header (alignment forced on word size, see allocation in shared env).
     struct ipc_header header __ALIGN4;
 };
 
 /// Message structure for MSGs from Emb to App
-struct ipc_e2a_msg
-{
+struct ipc_e2a_msg {
     u16_l id;                ///< Message id.
     u16_l dummy_dest_id;
     u16_l dummy_src_id;
@@ -523,30 +512,26 @@ struct ipc_e2a_msg
 };
 
 /// Message structure for Debug messages from Emb to App
-struct ipc_dbg_msg
-{
+struct ipc_dbg_msg {
     u32_l string[IPC_DBG_PARAM_SIZE/4]; ///< Debug string
     u32_l pattern;                    ///< Used to stamp a valid buffer
 };
 
 /// Message structure for MSGs from App to Emb.
 /// Actually a sub-structure will be used when filling the messages.
-struct ipc_a2e_msg
-{
+struct ipc_a2e_msg {
     u32_l dummy_word;                // used to cope with kernel message structure
     u32_l msg[IPC_A2E_MSG_BUF_SIZE]; // body of the msg
 };
 
-struct ipc_shared_rx_buf
-{
+struct ipc_shared_rx_buf {
     /// < ptr to hostbuf client (ipc_host client) structure
     u32_l hostid;
     /// < ptr to real hostbuf dma address
     u32_l dma_addr;
 };
 
-struct ipc_shared_rx_desc
-{
+struct ipc_shared_rx_desc {
     /// DMA Address
     u32_l dma_addr;
 };
@@ -590,8 +575,7 @@ struct compatibility_tag {
 
 
 // Indexes are defined in the MIB shared structure
-struct ipc_shared_env_tag
-{
+struct ipc_shared_env_tag {
     volatile struct compatibility_tag comp_info; //FW characteristics
 
     volatile struct ipc_a2e_msg msg_a2e_buf; // room for MSG to be sent from App to Emb
@@ -599,32 +583,32 @@ struct ipc_shared_env_tag
     // Fields for MSGs sending from Emb to App
     volatile struct    ipc_e2a_msg msg_e2a_buf; // room to build the MSG to be DMA Xferred
     volatile struct    dma_desc msg_dma_desc;   // DMA descriptor for Emb->App MSGs Xfers
-    volatile u32_l  msg_e2a_hostbuf_addr [IPC_MSGE2A_BUF_CNT]; // buffers @ for DMA Xfers
+    volatile u32_l  msg_e2a_hostbuf_addr[IPC_MSGE2A_BUF_CNT]; // buffers @ for DMA Xfers
 
     // Fields for Debug MSGs sending from Emb to App
     volatile struct    ipc_dbg_msg dbg_buf; // room to build the MSG to be DMA Xferred
     volatile struct    dma_desc dbg_dma_desc;   // DMA descriptor for Emb->App MSGs Xfers
-    volatile u32_l  dbg_hostbuf_addr [IPC_DBGBUF_CNT]; // buffers @ for MSGs DMA Xfers
+    volatile u32_l  dbg_hostbuf_addr[IPC_DBGBUF_CNT]; // buffers @ for MSGs DMA Xfers
     volatile u32_l  la_dbginfo_addr; // Host buffer address for the debug information
     volatile u32_l  pattern_addr;
-    volatile u32_l  radarbuf_hostbuf [IPC_RADARBUF_CNT]; // buffers @ for Radar Events
-    volatile u32_l  unsuprxvecbuf_hostbuf [IPC_UNSUPRXVECBUF_CNT]; // buffers @ for unsupported Rx vectors
+    volatile u32_l  radarbuf_hostbuf[IPC_RADARBUF_CNT]; // buffers @ for Radar Events
+    volatile u32_l  unsuprxvecbuf_hostbuf[IPC_UNSUPRXVECBUF_CNT]; // buffers @ for unsupported Rx vectors
     volatile struct txdesc_host txdesc0[CONFIG_USER_MAX][NX_TXDESC_CNT0];
     volatile struct txdesc_host txdesc1[CONFIG_USER_MAX][NX_TXDESC_CNT1];
     volatile struct txdesc_host txdesc2[CONFIG_USER_MAX][NX_TXDESC_CNT2];
     volatile struct txdesc_host txdesc3[CONFIG_USER_MAX][NX_TXDESC_CNT3];
-    #if NX_TXQ_CNT == 5
+#if NX_TXQ_CNT == 5
     volatile struct txdesc_host txdesc4[1][NX_TXDESC_CNT4];
-    #endif
-    #ifdef CONFIG_RWNX_FULLMAC
+#endif
+#ifdef CONFIG_RWNX_FULLMAC
     // RX Descriptors Array
     volatile struct ipc_shared_rx_desc host_rxdesc[IPC_RXDESC_CNT];
     // RX Buffers Array
     volatile struct ipc_shared_rx_buf  host_rxbuf[IPC_RXBUF_CNT];
-    #else
+#else
     // buffers @ for Data Rx
     volatile u32_l host_rxbuf[IPC_RXBUF_CNT];
-    #endif /* CONFIG_RWNX_FULLMAC */
+#endif /* CONFIG_RWNX_FULLMAC */
 
     u32_l buffered[NX_REMOTE_STA_MAX][TID_MAX];
 
@@ -682,7 +666,7 @@ extern struct ipc_shared_env_tag ipc_shared_env;
 #define IPC_IRQ_A2E_BCN_MSK       CO_BIT(IPC_IRQ_A2E_BCN_OFT)
 
 #define IPC_IRQ_A2E_AC_TXDESC     (IPC_IRQ_A2E_AC0_MSK | IPC_IRQ_A2E_AC1_MSK | \
-                                   IPC_IRQ_A2E_AC2_MSK | IPC_IRQ_A2E_AC3_MSK)
+								   IPC_IRQ_A2E_AC2_MSK | IPC_IRQ_A2E_AC3_MSK)
 
 /// Interrupts bits used for the TX descriptors of the BCN queue
 #if NX_TXQ_CNT < 5
@@ -745,7 +729,7 @@ extern struct ipc_shared_env_tag ipc_shared_env;
 #define IPC_IRQ_E2A_BCN_MSK       CO_BIT(IPC_IRQ_E2A_BCN_OFT)
 
 #define IPC_IRQ_E2A_AC_TXCFM     (IPC_IRQ_E2A_AC0_MSK | IPC_IRQ_E2A_AC1_MSK | \
-                                   IPC_IRQ_E2A_AC2_MSK | IPC_IRQ_E2A_AC3_MSK)
+								   IPC_IRQ_E2A_AC2_MSK | IPC_IRQ_E2A_AC3_MSK)
 
 /// Interrupts bits used for the TX descriptors of the BCN queue
 #if NX_TXQ_CNT < 5
@@ -759,7 +743,7 @@ extern struct ipc_shared_env_tag ipc_shared_env;
 
 #else
 
-#define IPC_IRQ_E2A_TXCFM       ((1 << NX_TXQ_CNT) - 1 ) << IPC_IRQ_E2A_TXCFM_POS
+#define IPC_IRQ_E2A_TXCFM       (((1 << NX_TXQ_CNT) - 1) << IPC_IRQ_E2A_TXCFM_POS)
 
 #endif /* CONFIG_RWNX_MUMIMO_TX */
 
@@ -772,15 +756,15 @@ extern struct ipc_shared_env_tag ipc_shared_env;
 #define IPC_IRQ_E2A_MSG             CO_BIT(1)
 #define IPC_IRQ_E2A_DBG             CO_BIT(0)
 
-#define IPC_IRQ_E2A_ALL         ( IPC_IRQ_E2A_TXCFM         \
-                                | IPC_IRQ_E2A_RXDESC        \
-                                | IPC_IRQ_E2A_MSG_ACK       \
-                                | IPC_IRQ_E2A_MSG           \
-                                | IPC_IRQ_E2A_DBG           \
-                                | IPC_IRQ_E2A_TBTT_PRIM     \
-                                | IPC_IRQ_E2A_TBTT_SEC      \
-                                | IPC_IRQ_E2A_RADAR         \
-                                | IPC_IRQ_E2A_UNSUP_RX_VEC)
+#define IPC_IRQ_E2A_ALL         (IPC_IRQ_E2A_TXCFM         \
+								| IPC_IRQ_E2A_RXDESC        \
+								| IPC_IRQ_E2A_MSG_ACK       \
+								| IPC_IRQ_E2A_MSG           \
+								| IPC_IRQ_E2A_DBG           \
+								| IPC_IRQ_E2A_TBTT_PRIM     \
+								| IPC_IRQ_E2A_TBTT_SEC      \
+								| IPC_IRQ_E2A_RADAR         \
+								| IPC_IRQ_E2A_UNSUP_RX_VEC)
 
 // FLAGS for RX desc
 #define IPC_RX_FORWARD          CO_BIT(1)
@@ -788,8 +772,7 @@ extern struct ipc_shared_env_tag ipc_shared_env;
 
 
 // IPC message TYPE
-enum
-{
+enum {
     IPC_MSG_NONE = 0,
     IPC_MSG_WRAP,
     IPC_MSG_KMSG,

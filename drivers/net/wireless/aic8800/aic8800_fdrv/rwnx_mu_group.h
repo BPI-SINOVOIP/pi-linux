@@ -96,13 +96,15 @@ struct rwnx_mu_info {
 #define RWNX_GET_FIRST_GROUP_ID(map) (fls64(map) - 1)
 
 #define group_sta_for_each(sta, id, map)                                \
-    map = sta->group_info.map & RWNX_MU_GROUP_MASK;                     \
-    for (id = (fls64(map) - 1) ; id > 0 ;                               \
-         map &= ~(u64)BIT_ULL(id), id = (fls64(map) - 1))
+	do {								\
+	map = sta->group_info.map & RWNX_MU_GROUP_MASK;                     \
+	for (id = (fls64(map) - 1) ; id > 0 ;                               \
+		 map &= ~(u64)BIT_ULL(id), id = (fls64(map) - 1))	\
+	} while (0)
 
 #define group_for_each(id, map)                                         \
-    for (id = (fls64(map) - 1) ; id > 0 ;                               \
-         map &= ~(u64)BIT_ULL(id), id = (fls64(map) - 1))
+	for (id = (fls64(map) - 1) ; id > 0 ;                               \
+		 map &= ~(u64)BIT_ULL(id), id = (fls64(map) - 1))
 
 #define RWNX_MUMIMO_INFO_POS_ID(info) (((info) >> 6) & 0x3)
 #define RWNX_MUMIMO_INFO_GROUP_ID(info) ((info) & 0x3f)

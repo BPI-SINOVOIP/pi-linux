@@ -11,10 +11,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/skbuff.h>
-
-#include "lmac_msg.h"
 #include "aicwf_debug.h"
 
+
+#include "lmac_msg.h"
 #if 0
 #ifdef CONFIG_RWNX_DBG
 /*  #define RWNX_DBG(format, arg...) pr_warn(format, ## arg) */
@@ -22,10 +22,9 @@
 #else
 #define RWNX_DBG(a...) do {} while (0)
 #endif
+
+#define RWNX_FN_ENTRY_STR ">>> %s()\n", __func__
 #endif
-
-
-
 enum rwnx_dev_flag {
     RWNX_DEV_RESTARTING,
     RWNX_DEV_STACK_RESTARTING,
@@ -124,7 +123,6 @@ struct rwnx_ipc_skb_elem {
  * @idx: Index of the last pushed skb.(Use to find the next free entry quicker)
  *
  * Note: contrary to softmac version, dma_addr are stored inside skb->cb.
- * (cf &struct rwnx_skb_cb)
  */
 struct rwnx_ipc_rxbuf_elems {
     struct sk_buff *skb[RWNX_RXBUFF_MAX];

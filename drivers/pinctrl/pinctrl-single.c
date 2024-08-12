@@ -29,6 +29,11 @@
 #include <linux/pinctrl/pinconf-generic.h>
 
 #include <linux/platform_data/pinctrl-single.h>
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#include <linux/pm_wakeirq.h>
+#include <linux/reset.h>
+#include <linux/clk.h>
+#endif
 
 #include "core.h"
 #include "devicetree.h"
@@ -37,6 +42,10 @@
 
 #define DRIVER_NAME			"pinctrl-single"
 #define PCS_OFF_DISABLED		~0U
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#define EDGE_CLEAR			6
+#endif
 
 /**
  * struct pcs_func_vals - mux function register offset and value pair
@@ -176,6 +185,11 @@ struct pcs_soc_data {
 struct pcs_device {
 	struct resource *res;
 	void __iomem *base;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	struct resource *gedge_flag_res;
+	void __iomem *gedge_flag_base;
+	unsigned gedge_flag_size;
+#endif
 	void *saved_vals;
 	unsigned size;
 	struct device *dev;
@@ -1431,8 +1445,11 @@ static inline void pcs_irq_set(struct pcs_soc_data *pcs_soc,
 static void pcs_irq_mask(struct irq_data *d)
 {
 	struct pcs_soc_data *pcs_soc = irq_data_get_irq_chip_data(d);
-
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	pcs_irq_set(pcs_soc, d->irq, true);
+#else
 	pcs_irq_set(pcs_soc, d->irq, false);
+#endif
 }
 
 /**
@@ -1443,7 +1460,11 @@ static void pcs_irq_unmask(struct irq_data *d)
 {
 	struct pcs_soc_data *pcs_soc = irq_data_get_irq_chip_data(d);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	pcs_irq_set(pcs_soc, d->irq, false);
+#else
 	pcs_irq_set(pcs_soc, d->irq, true);
+#endif
 }
 
 /**
@@ -1484,6 +1505,7 @@ static int pcs_irq_handle(struct pcs_soc_data *pcs_soc)
 		unsigned mask;
 
 		pcswi = list_entry(pos, struct pcs_interrupt, node);
+#ifndef CONFIG_SOC_SPACEMIT_K1X
 		raw_spin_lock(&pcs->lock);
 		mask = pcs->read(pcswi->reg);
 		raw_spin_unlock(&pcs->lock);
@@ -1492,6 +1514,21 @@ static int pcs_irq_handle(struct pcs_soc_data *pcs_soc)
 						  pcswi->hwirq);
 			count++;
 		}
+#else
+		unsigned reg_offset, bit_offset;
+
+		reg_offset = (pcswi->hwirq / 4 - 1) / 32 * 4;
+		bit_offset = (pcswi->hwirq / 4 - 1) - reg_offset / 4 * 32;
+
+		raw_spin_lock(&pcs->lock);
+		mask = pcs->read(pcs->gedge_flag_base + reg_offset);
+		raw_spin_unlock(&pcs->lock);
+		if (mask & (1 << bit_offset)) {
+			generic_handle_domain_irq(pcs->domain,
+						pcswi->hwirq);
+			count++;
+		}
+#endif
 	}
 
 	return count;
@@ -1592,7 +1629,6 @@ static int pcs_irq_init_chained_handler(struct pcs_device *pcs,
 
 	if (PCS_QUIRK_HAS_SHARED_IRQ) {
 		int res;
-
 		res = request_irq(pcs_soc->irq, pcs_irq_handler,
 				  IRQF_SHARED | IRQF_NO_SUSPEND |
 				  IRQF_NO_THREAD,
@@ -1775,6 +1811,11 @@ static int pcs_quirk_missing_pinctrl_cells(struct pcs_device *pcs,
 	return error;
 }
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static struct clk *psc_clk;
+static struct reset_control *psc_rst;
+#endif
+
 static int pcs_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1783,10 +1824,43 @@ static int pcs_probe(struct platform_device *pdev)
 	struct pcs_device *pcs;
 	const struct pcs_soc_data *soc;
 	int ret;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	unsigned val;
+	void __iomem *mem_base;
+#endif
 
 	soc = of_device_get_match_data(&pdev->dev);
 	if (WARN_ON(!soc))
 		return -EINVAL;
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	psc_rst = devm_reset_control_get_exclusive(&pdev->dev, "aib_rst");
+	if (IS_ERR(psc_rst)) {
+		ret = PTR_ERR(psc_rst);
+		dev_err(&pdev->dev, "Failed to get reset: %d\n", ret);
+		return -EINVAL;
+	}
+
+	/* deasser clk  */
+	ret = reset_control_deassert(psc_rst);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to deassert reset: %d\n", ret);
+		return -EINVAL;
+	}
+
+	psc_clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(psc_clk)) {
+		dev_err(&pdev->dev, "Fail to get pinctrl clock, error %ld.\n",
+			PTR_ERR(psc_clk));
+		return PTR_ERR(psc_clk);
+	}
+
+	ret = clk_prepare_enable(psc_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "Fail to enable pinctrl clock, error %d.\n", ret);
+		return ret;
+	}
+#endif
 
 	pcs = devm_kzalloc(&pdev->dev, sizeof(*pcs), GFP_KERNEL);
 	if (!pcs)
@@ -1855,6 +1929,30 @@ static int pcs_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res) {
+		dev_err(pcs->dev, "could not get resource\n");
+		return -ENODEV;
+	}
+
+	pcs->gedge_flag_res = devm_request_mem_region(pcs->dev, res->start,
+			resource_size(res), DRIVER_NAME);
+	if (!pcs->gedge_flag_res) {
+		dev_err(pcs->dev, "could not get mem_region\n");
+		return -EBUSY;
+	}
+
+	pcs->gedge_flag_size = resource_size(pcs->gedge_flag_res);
+	pcs->gedge_flag_base = devm_ioremap(pcs->dev, pcs->gedge_flag_res->start,
+			pcs->gedge_flag_size);
+	if (!pcs->gedge_flag_base) {
+		dev_err(pcs->dev, "could not ioremap\n");
+		return -ENODEV;
+	}
+#endif
+	mem_base = pcs->base;
+
 	platform_set_drvdata(pdev, pcs);
 
 	switch (pcs->width) {
@@ -1918,6 +2016,11 @@ static int pcs_probe(struct platform_device *pdev)
 
 	dev_info(pcs->dev, "%i pins, size %u\n", pcs->desc.npins, pcs->size);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	dev_pm_set_wake_irq(&pdev->dev, pcs->socdata.irq );
+	device_init_wakeup(&pdev->dev, true);
+#endif
+
 	return pinctrl_enable(pcs->pctl);
 
 free:
@@ -1934,6 +2037,12 @@ static int pcs_remove(struct platform_device *pdev)
 		return 0;
 
 	pcs_free_resources(pcs);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	clk_disable_unprepare(psc_clk);
+
+	reset_control_assert(psc_rst);
+#endif
 
 	return 0;
 }
@@ -1955,6 +2064,14 @@ static const struct pcs_soc_data pinctrl_single_am437x = {
 	.irq_status_mask = (1 << 30),   /* OMAP_WAKEUP_EVENT */
 };
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static const struct pcs_soc_data pinconf_single_aib = {
+	.flags = PCS_QUIRK_SHARED_IRQ,
+	.irq_enable_mask = (1 << EDGE_CLEAR),	/* WAKEUPENABLE */
+	.irq_status_mask = (1 << EDGE_CLEAR),   /* WAKEUPSTATUS */
+};
+#endif
+
 static const struct pcs_soc_data pinctrl_single = {
 };
 
@@ -1970,6 +2087,9 @@ static const struct of_device_id pcs_of_match[] = {
 	{ .compatible = "ti,am437-padconf", .data = &pinctrl_single_am437x },
 	{ .compatible = "pinctrl-single", .data = &pinctrl_single },
 	{ .compatible = "pinconf-single", .data = &pinconf_single },
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	{ .compatible = "pinconf-single-aib", .data = &pinconf_single_aib },
+#endif
 	{ },
 };
 MODULE_DEVICE_TABLE(of, pcs_of_match);

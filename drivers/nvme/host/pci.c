@@ -28,6 +28,9 @@
 #include <linux/io-64-nonatomic-hi-lo.h>
 #include <linux/sed-opal.h>
 #include <linux/pci-p2pdma.h>
+#if defined(CONFIG_SOC_SPACEMIT_K1X)
+#include <linux/leds.h>
+#endif
 
 #include "trace.h"
 #include "nvme.h"
@@ -1027,6 +1030,10 @@ static __always_inline void nvme_pci_unmap_rq(struct request *req)
 
 	if (blk_rq_nr_phys_segments(req))
 		nvme_unmap_data(dev, req);
+
+#if defined(CONFIG_SOC_SPACEMIT_K1X)
+       ledtrig_disk_activity(req_op(req) == REQ_OP_WRITE);
+#endif
 }
 
 static void nvme_pci_complete_rq(struct request *req)

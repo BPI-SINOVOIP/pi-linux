@@ -4,10 +4,13 @@
 /dts-v1/;
 
 #include "k1-x.dtsi"
+#include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
 #include "lcd/lcd_lt8911_edp_1920x1200.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
+#include "k1-x_opp_table.dtsi"
+#include "k1-x_thermal_cooling.dtsi"
 
 / {
 	model = "spacemit k1-x hs450 board";
@@ -218,6 +221,7 @@
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c0>;
+	spacemit,i2c-fast-mode;
 	status = "okay";
 };
 
@@ -230,6 +234,7 @@
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
+	spacemit,i2c-fast-mode;
 	status = "okay";
 
 	es8326: es8326@19{
@@ -613,9 +618,9 @@
 			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
 			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
-	spacemit,rx_dline_reg = <0x01>;
+	spacemit,rx_dline_reg = <0x0>;
 	spacemit,rx_tuning_limit = <50>;
-	spacemit,sdh-freq = <204800000>;
+	spacemit,sdh-freq = <375000000>;
 	status = "okay";
 };
 
@@ -658,6 +663,7 @@
 };
 
 &ehci1 {
+	spacemit,reset-on-resume;
 	status = "okay";
 };
 
@@ -667,18 +673,17 @@
 
 &usbdrd3 {
 	status = "okay";
+	reset-on-resume;
 	dwc3@c0a00000 {
 		dr_mode = "host";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
-		snps,dis-u1u2-quirk;
-		snps,dis-u2-freeclk-exists-quirk;
-		snps,dis-del-phy-power-chg-quirk;
 		snps,dis_u2_susphy_quirk;
 		snps,dis_u3_susphy_quirk;
-		snps,dis_rxdet_inp3_quirk;
-		snps,xhci-trb-ent-quirk;
+		snps,dis-del-phy-power-chg-quirk;
+		snps,dis-tx-ipgap-linecheck-quirk;
+		snps,parkmode-disable-ss-quirk;
 	};
 };
 
@@ -733,20 +738,35 @@
 };
 
 &cpu_0 {
-	clst0-supply = <&edcdc_1>;
-	vin-supply-names = "clst0";
+	clst-supply = <&edcdc_1>;
 };
 
-&clst0_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
+&cpu_1 {
+	clst-supply = <&edcdc_1>;
 };
 
-&clst1_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
+&cpu_2 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_3 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_4 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_5 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_6 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_7 {
+	clst-supply = <&edcdc_1>;
 };
 
 &rcpu {
@@ -754,18 +774,8 @@
 	pinctrl-0 = <&pinctrl_rcpu>;
 	mboxes = <&mailbox 0>, <&mailbox 1>;
 	mbox-names = "vq0", "vq1";
-	interconnects = <&dram_range0>;
-	interconnect-names = "dma-mem";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
 	status = "okay";
-};
-
-&cls0_trip2 {
-	temperature = <115000>;
-};
-
-&cls1_trip2 {
-	temperature = <115000>;
 };
 
 &i2s0 {
@@ -778,8 +788,10 @@
 	status = "okay";
 };
 
-&sound_es8326 {
+&sound_codec {
 	status = "okay";
+	simple-audio-card,name = "snd-es8326";
+	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
 		sound-dai = <&es8326>;
 	};

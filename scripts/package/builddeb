@@ -106,6 +106,30 @@ deploy_libc_headers () {
 	mv $pdir/usr/include/asm $pdir/usr/include/$host_arch/
 }
 
+deploy_tools(){
+	pdir=$1
+	rm -rf $pdir
+	mkdir -p "$pdir/usr/lib/linux-tools/$version"
+	install -m755 $srctree/tools/perf/perf $pdir/usr/lib/linux-tools/$version
+}
+
+deploy_tools_common(){
+	pdir=$1
+	rm -rf $pdir
+
+	toolsbin=$pdir/usr/bin
+	toolssbin=$pdir/usr/sbin
+	toolsman=$pdir/usr/share/man
+
+	install -d $toolsbin
+	install -d $toolssbin
+	install -d $toolsman/man1
+	install -d $toolsman/man8
+
+	install -m755 $srctree/scripts/package/generic $toolsbin/perf
+	install -m644 $srctree/tools/perf/Documentation/*.1 $toolsman/man1
+}
+
 version=$KERNELRELEASE
 tmpdir=debian/linux-image
 dbg_dir=debian/linux-image-dbg
@@ -152,7 +176,7 @@ cp "$($MAKE -s -f $srctree/Makefile image_name)" "$tmpdir/$installed_image_path"
 if is_enabled CONFIG_OF_EARLY_FLATTREE; then
 	# Only some architectures with OF support have this target
 	if [ -d "${srctree}/arch/$SRCARCH/boot/dts" ]; then
-		$MAKE -f $srctree/Makefile INSTALL_DTBS_PATH="$tmpdir/boot" dtbs_install
+		$MAKE -f $srctree/Makefile INSTALL_DTBS_PATH="$tmpdir/usr/lib/$packagename" dtbs_install
 	fi
 fi
 
@@ -216,6 +240,10 @@ if [ "$ARCH" != "um" ]; then
 
 	deploy_libc_headers debian/linux-libc-dev
 	create_package linux-libc-dev debian/linux-libc-dev
+	deploy_tools debian/linux-tools
+	create_package "linux-tools-$version" "debian/linux-tools"
+	deploy_tools_common debian/linux-tools-common
+	create_package "linux-tools-common" "debian/linux-tools-common"
 fi
 
 create_package "$packagename" "$tmpdir"

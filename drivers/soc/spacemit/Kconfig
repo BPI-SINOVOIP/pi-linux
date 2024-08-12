@@ -21,12 +21,27 @@ config SPACEMIT_REBOOT_CONTROL
 	help
 	  Spacemit reboot into fastboot mode
 
+config SPACEMIT_LID_CONTROL
+	tristate "Spacemit lid control"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  Spacemit screen lid control
+
 config SPACEMI_K1X_DMA_RANGE
 	tristate "Spacemit dram range driver for k1x"
 	depends on SOC_SPACEMIT_K1X
 	help
 	  This driver is an empty shell, in order to make the dma-ranges function
           effective
+
+config SPACEMI_SOCINFO
+	tristate "Socinfo driver for spacemit SoCs"
+	depends on SOC_SPACEMIT && NVMEM_SPACEMIT_EFUSE
+	select MFD_SYSCON
+	select SOC_BUS
+	help
+	  Spacemit SoCs information driver, which get information from efuse and
+	  report to userspace.
 
 source "drivers/soc/spacemit/jpu/Kconfig"
 source "drivers/soc/spacemit/v2d/Kconfig"

@@ -22,23 +22,44 @@
 #include <linux/platform_data/k1x_ci_usb.h>
 #include <dt-bindings/usb/k1x_ci_usb.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_wakeirq.h>
 
-#define CAPLENGTH_MASK         (0xff)
+#define CAPLENGTH_MASK				(0xff)
 
-#define PMU_SD_ROT_WAKE_CLR	0x7C
-#define PMU_SD_ROT_WAKE_CLR_VBUS_DRV	(0x1 << 21)
+#define USB_CDWS_WAKE_STATUS		(1 << 28)
+#define USB_ID_WAKE_STATUS			(1 << 27)
+#define USB_VBUS_WAKE_STATUS		(1 << 26)
+#define USB_LINS1_WAKE_STATUS		(1 << 25)
+#define USB_LINS0_WAKE_STATUS		(1 << 24)
+
+#define USB_VBUS_DRV				(1 << 21)
+
+#define USB_CDWS_WAKE_CLEAR			(1 << 20)
+#define USB_ID_WAKE_CLEAR			(1 << 19)
+#define USB_VBUS_WAKE_CLEAR			(1 << 18)
+#define USB_LINS1_WAKE_CLEAR		(1 << 17)
+#define USB_LINS0_WAKE_CLEAR		(1 << 16)
+
+#define USB_WAKEUP_INT_MASK			(1 << 15)
+#define USB_CDWS_WAKE_MASK			(1 << 12)
+#define USB_ID_WAKE_MASK			(1 << 11)
+#define USB_VBUS_WAKE_MASK			(1 << 10)
+#define USB_LINS1_WAKE_MASK			(1 <<  9)
+#define USB_LINS0_WAKE_MASK			(1 <<  8)
+
 
 struct ehci_hcd_mv {
 	struct usb_hcd *hcd;
 	struct usb_phy *phy;
+	struct device  *dev;
 
 	/* Which mode does this ehci running OTG/Host ? */
 	int mode;
 
 	void __iomem *cap_regs;
 	void __iomem *op_regs;
-	void __iomem *apmu_base;
-
+	void __iomem *wakeup_reg;
+	int	irq;
 	struct usb_phy *otg;
 
 	struct mv_usb_platform_data *pdata;
@@ -47,36 +68,94 @@ struct ehci_hcd_mv {
 	struct reset_control *reset;
 	struct regulator *vbus_otg;
 
+	bool reset_on_resume;
 };
 
-static int ehci_otg_enable(struct device *dev, struct ehci_hcd_mv *ehci_mv, bool enable)
+static void mv_ehci_enable_wakeup_irqs(struct ehci_hcd_mv *ehci_mv)
 {
-	uint32_t temp;
+	u32 reg;
+	reg = readl(ehci_mv->wakeup_reg);
+	reg |= (USB_LINS0_WAKE_MASK | USB_LINS1_WAKE_MASK);
+	writel(reg, ehci_mv->wakeup_reg);
+}
 
-	temp = readl(ehci_mv->apmu_base + PMU_SD_ROT_WAKE_CLR);
+static void mv_ehci_disable_wakeup_irqs(struct ehci_hcd_mv *ehci_mv)
+{
+	u32 reg;
+	reg = readl(ehci_mv->wakeup_reg);
+	reg &= ~(USB_LINS0_WAKE_MASK | USB_LINS1_WAKE_MASK);
+	writel(reg, ehci_mv->wakeup_reg);
+}
+
+static void mv_ehci_clear_wakeup_irqs(struct ehci_hcd_mv *ehci_mv)
+{
+	u32 reg;
+	reg = readl(ehci_mv->wakeup_reg);
+	reg |= (USB_LINS0_WAKE_CLEAR | USB_LINS1_WAKE_CLEAR);
+	writel(reg, ehci_mv->wakeup_reg);
+}
+
+static irqreturn_t mv_ehci_wakeup_interrupt(int irq, void *_ehci_mv)
+{
+	struct ehci_hcd_mv *ehci_mv = _ehci_mv;
+	u32 reg;
+	reg = readl(ehci_mv->wakeup_reg);
+	dev_dbg(ehci_mv->dev, "wakeup_reg: 0x%x\n", reg);
+
+	mv_ehci_disable_wakeup_irqs(ehci_mv);
+	mv_ehci_clear_wakeup_irqs(ehci_mv);
+
+	return IRQ_HANDLED;
+}
+
+static int mv_ehci_setvbus(struct ehci_hcd_mv *ehci_mv, bool enable)
+{
+	u32 reg;
+	reg = readl(ehci_mv->wakeup_reg);
 	if (enable)
-		writel(PMU_SD_ROT_WAKE_CLR_VBUS_DRV | temp, ehci_mv->apmu_base + PMU_SD_ROT_WAKE_CLR);
+		reg |= USB_VBUS_DRV;
 	else
-		writel(temp & ~PMU_SD_ROT_WAKE_CLR_VBUS_DRV , ehci_mv->apmu_base + PMU_SD_ROT_WAKE_CLR);
-
+		reg &= ~USB_VBUS_DRV;
+	writel(reg, ehci_mv->wakeup_reg);
 	return 0;
 }
 
-static void ehci_clock_enable(struct ehci_hcd_mv *ehci_mv)
+static int mv_ehci_enable(struct ehci_hcd_mv *ehci_mv)
 {
-	clk_enable(ehci_mv->clk);
-}
+	int ret;
 
-static void ehci_clock_disable(struct ehci_hcd_mv *ehci_mv)
-{
-	clk_disable(ehci_mv->clk);
+	ret = clk_prepare_enable(ehci_mv->clk);
+	if (ret){
+		dev_err(ehci_mv->dev, "Failed to enable clock\n");
+		return ret;
+	}
+
+	ret = reset_control_deassert(ehci_mv->reset);
+	if (ret){
+		dev_err(ehci_mv->dev, "Failed to deassert reset control\n");
+		goto err_clk;
+	}
+
+	ret = usb_phy_init(ehci_mv->phy);
+	if (ret) {
+		dev_err(ehci_mv->dev, "Failed to init phy\n");
+		goto err_reset;
+	}
+
+	return 0;
+
+err_reset:
+	reset_control_assert(ehci_mv->reset);
+err_clk:
+	clk_disable_unprepare(ehci_mv->clk);
+	return ret;
 }
 
 static void mv_ehci_disable(struct ehci_hcd_mv *ehci_mv)
 {
 	usb_phy_shutdown(ehci_mv->phy);
 	reset_control_assert(ehci_mv->reset);
-	ehci_clock_disable(ehci_mv);
+	clk_disable_unprepare(ehci_mv->clk);
 }
 
 static int mv_ehci_reset(struct usb_hcd *hcd)
@@ -177,12 +256,12 @@ static int mv_ehci_probe(struct platform_device *pdev)
 {
 	struct mv_usb_platform_data *pdata;
 	struct device *dev = &pdev->dev;
-	struct device_node *node;
 	struct usb_hcd *hcd;
 	struct ehci_hcd *ehci;
 	struct ehci_hcd_mv *ehci_mv;
 	struct resource *r;
 	int retval = -ENODEV;
+	bool wakeup_source;
 	u32 offset;
 
 	dev_dbg(&pdev->dev, "mv_ehci_probe: Enter ... \n");
@@ -206,7 +285,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	if (usb_disabled())
 		return -ENODEV;
 
-	hcd = usb_create_hcd(&mv_ehci_hc_driver, &pdev->dev, "mv ehci");
+	hcd = usb_create_hcd(&mv_ehci_hc_driver, &pdev->dev, dev_name(dev));
 	if (!hcd)
 		return -ENOMEM;
 
@@ -220,6 +299,9 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ehci_mv);
 	ehci_mv->pdata = pdata;
 	ehci_mv->hcd = hcd;
+	ehci_mv->dev = dev;
+	ehci_mv->reset_on_resume = of_property_read_bool(pdev->dev.of_node,
+		"spacemit,reset-on-resume");
 
 	ehci_mv->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(ehci_mv->clk)) {
@@ -227,7 +309,6 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		retval = PTR_ERR(ehci_mv->clk);
 		goto err_clear_drvdata;
 	}
-	clk_prepare(ehci_mv->clk);
 
 	ehci_mv->reset = devm_reset_control_array_get_optional_shared(&pdev->dev);
 	if (IS_ERR(ehci_mv->reset)) {
@@ -259,24 +340,15 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		else {
 			kfree(hcd->bandwidth_mutex);
 			kfree(hcd);
-
 			return -EPROBE_DEFER;
 		}
 		goto err_clear_drvdata;
 	}
 
-	ehci_clock_enable(ehci_mv);
-
-	retval = reset_control_deassert(ehci_mv->reset);
+	retval = mv_ehci_enable(ehci_mv);
 	if (retval) {
-		dev_err(&pdev->dev, "reset error %d\n", retval);
-		goto err_disable_clk_rst;
-	}
-
-	retval = usb_phy_init(ehci_mv->phy);
-	if (retval) {
-		dev_err(&pdev->dev, "init phy error %d\n", retval);
-		goto err_disable_clk_rst;
+		dev_err(&pdev->dev, "enable ehci error: %d\n", retval);
+		goto err_clear_drvdata;
 	}
 
 	offset = readl(ehci_mv->cap_regs) & CAPLENGTH_MASK;
@@ -298,11 +370,17 @@ static int mv_ehci_probe(struct platform_device *pdev)
 
 	ehci_mv->mode = pdata->mode;
 
-	node = of_find_compatible_node(NULL, NULL, "spacemit,spacemit-apmu");
-	BUG_ON(!node);
-	ehci_mv->apmu_base = of_iomap(node, 0);
-	if (ehci_mv->apmu_base == NULL) {
-		dev_err(&pdev->dev, "failed to map apmu base memory\n");
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!r) {
+		dev_err(dev, "missing wakeup base resource\n");
+		retval = -ENODEV;
+		goto err_disable_clk_rst;
+	}
+
+	ehci_mv->wakeup_reg = devm_ioremap(&pdev->dev, r->start, resource_size(r));
+	if (!ehci_mv->wakeup_reg) {
+		dev_err(dev, " wakeup reg ioremap failed\n");
+		retval = -ENODEV;
 		goto err_disable_clk_rst;
 	}
 
@@ -311,7 +389,6 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		ehci_mv->otg = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-otg", 0);
 		if (IS_ERR(ehci_mv->otg)) {
 			retval = PTR_ERR(ehci_mv->otg);
-
 			if (retval == -ENXIO)
 				dev_info(&pdev->dev, "MV_USB_MODE_OTG "
 						"must have CONFIG_USB_PHY enabled\n");
@@ -331,7 +408,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		/* otg will enable clock before use as host */
 		mv_ehci_disable(ehci_mv);
 	} else {
-		retval = ehci_otg_enable(dev, ehci_mv, 1);
+		retval = mv_ehci_setvbus(ehci_mv, 1);
 		if (retval)
 			goto err_disable_clk_rst;
 
@@ -341,6 +418,27 @@ static int mv_ehci_probe(struct platform_device *pdev)
 				"failed to add hcd with err %d\n", retval);
 			goto err_set_vbus;
 		}
+	}
+
+	ehci_mv->irq = platform_get_irq(pdev, 1);
+	if (!hcd->irq) {
+		dev_err(&pdev->dev, "Cannot get wake irq.");
+		retval = -ENODEV;
+		goto err_set_vbus;
+	}
+
+	retval = devm_request_irq(dev, ehci_mv->irq, mv_ehci_wakeup_interrupt, IRQF_NO_SUSPEND,
+			"usb-wakeup", ehci_mv);
+	if (retval) {
+		dev_err(dev, "failed to request IRQ #%d --> %d\n",
+				ehci_mv->irq, retval);
+		goto err_set_vbus;
+	}
+
+	wakeup_source = of_property_read_bool(dev->of_node, "wakeup-source");
+	if (wakeup_source) {
+		device_init_wakeup(dev, true);
+		dev_pm_set_wake_irq(dev, ehci_mv->irq);
 	}
 
 	pm_runtime_set_active(dev);
@@ -356,7 +454,12 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	return 0;
 
 err_set_vbus:
-	ehci_otg_enable(dev, ehci_mv, 0);
+	if (!IS_ERR_OR_NULL(ehci_mv->otg))
+		otg_set_host(ehci_mv->otg->otg, NULL);
+	if (ehci_mv->mode == MV_USB_MODE_HOST) {
+		usb_remove_hcd(hcd);
+		mv_ehci_setvbus(ehci_mv, 0);
+	}
 err_disable_clk_rst:
 	mv_ehci_disable(ehci_mv);
 err_clear_drvdata:
@@ -371,6 +474,13 @@ static int mv_ehci_remove(struct platform_device *pdev)
 {
 	struct ehci_hcd_mv *ehci_mv = platform_get_drvdata(pdev);
 	struct usb_hcd *hcd = ehci_mv->hcd;
+	bool do_wakeup = device_may_wakeup(&pdev->dev);
+
+	if (do_wakeup) {
+		mv_ehci_disable_wakeup_irqs(ehci_mv);
+		dev_pm_clear_wake_irq(ehci_mv->dev);
+		device_init_wakeup(ehci_mv->dev, false);
+	}
 
 	if (hcd->rh_registered)
 		usb_remove_hcd(hcd);
@@ -379,11 +489,11 @@ static int mv_ehci_remove(struct platform_device *pdev)
 		otg_set_host(ehci_mv->otg->otg, NULL);
 
 	if (ehci_mv->mode == MV_USB_MODE_HOST) {
-		ehci_otg_enable(&pdev->dev, ehci_mv, 0);
-		mv_ehci_disable(ehci_mv);
-		clk_unprepare(ehci_mv->clk);
+		mv_ehci_setvbus(ehci_mv, 0);
 	}
 
+	mv_ehci_disable(ehci_mv);
+	platform_set_drvdata(pdev, NULL);
 	usb_put_hcd(hcd);
 
 	pm_runtime_disable(&pdev->dev);
@@ -426,8 +536,21 @@ static int mv_ehci_suspend(struct device *dev)
 	if (ret)
 		return ret;
 	usb_phy_shutdown(ehci_mv->phy);
+
+	if (ehci_mv->reset_on_resume) {
+		ret = reset_control_assert(ehci_mv->reset);
+		if (ret)
+			return ret;
+		dev_info(dev, "Will reset controller and phy on resume\n");
+	}
+
 	clk_disable_unprepare(ehci_mv->clk);
 	dev_dbg(dev, "pm suspend: disable clks and phy\n");
+
+	if (do_wakeup) {
+		mv_ehci_clear_wakeup_irqs(ehci_mv);
+		mv_ehci_enable_wakeup_irqs(ehci_mv);
+	}
 	return ret;
 }
 
@@ -443,14 +566,22 @@ static int mv_ehci_resume(struct device *dev)
 		dev_err(dev, "Failed to enable clock");
 		return ret;
 	}
+
+	if (ehci_mv->reset_on_resume) {
+		dev_info(dev, "Resetting controller and phy\n");
+		ret = reset_control_deassert(ehci_mv->reset);
+		if (ret)
+			return ret;
+	}
+
 	ret = usb_phy_init(ehci_mv->phy);
 	if (ret) {
 		dev_err(dev, "Failed to init phy\n");
-		ehci_clock_disable(ehci_mv);
+		clk_disable_unprepare(ehci_mv->clk);
 		return ret;
 	}
 	dev_dbg(dev, "pm resume: do EHCI resume\n");
-	ehci_resume(hcd, false);
+	ehci_resume(hcd, ehci_mv->reset_on_resume);
 	return 0;
 }
 #else

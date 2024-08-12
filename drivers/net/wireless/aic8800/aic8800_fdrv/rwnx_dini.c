@@ -40,8 +40,7 @@
 #define AHB_BRIDGE_WINDOW_HIGH   0x00000000
 #define AHB_BRIDGE_WINDOW_LOW    0x60000000
 
-struct rwnx_dini
-{
+struct rwnx_dini {
     u8 *pci_bar0_vaddr;
     u8 *pci_bar4_vaddr;
 };
@@ -111,9 +110,9 @@ int rwnx_cfpga_irq_enable(struct rwnx_hw *rwnx_hw)
     int ret;
 
     /* sched_setscheduler on ONESHOT threaded irq handler for BCNs ? */
-    if ((ret = request_irq(rwnx_hw->plat->pci_dev->irq, rwnx_irq_hdlr, 0,
-                           "rwnx", rwnx_hw)))
-            return ret;
+    ret = request_irq(rwnx_hw->plat->pci_dev->irq, rwnx_irq_hdlr, 0, "rwnx", rwnx_hw);
+    if (ret)
+        return ret;
 
     reg = rwnx_dini->pci_bar0_vaddr + CFPGA_UINTR_MASK_REG;
     cfpga_uintr_mask = readl(reg);
@@ -178,7 +177,7 @@ static void rwnx_dini_platform_deinit(struct rwnx_plat *rwnx_plat)
     kfree(rwnx_plat);
 }
 
-static u8* rwnx_dini_get_address(struct rwnx_plat *rwnx_plat, int addr_name,
+static u8 *rwnx_dini_get_address(struct rwnx_plat *rwnx_plat, int addr_name,
                                  unsigned int offset)
 {
     struct rwnx_dini *rwnx_dini = (struct rwnx_dini *)rwnx_plat->priv;
@@ -234,7 +233,7 @@ int rwnx_dini_platform_init(struct pci_dev *pci_dev, struct rwnx_plat **rwnx_pla
     int ret = 0;
 
     *rwnx_plat = kzalloc(sizeof(struct rwnx_plat) + sizeof(struct rwnx_dini),
-                        GFP_KERNEL);
+                         GFP_KERNEL);
     if (!*rwnx_plat)
         return -ENOMEM;
 
@@ -244,26 +243,30 @@ int rwnx_dini_platform_init(struct pci_dev *pci_dev, struct rwnx_plat **rwnx_pla
     pci_read_config_word(pci_dev, PCI_COMMAND, &pci_cmd);
     pci_cmd |= PCI_COMMAND_PARITY | PCI_COMMAND_SERR;
     pci_write_config_word(pci_dev, PCI_COMMAND, pci_cmd);
-    pci_write_config_byte(pci_dev, PCI_CACHE_LINE_SIZE, L1_CACHE_BYTES >> 2);
+    //pci_write_config_byte(pci_dev, PCI_CACHE_LINE_SIZE, L1_CACHE_BYTES >> 2);
 
-    if ((ret = pci_enable_device(pci_dev))) {
+    ret = pci_enable_device(pci_dev);
+    if (ret) {
         dev_err(&(pci_dev->dev), "pci_enable_device failed\n");
         goto out_enable;
     }
 
     pci_set_master(pci_dev);
-
-    if ((ret = pci_request_regions(pci_dev, KBUILD_MODNAME))) {
+#if 0
+    ret = pci_request_regions(pci_dev, KBUILD_MODNAME);
+    if (ret) {
         dev_err(&(pci_dev->dev), "pci_request_regions failed\n");
         goto out_request;
     }
-
-    if (!(rwnx_dini->pci_bar0_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 0))) {
+#endif
+    rwnx_dini->pci_bar0_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 0);
+    if (!rwnx_dini->pci_bar0_vaddr) {
         dev_err(&(pci_dev->dev), "pci_ioremap_bar(%d) failed\n", 0);
         ret = -ENOMEM;
         goto out_bar0;
     }
-    if (!(rwnx_dini->pci_bar4_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 4))) {
+    rwnx_dini->pci_bar4_vaddr = (u8 *)pci_ioremap_bar(pci_dev, 4);
+    if (!rwnx_dini->pci_bar4_vaddr) {
         dev_err(&(pci_dev->dev), "pci_ioremap_bar(%d) failed\n", 4);
         ret = -ENOMEM;
         goto out_bar4;
@@ -282,13 +285,13 @@ int rwnx_dini_platform_init(struct pci_dev *pci_dev, struct rwnx_plat **rwnx_pla
 
     return 0;
 
-  out_bar4:
+out_bar4:
     iounmap(rwnx_dini->pci_bar0_vaddr);
-  out_bar0:
+out_bar0:
     pci_release_regions(pci_dev);
-  out_request:
+//out_request:
     pci_disable_device(pci_dev);
-  out_enable:
+out_enable:
     kfree(*rwnx_plat);
     return ret;
 }

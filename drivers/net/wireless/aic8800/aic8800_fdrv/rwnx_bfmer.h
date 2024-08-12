@@ -41,7 +41,7 @@
  */
 struct rwnx_bfmer_report {
     dma_addr_t dma_addr;    /* Virtual address provided to MAC for
-                               DMA transfer of the Beamforming Report */
+							   DMA transfer of the Beamforming Report */
     unsigned int length;    /* Report Length */
     u8 report[1];           /* Report to be used for VHT TX Beamforming */
 };

@@ -42,6 +42,12 @@
 /* pmic */
 #define WAKEUP_SOURCE_WAKEUP_7	7
 
+/* gpio */
+#define WAKEUP_SOURCE_WAKEUP_2	2
+
+/* usb & others */
+#define WAKEUP_SOURCE_WAKEUP_5	5
+static bool pmu_support_wakeup5 = false;
 
 #define PM_QOS_BLOCK_C1		0x0 /* core wfi */
 #define PM_QOS_BLOCK_C2		0x2 /* core power off */
@@ -255,12 +261,6 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 		}
 	}
 
-	if (spd->pm_index == K1X_PMU_AUD_PWR_DOMAIN) {
-		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, &val);
-		val |= (1 << AP_POWER_CTRL_AUDIO_AUTH_OFFSET);
-		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, val);
-	}
-
 	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
 	if (val & (1 << spd->param.bit_pwr_stat)) {
 		if (!spd->param.use_hw) {
@@ -354,13 +354,6 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 	if (loop < 0) {
 		pr_err("power-on domain: %d, error\n", spd->pm_index);
 		return -EBUSY;
-	}
-
-	/* for audio power domain, we should let the rcpu handle it, and disable force power on */
-	if (spd->pm_index == K1X_PMU_AUD_PWR_DOMAIN) {
-		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, &val);
-		val &= ~((1 << AP_POWER_CTRL_AUDIO_AUTH_OFFSET) | (1 << FORCE_AUDIO_POWER_ON_OFFSET));
-		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, val);
 	}
 
 	return 0;
@@ -486,8 +479,9 @@ static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct devic
 		dev_pm_qos_remove_notifier(dev, &pos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
 		while (--pos->rgr_count >= 0)
 			devm_regulator_put(pos->rgr[pos->rgr_count]);
-		list_del(&pos->qos_node);
 	}
+
+	list_del(&pos->qos_node);
 }
 
 static int spacemit_cpuidle_qos_notfier_call(struct notifier_block *nb, unsigned long action, void *data)
@@ -705,9 +699,13 @@ static int spacemit_pm_add_one_domain(struct spacemit_pmu *pmu, struct device_no
 	pd->genpd.dev_ops.start = spacemit_genpd_start;
 
 	/* audio power-domain is power-on by default */
-	if (id == K1X_PMU_AUD_PWR_DOMAIN)
+	if (id == K1X_PMU_AUD_PWR_DOMAIN) {
+		/* set this flag has nothing affect, just do not want the framework disable
+		 * the clk & power in noirq callback when system suspend.
+		 * */
+		pd->genpd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 		pm_genpd_init(&pd->genpd, NULL, false);
-	else
+	} else
 		pm_genpd_init(&pd->genpd, NULL, true);
 
 	pmu->domains[id] = pd;
@@ -819,6 +817,18 @@ static int acpr_per_suspend(void)
 	apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_7);
 	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
 
+	/* enable gpio wakeup */
+	regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
+	apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_2);
+	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
+
+	/* enable usb/rcpu/ap2audio */
+	if (pmu_support_wakeup5) {
+		regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
+		apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_5);
+		regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
+	}
+
 	return 0;
 }
 
@@ -867,6 +877,8 @@ static int spacemit_pm_domain_probe(struct platform_device *pdev)
 			return PTR_ERR(pmu->regmap[i]);
 		}
 	}
+
+	pmu_support_wakeup5 = of_property_read_bool(np, "pmu_wakeup5");
 
 	/* get number power domains */
 	err = of_property_read_u32(np, "domains", &pmu->number_domains);

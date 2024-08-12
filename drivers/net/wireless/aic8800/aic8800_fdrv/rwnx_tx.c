@@ -18,9 +18,6 @@
 #include "rwnx_events.h"
 #include "rwnx_compat.h"
 #include "aicwf_txrxif.h"
-#ifdef CONFIG_RWNX_MON_XMIT
-#include <net/ieee80211_radiotap.h>
-#endif
 
 /******************************************************************************
  * Power Save functions
@@ -32,7 +29,7 @@
  * @sta: Sta in PS mode
  * @available: whether traffic is buffered for the STA
  * @ps_id: type of PS data requested (@LEGACY_PS_ID or @UAPSD_ID)
-  */
+ */
 void rwnx_set_traffic_status(struct rwnx_hw *rwnx_hw,
                              struct rwnx_sta *sta,
                              bool available,
@@ -94,7 +91,7 @@ void rwnx_ps_bh_enable(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
             txq = rwnx_txq_sta_get(sta, 0, rwnx_hw);
             sta->ps.pkt_ready[LEGACY_PS_ID] = skb_queue_len(&txq->sk_list);
             sta->ps.pkt_ready[UAPSD_ID] = 0;
-			//txq->hwq = &rwnx_hw->hwq[RWNX_HWQ_BCMC];
+            //txq->hwq = &rwnx_hw->hwq[RWNX_HWQ_BCMC];
         } else {
             int i;
             sta->ps.pkt_ready[LEGACY_PS_ID] = 0;
@@ -107,13 +104,13 @@ void rwnx_ps_bh_enable(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
         spin_unlock_bh(&rwnx_hw->tx_lock);
 
         //if (sta->ps.pkt_ready[LEGACY_PS_ID])
-        //    rwnx_set_traffic_status(rwnx_hw, sta, true, LEGACY_PS_ID);
+        //	rwnx_set_traffic_status(rwnx_hw, sta, true, LEGACY_PS_ID);
 
         //if (sta->ps.pkt_ready[UAPSD_ID])
-        //    rwnx_set_traffic_status(rwnx_hw, sta, true, UAPSD_ID);
+        //	rwnx_set_traffic_status(rwnx_hw, sta, true, UAPSD_ID);
     } else {
 #ifdef CREATE_TRACE_POINTS
-		trace_ps_disable(sta->sta_idx);
+        trace_ps_disable(sta->sta_idx);
 #endif
         spin_lock_bh(&rwnx_hw->tx_lock);
         sta->ps.active = false;
@@ -133,10 +130,10 @@ void rwnx_ps_bh_enable(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
         spin_unlock_bh(&rwnx_hw->tx_lock);
 
         //if (sta->ps.pkt_ready[LEGACY_PS_ID])
-        //    rwnx_set_traffic_status(rwnx_hw, sta, false, LEGACY_PS_ID);
+        //	rwnx_set_traffic_status(rwnx_hw, sta, false, LEGACY_PS_ID);
 
         //if (sta->ps.pkt_ready[UAPSD_ID])
-        //    rwnx_set_traffic_status(rwnx_hw, sta, false, UAPSD_ID);
+        //	rwnx_set_traffic_status(rwnx_hw, sta, false, UAPSD_ID);
 
         tasklet_schedule(&rwnx_hw->task);
     }
@@ -171,9 +168,9 @@ void rwnx_ps_bh_traffic_req(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
     //if (WARN(!sta->ps.active, "sta %pM is not in Power Save mode",
     //         sta->mac_addr))
     //    return;
-    if(!sta->ps.active) {
-		//AICWFDBG(LOGERROR, "sta(%d) %pM is not in Power Save mode", sta->sta_idx, sta->mac_addr);
-    	return;
+    if (!sta->ps.active) {
+        AICWFDBG(LOGTRACE,"sta %pM is not in Power Save mode", sta->mac_addr);
+        return;
     }
 #ifdef CREATE_TRACE_POINTS
     trace_ps_traffic_req(sta, pkt_req, ps_id);
@@ -251,10 +248,10 @@ void rwnx_ps_bh_traffic_req(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
         }
     }
 
-  done:
+done:
     spin_unlock_bh(&rwnx_hw->tx_lock);
-    if(schedule)
-	tasklet_schedule(&rwnx_hw->task);
+    if (schedule)
+        tasklet_schedule(&rwnx_hw->task);
 }
 
 /******************************************************************************
@@ -294,11 +291,17 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
     struct rwnx_txq *txq;
     u16 netdev_queue;
     bool tdls_mgmgt_frame = false;
+    int nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX;
+
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
+    }
 
     switch (wdev->iftype) {
     case NL80211_IFTYPE_STATION:
-    case NL80211_IFTYPE_P2P_CLIENT:
-    {
+    case NL80211_IFTYPE_P2P_CLIENT: {
         struct ethhdr *eth;
         eth = (struct ethhdr *)skb->data;
         if (eth->h_proto == cpu_to_be16(ETH_P_TDLS)) {
@@ -321,30 +324,27 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
         /* AP_VLAN interface is not used for a 4A STA,
            fallback searching sta amongs all AP's clients */
         rwnx_vif = rwnx_vif->ap_vlan.master;
-        fallthrough;
     case NL80211_IFTYPE_AP:
-    case NL80211_IFTYPE_P2P_GO:
-    {
+    case NL80211_IFTYPE_P2P_GO: {
         struct rwnx_sta *cur;
         struct ethhdr *eth = (struct ethhdr *)skb->data;
 
         if (is_multicast_ether_addr(eth->h_dest)) {
             sta = &rwnx_hw->sta_table[rwnx_vif->ap.bcmc_index];
         } else {
-        	spin_lock_bh(&rwnx_vif->rwnx_hw->cb_lock);
+            spin_lock_bh(&rwnx_vif->rwnx_hw->cb_lock);
             list_for_each_entry(cur, &rwnx_vif->ap.sta_list, list) {
                 if (!memcmp(cur->mac_addr, eth->h_dest, ETH_ALEN)) {
                     sta = cur;
                     break;
                 }
             }
-			spin_unlock_bh(&rwnx_vif->rwnx_hw->cb_lock);
+            spin_unlock_bh(&rwnx_vif->rwnx_hw->cb_lock);
         }
 
         break;
     }
-    case NL80211_IFTYPE_MESH_POINT:
-    {
+    case NL80211_IFTYPE_MESH_POINT: {
         struct ethhdr *eth = (struct ethhdr *)skb->data;
 
         if (!rwnx_vif->is_resending) {
@@ -398,41 +398,36 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
         break;
     }
 
-    if (sta && sta->qos)
-    {
+    if (sta && sta->qos) {
         if (tdls_mgmgt_frame) {
             skb_set_queue_mapping(skb, NX_STA_NDEV_IDX(skb->priority, sta->sta_idx));
         } else {
             /* use the data classifier to determine what 802.1d tag the
              * data frame has */
-            #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
             skb->priority = cfg80211_classify8021d(skb) & IEEE80211_QOS_CTL_TAG1D_MASK;
-            #else
+#else
             skb->priority = cfg80211_classify8021d(skb, NULL) & IEEE80211_QOS_CTL_TAG1D_MASK;
-            #endif
+#endif
         }
         if (sta->acm)
             rwnx_downgrade_ac(sta, skb);
 
         txq = rwnx_txq_sta_get(sta, skb->priority, rwnx_hw);
         netdev_queue = txq->ndev_idx;
-    }
-    else if (sta)
-    {
+    } else if (sta) {
         skb->priority = 0xFF;
         txq = rwnx_txq_sta_get(sta, 0, rwnx_hw);
         netdev_queue = txq->ndev_idx;
-    }
-    else
-    {
+    } else {
         /* This packet will be dropped in xmit function, still need to select
            an active queue for xmit to be called. As it most likely to happen
            for AP interface, select BCMC queue
            (TODO: select another queue if BCMC queue is stopped) */
         skb->priority = PRIO_STA_NULL;
-        netdev_queue = NX_BCMC_TXQ_NDEV_IDX;
+        netdev_queue = nx_bcmc_txq_ndev_idx;
     }
-    
+
 #ifndef CONFIG_ONE_TXQ
     BUG_ON(netdev_queue >= NX_NB_NDEV_TXQ);
 #endif
@@ -454,7 +449,7 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
  * note: tx_lock already taken.
  */
 static inline void rwnx_set_more_data_flag(struct rwnx_hw *rwnx_hw,
-                                           struct rwnx_sw_txhdr *sw_txhdr)
+        struct rwnx_sw_txhdr *sw_txhdr)
 {
     struct rwnx_sta *sta = sw_txhdr->rwnx_sta;
     struct rwnx_vif *vif = sw_txhdr->rwnx_vif;
@@ -467,7 +462,7 @@ static inline void rwnx_set_more_data_flag(struct rwnx_hw *rwnx_hw,
         trace_ps_push(sta);
 #endif
         if (((txq->ps_id == UAPSD_ID) || (vif->wdev.iftype == NL80211_IFTYPE_MESH_POINT) || (sta->tdls.active))
-                && !sta->ps.sp_cnt[txq->ps_id]) {
+            && !sta->ps.sp_cnt[txq->ps_id]) {
             sw_txhdr->desc.host.flags |= TXU_CNTRL_EOSP;
         }
 
@@ -492,23 +487,25 @@ static inline void rwnx_set_more_data_flag(struct rwnx_hw *rwnx_hw,
  * simply re-read information form skb.
  */
 static struct rwnx_sta *rwnx_get_tx_priv(struct rwnx_vif *rwnx_vif,
-                                         struct sk_buff *skb,
-                                         u8 *tid)
+        struct sk_buff *skb,
+        u8 *tid)
 {
-    struct rwnx_hw *rwnx_hw = rwnx_vif->rwnx_hw;
+    static struct rwnx_hw *rwnx_hw;
     struct rwnx_sta *sta;
     int sta_idx;
     int nx_remote_sta_max = NX_REMOTE_STA_MAX;
     int nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX;
 
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            nx_remote_sta_max = NX_REMOTE_STA_MAX_FOR_OLD_IC;
-            nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
+
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_remote_sta_max = NX_REMOTE_STA_MAX_FOR_OLD_IC;
+        nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
     }
 
 
+    rwnx_hw = rwnx_vif->rwnx_hw;
     *tid = skb->priority;
     if (unlikely(skb->priority == PRIO_STA_NULL)) {
         return NULL;
@@ -522,7 +519,7 @@ static struct rwnx_sta *rwnx_get_tx_priv(struct rwnx_vif *rwnx_vif,
 
         sta = &rwnx_hw->sta_table[sta_idx];
     }
-	
+
     return sta;
 }
 
@@ -619,43 +616,32 @@ void rwnx_tx_push(struct rwnx_hw *rwnx_hw, struct rwnx_txhdr *txhdr, int flags)
 #ifdef CREATE_TRACE_POINTS
     trace_push_desc(skb, sw_txhdr, flags);
 #endif
-    #if 0
+#if 0
     txq->credits--;
-    #endif
+#endif
     txq->pkt_pushed[user]++;
     //printk("txq->credits=%d\n",txq->credits);
-    #if 0
+#if 0
     if (txq->credits <= 0)
         rwnx_txq_stop(txq, RWNX_TXQ_STOP_FULL);
-    #endif
+#endif
 
     if (txq->push_limit)
         txq->push_limit--;
 #if 0
     rwnx_ipc_txdesc_push(rwnx_hw, &sw_txhdr->desc, skb, hw_queue, user);
 #else
-#ifdef  AICWF_SDIO_SUPPORT
-    if( ((sw_txhdr->desc.host.flags & TXU_CNTRL_MGMT) && \
-	((*(skb->data+sw_txhdr->headroom)==0xd0) || (*(skb->data+sw_txhdr->headroom)==0x10) || (*(skb->data+sw_txhdr->headroom)==0x30))) || \
-        (sw_txhdr->desc.host.ethertype == 0x8e88) ) { // 0xd0:Action, 0x10:AssocRsp, 0x8e88:EAPOL
+#ifdef AICWF_SDIO_SUPPORT
+    if (((sw_txhdr->desc.host.flags & TXU_CNTRL_MGMT) && \
+         ((*(skb->data+sw_txhdr->headroom) == 0xd0) || (*(skb->data+sw_txhdr->headroom) == 0x10) || (*(skb->data+sw_txhdr->headroom) == 0x30))) || \
+        (sw_txhdr->desc.host.ethertype == 0x8e88) || (sw_txhdr->desc.host.ethertype == 0xb488)) {
         sw_txhdr->need_cfm = 1;
-        sw_txhdr->desc.host.status_desc_addr = ((1<<31) | rwnx_hw->sdio_env.txdesc_free_idx[0]);
+        sw_txhdr->desc.host.hostid = ((1<<31) | rwnx_hw->sdio_env.txdesc_free_idx[0]);
         aicwf_sdio_host_txdesc_push(&(rwnx_hw->sdio_env), 0, (long)skb);
-		AICWFDBG(LOGINFO, "need cfm ethertype:%8x,user_idx=%d, skb=%p sta_idx:%d\n", 
-			sw_txhdr->desc.host.ethertype, 
-			rwnx_hw->sdio_env.txdesc_free_idx[0], 
-			skb,
-			sw_txhdr->desc.host.staid);
+        AICWFDBG(LOGINFO, "need cfm ethertype:%8x,user_idx=%d, skb=%p\n", sw_txhdr->desc.host.ethertype, rwnx_hw->sdio_env.txdesc_free_idx[0], skb);
     } else {
         sw_txhdr->need_cfm = 0;
-        if (sw_txhdr->raw_frame) {
-            sw_txhdr->desc.host.flags |= TXU_CNTRL_MGMT;
-        }
-        if (sw_txhdr->fixed_rate) {
-            sw_txhdr->desc.host.status_desc_addr = (0x01UL << 30) | sw_txhdr->rate_config;
-        } else {
-            sw_txhdr->desc.host.status_desc_addr = 0;
-        }
+        sw_txhdr->desc.host.hostid = 0;
 
         sw_txhdr->rwnx_vif->net_stats.tx_packets++;
         sw_txhdr->rwnx_vif->net_stats.tx_bytes += sw_txhdr->frame_len;
@@ -664,27 +650,16 @@ void rwnx_tx_push(struct rwnx_hw *rwnx_hw, struct rwnx_txhdr *txhdr, int flags)
     aicwf_frame_tx((void *)(rwnx_hw->sdiodev), skb);
 #endif
 #ifdef AICWF_USB_SUPPORT
-    if( ((sw_txhdr->desc.host.flags & TXU_CNTRL_MGMT) && \
-	((*(skb->data+sw_txhdr->headroom)==0xd0) || (*(skb->data+sw_txhdr->headroom)==0x10) || (*(skb->data+sw_txhdr->headroom)==0x30))) || \
-        (sw_txhdr->desc.host.ethertype == 0x8e88) ) { // 0xd0:Action, 0x10:AssocRsp, 0x8e88:EAPOL
+    if (((sw_txhdr->desc.host.flags & TXU_CNTRL_MGMT) && \
+         ((*(skb->data+sw_txhdr->headroom) == 0xd0) || (*(skb->data+sw_txhdr->headroom) == 0x10) || (*(skb->data+sw_txhdr->headroom) == 0x30))) || \
+        (sw_txhdr->desc.host.ethertype == 0x8e88)) {
+        printk("push need cfm flags 0x%x\n", sw_txhdr->desc.host.flags);
         sw_txhdr->need_cfm = 1;
-        sw_txhdr->desc.host.status_desc_addr = ((1<<31) | rwnx_hw->usb_env.txdesc_free_idx[0]);
+        sw_txhdr->desc.host.hostid = ((1<<31) | rwnx_hw->usb_env.txdesc_free_idx[0]);
         aicwf_usb_host_txdesc_push(&(rwnx_hw->usb_env), 0, (long)(skb));
-        AICWFDBG(LOGINFO, "need cfm ethertype:%8x,user_idx=%d, skb=%p sta_idx:%d\n", 
-			sw_txhdr->desc.host.ethertype, 
-			rwnx_hw->usb_env.txdesc_free_idx[0], 
-			skb,
-			sw_txhdr->desc.host.staid);
     } else {
         sw_txhdr->need_cfm = 0;
-        if (sw_txhdr->raw_frame) {
-            sw_txhdr->desc.host.flags |= TXU_CNTRL_MGMT;
-        }
-        if (sw_txhdr->fixed_rate) {
-            sw_txhdr->desc.host.status_desc_addr = (0x01UL << 30) | sw_txhdr->rate_config;
-        } else {
-            sw_txhdr->desc.host.status_desc_addr = 0;
-        }
+        sw_txhdr->desc.host.hostid = 0;
 
         sw_txhdr->rwnx_vif->net_stats.tx_packets++;
         sw_txhdr->rwnx_vif->net_stats.tx_bytes += sw_txhdr->frame_len;
@@ -693,9 +668,9 @@ void rwnx_tx_push(struct rwnx_hw *rwnx_hw, struct rwnx_txhdr *txhdr, int flags)
     aicwf_frame_tx((void *)(rwnx_hw->usbdev), skb);
 #endif
 #endif
-    #if 0
+#if 0
     txq->hwq->credits[user]--;
-    #endif
+#endif
     rwnx_hw->stats.cfm_balance[hw_queue]++;
 }
 
@@ -714,7 +689,7 @@ void rwnx_tx_push(struct rwnx_hw *rwnx_hw, struct rwnx_txhdr *txhdr, int flags)
  * First update sw descriptor and then queue it in the retry list.
  */
 static void rwnx_tx_retry(struct rwnx_hw *rwnx_hw, struct sk_buff *skb,
-                           struct rwnx_txhdr *txhdr, bool sw_retry)
+                          struct rwnx_txhdr *txhdr, bool sw_retry)
 {
     struct rwnx_sw_txhdr *sw_txhdr = txhdr->sw_hdr;
     struct tx_cfm_tag *cfm = &txhdr->hw_hdr.cfm;
@@ -724,20 +699,20 @@ static void rwnx_tx_retry(struct rwnx_hw *rwnx_hw, struct sk_buff *skb,
 
     if (!sw_retry) {
         /* update sw desc */
-		#if 0
+#if 0
         sw_txhdr->desc.host.sn = cfm->sn;
         sw_txhdr->desc.host.pn[0] = cfm->pn[0];
         sw_txhdr->desc.host.pn[1] = cfm->pn[1];
         sw_txhdr->desc.host.pn[2] = cfm->pn[2];
         sw_txhdr->desc.host.pn[3] = cfm->pn[3];
         sw_txhdr->desc.host.timestamp = cfm->timestamp;
-		#endif
-		sw_txhdr->desc.host.flags |= TXU_CNTRL_RETRY;
+#endif
+        sw_txhdr->desc.host.flags |= TXU_CNTRL_RETRY;
 
-        #ifdef CONFIG_RWNX_AMSDUS_TX
+#ifdef CONFIG_RWNX_AMSDUS_TX
         if (sw_txhdr->desc.host.flags & TXU_CNTRL_AMSDU)
             rwnx_hw->stats.amsdus[sw_txhdr->amsdu.nb - 1].failed++;
-        #endif
+#endif
     }
 
     /* MORE_DATA will be re-set if needed when pkt will be repushed */
@@ -794,7 +769,7 @@ static void rwnx_amsdu_del_subframe_header(struct rwnx_amsdu_txhdr *amsdu_txhdr)
 
     pos = skb->data;
     pos += sizeof(struct rwnx_amsdu_txhdr);
-    eth = (struct ethhdr*)pos;
+    eth = (struct ethhdr *)pos;
     pos += amsdu_txhdr->pad + sizeof(struct ethhdr);
 
     if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN) {
@@ -842,8 +817,8 @@ static void rwnx_amsdu_del_subframe_header(struct rwnx_amsdu_txhdr *amsdu_txhdr)
  * Called with tx_lock hold
  */
 static int rwnx_amsdu_add_subframe_header(struct rwnx_hw *rwnx_hw,
-                                          struct sk_buff *skb,
-                                          struct rwnx_sw_txhdr *sw_txhdr)
+        struct sk_buff *skb,
+        struct rwnx_sw_txhdr *sw_txhdr)
 {
     struct rwnx_amsdu *amsdu = &sw_txhdr->amsdu;
     struct rwnx_amsdu_txhdr *amsdu_txhdr;
@@ -854,7 +829,7 @@ static int rwnx_amsdu_add_subframe_header(struct rwnx_hw *rwnx_hw,
 
     msdu_len = skb->len - sizeof(*eth);
     headroom_need = sizeof(*amsdu_txhdr) + amsdu->pad +
-        sizeof(*amsdu_hdr);
+                    sizeof(*amsdu_hdr);
     if (ntohs(eth->h_proto) >= ETH_P_802_3_MIN) {
         headroom_need += sizeof(rfc1042_header) + 2;
         msdu_len += sizeof(rfc1042_header) + 2;
@@ -920,9 +895,6 @@ static int rwnx_amsdu_add_subframe_header(struct rwnx_hw *rwnx_hw,
     amsdu->pad = AMSDU_PADDING(map_len - amsdu->pad);
     list_add_tail(&amsdu_txhdr->list, &amsdu->hdrs);
     amsdu->len += map_len;
-
-    rwnx_ipc_sta_buffer(rwnx_hw, sw_txhdr->txq->sta,
-                        sw_txhdr->txq->tid, msdu_len);
 
     trace_amsdu_subframe(sw_txhdr);
     return 0;
@@ -1029,7 +1001,7 @@ static bool rwnx_amsdu_add_subframe(struct rwnx_hw *rwnx_hw, struct sk_buff *skb
 
     res = true;
 
-  end:
+end:
     spin_unlock_bh(&rwnx_hw->tx_lock);
     return res;
 }
@@ -1038,203 +1010,197 @@ static bool rwnx_amsdu_add_subframe(struct rwnx_hw *rwnx_hw, struct sk_buff *skb
 #ifdef CONFIG_BR_SUPPORT
 int aic_br_client_tx(struct rwnx_vif *vif, struct sk_buff **pskb)
 {
-	struct sk_buff *skb = *pskb;
+    struct sk_buff *skb = *pskb;
 
-	/* if(check_fwstate(pmlmepriv, WIFI_STATION_STATE|WIFI_ADHOC_STATE) == _TRUE) */
-	{
-		void dhcp_flag_bcast(struct rwnx_vif *vif, struct sk_buff *skb);
-		int res, is_vlan_tag = 0, i, do_nat25 = 1;
-		unsigned short vlan_hdr = 0;
-		void *br_port = NULL;
+    /* if(check_fwstate(pmlmepriv, WIFI_STATION_STATE|WIFI_ADHOC_STATE) == _TRUE) */
+    {
+        void dhcp_flag_bcast(struct rwnx_vif *vif, struct sk_buff *skb);
+        int res, is_vlan_tag = 0, i, do_nat25 = 1;
+        unsigned short vlan_hdr = 0;
+        void *br_port = NULL;
 
-		/* mac_clone_handle_frame(priv, skb); */
+        /* mac_clone_handle_frame(priv, skb); */
 
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
-		br_port = vif->ndev->br_port;
+        br_port = vif->ndev->br_port;
 #else   /* (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35)) */
-		rcu_read_lock();
-		br_port = rcu_dereference(vif->ndev->rx_handler_data);
-		rcu_read_unlock();
+        rcu_read_lock();
+        br_port = rcu_dereference(vif->ndev->rx_handler_data);
+        rcu_read_unlock();
 #endif /* (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35)) */
 #ifdef BR_SUPPORT_DEBUG
-		printk("SA=%pM, br_mac=%pM, type=0x%x, da[0]=%x, scdb=%pM, vif_type=%d\n", skb->data + MACADDRLEN,  vif->br_mac, *((unsigned short *)(skb->data + MACADDRLEN * 2)),
-			skb->data[0], vif->scdb_mac,RWNX_VIF_TYPE(vif));
+        printk("SA=%pM, br_mac=%pM, type=0x%x, da[0]=%x, scdb=%pM, vif_type=%d\n", skb->data + MACADDRLEN,  vif->br_mac, *((unsigned short *)(skb->data + MACADDRLEN * 2)),
+               skb->data[0], vif->scdb_mac,RWNX_VIF_TYPE(vif));
 #endif
         spin_lock_bh(&vif->br_ext_lock);
-		if (!(skb->data[0] & 1) &&
-		    br_port &&
-		    memcmp(skb->data + MACADDRLEN, vif->br_mac, MACADDRLEN) &&
-		    *((unsigned short *)(skb->data + MACADDRLEN * 2)) != __constant_htons(ETH_P_8021Q) &&
-		    *((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP) &&
-		    !memcmp(vif->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN) && vif->scdb_entry) {
-			memcpy(skb->data + MACADDRLEN, vif->ndev->dev_addr, MACADDRLEN);
-			vif->scdb_entry->ageing_timer = jiffies;
+        if (!(skb->data[0] & 1) &&
+            br_port &&
+            memcmp(skb->data + MACADDRLEN, vif->br_mac, MACADDRLEN) &&
+            *((unsigned short *)(skb->data + MACADDRLEN * 2)) != __constant_htons(ETH_P_8021Q) &&
+            *((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP) &&
+            !memcmp(vif->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN) && vif->scdb_entry) {
+            memcpy(skb->data + MACADDRLEN, vif->ndev->dev_addr, MACADDRLEN);
+            vif->scdb_entry->ageing_timer = jiffies;
             spin_unlock_bh(&vif->br_ext_lock);
-		} else
-			/* if (!priv->pmib->ethBrExtInfo.nat25_disable)		 */
-		{
-			/*			if (priv->dev->br_port &&
-			 *				 !memcmp(skb->data+MACADDRLEN, priv->br_mac, MACADDRLEN)) { */
+        } else
+            /* if (!priv->pmib->ethBrExtInfo.nat25_disable)		 */
+        {
+            /*			if (priv->dev->br_port &&
+             *				 !memcmp(skb->data+MACADDRLEN, priv->br_mac, MACADDRLEN)) { */
 #if 1
-			if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_8021Q)) {
-				is_vlan_tag = 1;
-				vlan_hdr = *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2));
-				for (i = 0; i < 6; i++)
-					*((unsigned short *)(skb->data + MACADDRLEN * 2 + 2 - i * 2)) = *((unsigned short *)(skb->data + MACADDRLEN * 2 - 2 - i * 2));
-				skb_pull(skb, 4);
-			}
-			/* if SA == br_mac && skb== IP  => copy SIP to br_ip ?? why */
-			if (!memcmp(skb->data + MACADDRLEN, vif->br_mac, MACADDRLEN) &&
-			    (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP)))
-				memcpy(vif->br_ip, skb->data + WLAN_ETHHDR_LEN + 12, 4);
+            if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_8021Q)) {
+                is_vlan_tag = 1;
+                vlan_hdr = *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2));
+                for (i = 0; i < 6; i++)
+                    *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2 - i * 2)) = *((unsigned short *)(skb->data + MACADDRLEN * 2 - 2 - i * 2));
+                skb_pull(skb, 4);
+            }
+            /* if SA == br_mac && skb== IP  => copy SIP to br_ip ?? why */
+            if (!memcmp(skb->data + MACADDRLEN, vif->br_mac, MACADDRLEN) &&
+                (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP)))
+                memcpy(vif->br_ip, skb->data + WLAN_ETHHDR_LEN + 12, 4);
 
-			if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP)) {
-				if (memcmp(vif->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN)) {
-	#if 1
-					void *scdb_findEntry(struct rwnx_vif *vif, unsigned char *macAddr, unsigned char *ipAddr);
+            if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP)) {
+                if (memcmp(vif->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN)) {
+#if 1
+                    void *scdb_findEntry(struct rwnx_vif *vif, unsigned char *macAddr, unsigned char *ipAddr);
 
-					vif->scdb_entry = (struct nat25_network_db_entry *)scdb_findEntry(vif,
-						skb->data + MACADDRLEN, skb->data + WLAN_ETHHDR_LEN + 12);
-					if (vif->scdb_entry != NULL) {
-						memcpy(vif->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN);
-						memcpy(vif->scdb_ip, skb->data + WLAN_ETHHDR_LEN + 12, 4);
-						vif->scdb_entry->ageing_timer = jiffies;
-						do_nat25 = 0;
-					}
-	#endif
-				} else {
-					if (vif->scdb_entry) {
-						vif->scdb_entry->ageing_timer = jiffies;
-						do_nat25 = 0;
-					} else {
-						memset(vif->scdb_mac, 0, MACADDRLEN);
-						memset(vif->scdb_ip, 0, 4);
-					}
-				}
-			}
-			spin_unlock_bh(&vif->br_ext_lock);
+                    vif->scdb_entry = (struct nat25_network_db_entry *)scdb_findEntry(vif,
+                                      skb->data + MACADDRLEN, skb->data + WLAN_ETHHDR_LEN + 12);
+                    if (vif->scdb_entry != NULL) {
+                        memcpy(vif->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN);
+                        memcpy(vif->scdb_ip, skb->data + WLAN_ETHHDR_LEN + 12, 4);
+                        vif->scdb_entry->ageing_timer = jiffies;
+                        do_nat25 = 0;
+                    }
+#endif
+                } else {
+                    if (vif->scdb_entry) {
+                        vif->scdb_entry->ageing_timer = jiffies;
+                        do_nat25 = 0;
+                    } else {
+                        memset(vif->scdb_mac, 0, MACADDRLEN);
+                        memset(vif->scdb_ip, 0, 4);
+                    }
+                }
+            }
+            spin_unlock_bh(&vif->br_ext_lock);
 #endif /* 1 */
-			if (do_nat25) {
-				#if 1
-				int nat25_db_handle(struct rwnx_vif *vif, struct sk_buff *skb, int method);
-				if (nat25_db_handle(vif, skb, NAT25_CHECK) == 0) {
-					struct sk_buff *newskb;
+            if (do_nat25) {
+#if 1
+                int nat25_db_handle(struct rwnx_vif *vif, struct sk_buff *skb, int method);
+                if (nat25_db_handle(vif, skb, NAT25_CHECK) == 0) {
+                    struct sk_buff *newskb;
 
-					if (is_vlan_tag) {
-						skb_push(skb, 4);
-						for (i = 0; i < 6; i++)
-							*((unsigned short *)(skb->data + i * 2)) = *((unsigned short *)(skb->data + 4 + i * 2));
-						*((unsigned short *)(skb->data + MACADDRLEN * 2)) = __constant_htons(ETH_P_8021Q);
-						*((unsigned short *)(skb->data + MACADDRLEN * 2 + 2)) = vlan_hdr;
-					}
+                    if (is_vlan_tag) {
+                        skb_push(skb, 4);
+                        for (i = 0; i < 6; i++)
+                            *((unsigned short *)(skb->data + i * 2)) = *((unsigned short *)(skb->data + 4 + i * 2));
+                        *((unsigned short *)(skb->data + MACADDRLEN * 2)) = __constant_htons(ETH_P_8021Q);
+                        *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2)) = vlan_hdr;
+                    }
 
-					newskb = skb_copy(skb, in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-					if (newskb == NULL) {
-						/* priv->ext_stats.tx_drops++; */
-						printk("TX DROP: skb_copy fail!\n");
-						/* goto stop_proc; */
-						return -1;
-					}
-					dev_kfree_skb_any(skb);
+                    newskb = skb_copy(skb, in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+                    if (newskb == NULL) {
+                        /* priv->ext_stats.tx_drops++; */
+                        printk("TX DROP: skb_copy fail!\n");
+                        /* goto stop_proc; */
+                        return -1;
+                    }
+                    dev_kfree_skb_any(skb);
 
-					*pskb = skb = newskb;
-					if (is_vlan_tag) {
-						vlan_hdr = *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2));
-						for (i = 0; i < 6; i++)
-							*((unsigned short *)(skb->data + MACADDRLEN * 2 + 2 - i * 2)) = *((unsigned short *)(skb->data + MACADDRLEN * 2 - 2 - i * 2));
-						skb_pull(skb, 4);
-					}
-				}
+                    *pskb = skb = newskb;
+                    if (is_vlan_tag) {
+                        vlan_hdr = *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2));
+                        for (i = 0; i < 6; i++)
+                            *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2 - i * 2)) = *((unsigned short *)(skb->data + MACADDRLEN * 2 - 2 - i * 2));
+                        skb_pull(skb, 4);
+                    }
+                }
 
-				if (skb_is_nonlinear(skb))
-					printk("%s(): skb_is_nonlinear!!\n", __FUNCTION__);
+                if (skb_is_nonlinear(skb))
+                    printk("%s(): skb_is_nonlinear!!\n", __FUNCTION__);
 
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
-				res = skb_linearize(skb, GFP_ATOMIC);
+                res = skb_linearize(skb, GFP_ATOMIC);
 #else	/* (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)) */
-				res = skb_linearize(skb);
+                res = skb_linearize(skb);
 #endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)) */
-				if (res < 0) {
-					printk("TX DROP: skb_linearize fail!\n");
-					/* goto free_and_stop; */
-					return -1;
-				}
+                if (res < 0) {
+                    printk("TX DROP: skb_linearize fail!\n");
+                    /* goto free_and_stop; */
+                    return -1;
+                }
 
-				res = nat25_db_handle(vif, skb, NAT25_INSERT);
-				if (res < 0) {
-					if (res == -2) {
-						/* priv->ext_stats.tx_drops++; */
-						printk("TX DROP: nat25_db_handle fail!\n");
-						/* goto free_and_stop; */
-						return -1;
+                res = nat25_db_handle(vif, skb, NAT25_INSERT);
+                if (res < 0) {
+                    if (res == -2) {
+                        /* priv->ext_stats.tx_drops++; */
+                        printk("TX DROP: nat25_db_handle fail!\n");
+                        /* goto free_and_stop; */
+                        return -1;
 
-					}
-					/* we just print warning message and let it go */
-					/* DEBUG_WARN("%s()-%d: nat25_db_handle INSERT Warning!\n", __FUNCTION__, __LINE__); */
-					/* return -1; */ /* return -1 will cause system crash on 2011/08/30! */
-					return 0;
-				}
-				#endif
-			}
+                    }
+                    /* we just print warning message and let it go */
+                    /* DEBUG_WARN("%s()-%d: nat25_db_handle INSERT Warning!\n", __FUNCTION__, __LINE__); */
+                    /* return -1; */ /* return -1 will cause system crash on 2011/08/30! */
+                    return 0;
+                }
+#endif
+            }
 
-			memcpy(skb->data + MACADDRLEN, vif->ndev->dev_addr, MACADDRLEN);
+            memcpy(skb->data + MACADDRLEN, vif->ndev->dev_addr, MACADDRLEN);
 
-			dhcp_flag_bcast(vif, skb);
+            dhcp_flag_bcast(vif, skb);
 
-			if (is_vlan_tag) {
-				skb_push(skb, 4);
-				for (i = 0; i < 6; i++)
-					*((unsigned short *)(skb->data + i * 2)) = *((unsigned short *)(skb->data + 4 + i * 2));
-				*((unsigned short *)(skb->data + MACADDRLEN * 2)) = __constant_htons(ETH_P_8021Q);
-				*((unsigned short *)(skb->data + MACADDRLEN * 2 + 2)) = vlan_hdr;
-			}
-		}
+            if (is_vlan_tag) {
+                skb_push(skb, 4);
+                for (i = 0; i < 6; i++)
+                    *((unsigned short *)(skb->data + i * 2)) = *((unsigned short *)(skb->data + 4 + i * 2));
+                *((unsigned short *)(skb->data + MACADDRLEN * 2)) = __constant_htons(ETH_P_8021Q);
+                *((unsigned short *)(skb->data + MACADDRLEN * 2 + 2)) = vlan_hdr;
+            }
+        }
 #if 0
-		else {
-			if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_8021Q))
-				is_vlan_tag = 1;
+        else {
+            if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_8021Q))
+                is_vlan_tag = 1;
 
-			if (is_vlan_tag) {
-				if (ICMPV6_MCAST_MAC(skb->data) && ICMPV6_PROTO1A_VALN(skb->data))
-					memcpy(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN);
-			} else {
-				if (ICMPV6_MCAST_MAC(skb->data) && ICMPV6_PROTO1A(skb->data))
-					memcpy(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN);
-			}
-		}
+            if (is_vlan_tag) {
+                if (ICMPV6_MCAST_MAC(skb->data) && ICMPV6_PROTO1A_VALN(skb->data))
+                    memcpy(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN);
+            } else {
+                if (ICMPV6_MCAST_MAC(skb->data) && ICMPV6_PROTO1A(skb->data))
+                    memcpy(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN);
+            }
+        }
 #endif /* 0 */
 
-		/* check if SA is equal to our MAC */
-		if (memcmp(skb->data + MACADDRLEN, vif->ndev->dev_addr, MACADDRLEN)) {
-			/* priv->ext_stats.tx_drops++; */
-			printk("TX DROP: untransformed frame SA:%02X%02X%02X%02X%02X%02X!\n",
-				skb->data[6], skb->data[7], skb->data[8], skb->data[9], skb->data[10], skb->data[11]);
-			/* goto free_and_stop; */
-			return -1;
-		}
-	}
-	printk("%s:exit\n",__func__);
-	return 0;
+        /* check if SA is equal to our MAC */
+        if (memcmp(skb->data + MACADDRLEN, vif->ndev->dev_addr, MACADDRLEN)) {
+            /* priv->ext_stats.tx_drops++; */
+            printk("TX DROP: untransformed frame SA:%02X%02X%02X%02X%02X%02X!\n",
+                   skb->data[6], skb->data[7], skb->data[8], skb->data[9], skb->data[10], skb->data[11]);
+            /* goto free_and_stop; */
+            return -1;
+        }
+    }
+    printk("%s:exit\n",__func__);
+    return 0;
 }
 #endif /* CONFIG_BR_SUPPORT */
 
 
-/**
- * netdev_tx_t (*ndo_start_xmit)(struct sk_buff *skb,
- *                               struct net_device *dev);
- *	Called when a packet needs to be transmitted.
- *	Must return NETDEV_TX_OK , NETDEV_TX_BUSY.
- *        (can also return NETDEV_TX_LOCKED if NETIF_F_LLTX)
- *
- *  - Initialize the desciptor for this pkt (stored in skb before data)
- *  - Push the pkt in the corresponding Txq
- *  - If possible (i.e. credit available and not in PS) the pkt is pushed
- *    to fw
+#ifdef CONFIG_FILTER_TCP_ACK
+/* return:
+ *      0, msg buf freed by the real driver
+ *      others, skb need free by the caller,remember not use msg->skb!
  */
-netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
+
+int intf_tx(struct rwnx_hw *priv,struct msg_buf *msg)
 {
-    struct rwnx_vif *rwnx_vif = netdev_priv(dev);
+    struct rwnx_vif *rwnx_vif = msg->rwnx_vif;
     struct rwnx_hw *rwnx_hw = rwnx_vif->rwnx_hw;
     struct rwnx_txhdr *txhdr;
     struct rwnx_sw_txhdr *sw_txhdr;
@@ -1242,36 +1208,19 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
     struct rwnx_sta *sta;
     struct rwnx_txq *txq;
     int headroom;
-    int max_headroom;
+    //int max_headroom;
     int hdr_pads;
 
     u16 frame_len;
     u16 frame_oft;
     u8 tid;
-    
+    struct sk_buff *skb=msg->skb;
     struct ethhdr eth_t;
 
-#ifdef CONFIG_ONE_TXQ
-    skb->queue_mapping = rwnx_select_txq(rwnx_vif, skb);
-#endif
+    move_tcpack_msg(rwnx_hw,msg);
+    kfree(msg);
 
     memcpy(&eth_t, skb->data, sizeof(struct ethhdr));
-
-    sk_pacing_shift_update(skb->sk, rwnx_hw->tcp_pacing_shift);
-    max_headroom = sizeof(struct rwnx_txhdr);
-
-    /* check whether the current skb can be used */
-    if (skb_shared(skb) || (skb_headroom(skb) < max_headroom) ||
-        (skb_cloned(skb) && (dev->priv_flags & IFF_BRIDGE_PORT))) {
-        struct sk_buff *newskb = skb_copy_expand(skb, max_headroom, 0,
-                                                 GFP_ATOMIC);
-        if (unlikely(newskb == NULL))
-            goto free;
-
-        dev_kfree_skb_any(skb);
-
-        skb = newskb;
-    }
 
     /* Get the STA id and TID information */
     sta = rwnx_get_tx_priv(rwnx_vif, skb, &tid);
@@ -1291,13 +1240,13 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
     if (1) {//(check_fwstate(&padapter->mlmepriv, WIFI_STATION_STATE | WIFI_ADHOC_STATE) == _TRUE) {
         void *br_port = NULL;
 
-	#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
         br_port = rwnx_vif->ndev->br_port;
-	#else
+#else
         rcu_read_lock();
         br_port = rcu_dereference(rwnx_vif->ndev->rx_handler_data);
         rcu_read_unlock();
-	#endif
+#endif
 
         if (br_port) {
             s32 res = aic_br_client_tx(rwnx_vif, &skb);
@@ -1308,11 +1257,12 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
     }
 #endif /* CONFIG_BR_SUPPORT */
 
-	/* Retrieve the pointer to the Ethernet data */
-	// eth = (struct ethhdr *)skb->data;
+
+    /* Retrieve the pointer to the Ethernet data */
+    // eth = (struct ethhdr *)skb->data;
 
     skb_pull(skb, 14);
-    //hdr_pads  = RWNX_SWTXHDR_ALIGN_PADS((long)eth);
+    //hdr_pads	= RWNX_SWTXHDR_ALIGN_PADS((long)eth);
     hdr_pads  = RWNX_SWTXHDR_ALIGN_PADS((long)skb->data);
     headroom  = sizeof(struct rwnx_txhdr) + hdr_pads;
 
@@ -1320,7 +1270,6 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
     txhdr = (struct rwnx_txhdr *)skb->data;
     sw_txhdr = kmem_cache_alloc(rwnx_hw->sw_txhdr_cache, GFP_ATOMIC);
-
     if (unlikely(sw_txhdr == NULL))
         goto free;
     txhdr->sw_hdr = sw_txhdr;
@@ -1328,20 +1277,18 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
     frame_len = (u16)skb->len - headroom;// - sizeof(*eth);
 
-    sw_txhdr->txq       = txq;
+    sw_txhdr->txq		= txq;
     sw_txhdr->frame_len = frame_len;
-    sw_txhdr->rwnx_sta  = sta;
-    sw_txhdr->rwnx_vif  = rwnx_vif;
-    sw_txhdr->skb       = skb;
-    sw_txhdr->headroom  = headroom;
-    sw_txhdr->map_len   = skb->len - offsetof(struct rwnx_txhdr, hw_hdr);
+    sw_txhdr->rwnx_sta	= sta;
+    sw_txhdr->rwnx_vif	= rwnx_vif;
+    sw_txhdr->skb		= skb;
+    sw_txhdr->headroom	= headroom;
+    sw_txhdr->map_len	= skb->len - offsetof(struct rwnx_txhdr, hw_hdr);
 
 #ifdef CONFIG_RWNX_AMSDUS_TX
     sw_txhdr->amsdu.len = 0;
     sw_txhdr->amsdu.nb = 0;
 #endif
-    sw_txhdr->raw_frame = 0;
-    sw_txhdr->fixed_rate = 0;
     // Fill-in the descriptor
     memcpy(&desc->host.eth_dest_addr, eth_t.h_dest, ETH_ALEN);
     memcpy(&desc->host.eth_src_addr, eth_t.h_source, ETH_ALEN);
@@ -1390,7 +1337,7 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
     /* Fill-in TX descriptor */
     frame_oft = sizeof(struct rwnx_txhdr) - offsetof(struct rwnx_txhdr, hw_hdr)
                 + hdr_pads;// + sizeof(*eth);
- #if 0
+#if 0
 #ifdef CONFIG_RWNX_SPLIT_TX_BUF
     desc->host.packet_addr[0] = sw_txhdr->dma_addr + frame_oft;
     desc->host.packet_cnt = 1;
@@ -1398,7 +1345,217 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
     desc->host.packet_addr = sw_txhdr->dma_addr + frame_oft;
 #endif
 #endif
-    desc->host.status_desc_addr = sw_txhdr->dma_addr;
+    desc->host.hostid = sw_txhdr->dma_addr;
+
+    spin_lock_bh(&rwnx_hw->tx_lock);
+    if (rwnx_txq_queue_skb(skb, txq, rwnx_hw, false))
+        rwnx_hwq_process(rwnx_hw, txq->hwq);
+    spin_unlock_bh(&rwnx_hw->tx_lock);
+
+    return 0;//NETDEV_TX_OK
+
+free:
+    dev_kfree_skb_any(skb);
+
+    return 0;//NETDEV_TX_OK
+}
+#endif
+
+/**
+ * netdev_tx_t (*ndo_start_xmit)(struct sk_buff *skb,
+ *                               struct net_device *dev);
+ *	Called when a packet needs to be transmitted.
+ *	Must return NETDEV_TX_OK , NETDEV_TX_BUSY.
+ *        (can also return NETDEV_TX_LOCKED if NETIF_F_LLTX)
+ *
+ *  - Initialize the desciptor for this pkt (stored in skb before data)
+ *  - Push the pkt in the corresponding Txq
+ *  - If possible (i.e. credit available and not in PS) the pkt is pushed
+ *    to fw
+ */
+netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+    struct rwnx_vif *rwnx_vif = netdev_priv(dev);
+    struct rwnx_hw *rwnx_hw = rwnx_vif->rwnx_hw;
+    struct rwnx_txhdr *txhdr;
+    struct rwnx_sw_txhdr *sw_txhdr;
+    struct txdesc_api *desc;
+    struct rwnx_sta *sta;
+    struct rwnx_txq *txq;
+    int headroom;
+    int max_headroom;
+    int hdr_pads;
+
+    u16 frame_len;
+    u16 frame_oft;
+    u8 tid;
+
+    struct ethhdr eth_t;
+#ifdef CONFIG_FILTER_TCP_ACK
+    struct msg_buf *msgbuf;
+#endif
+
+#ifdef CONFIG_ONE_TXQ
+    skb->queue_mapping = rwnx_select_txq(rwnx_vif, skb);
+#endif
+
+    sk_pacing_shift_update(skb->sk, rwnx_hw->tcp_pacing_shift);
+    max_headroom = sizeof(struct rwnx_txhdr);
+
+    /* check whether the current skb can be used */
+    if (skb_shared(skb) || (skb_headroom(skb) < max_headroom) ||
+        (skb_cloned(skb) && (dev->priv_flags & IFF_BRIDGE_PORT))) {
+        struct sk_buff *newskb = skb_copy_expand(skb, max_headroom, 0,
+                                 GFP_ATOMIC);
+        if (unlikely(newskb == NULL))
+            goto free;
+
+        dev_kfree_skb_any(skb);
+
+        skb = newskb;
+    }
+
+    if(skb->priority < 3)
+        skb->priority = 0;
+
+#ifdef CONFIG_FILTER_TCP_ACK
+    msgbuf=intf_tcp_alloc_msg(msgbuf);
+    msgbuf->rwnx_vif=rwnx_vif;
+    msgbuf->skb=skb;
+    if(filter_send_tcp_ack(rwnx_hw,msgbuf,skb->data,cpu_to_le16(skb->len))) {
+        return NETDEV_TX_OK;
+    } else {
+        move_tcpack_msg(rwnx_hw,msgbuf);
+        kfree(msgbuf);
+    }
+#endif
+
+    memcpy(&eth_t, skb->data, sizeof(struct ethhdr));
+
+    /* Get the STA id and TID information */
+    sta = rwnx_get_tx_priv(rwnx_vif, skb, &tid);
+    if (!sta)
+        goto free;
+
+    txq = rwnx_txq_sta_get(sta, tid, rwnx_hw);
+    if (txq->idx == TXQ_INACTIVE)
+        goto free;
+
+#ifdef CONFIG_RWNX_AMSDUS_TX
+    if (rwnx_amsdu_add_subframe(rwnx_hw, skb, sta, txq))
+        return NETDEV_TX_OK;
+#endif
+
+#ifdef CONFIG_BR_SUPPORT
+    if (1) {//(check_fwstate(&padapter->mlmepriv, WIFI_STATION_STATE | WIFI_ADHOC_STATE) == _TRUE) {
+        void *br_port = NULL;
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
+        br_port = rwnx_vif->ndev->br_port;
+#else
+        rcu_read_lock();
+        br_port = rcu_dereference(rwnx_vif->ndev->rx_handler_data);
+        rcu_read_unlock();
+#endif
+
+        if (br_port) {
+            s32 res = aic_br_client_tx(rwnx_vif, &skb);
+            if (res == -1) {
+                goto free;
+            }
+        }
+    }
+#endif /* CONFIG_BR_SUPPORT */
+
+
+    /* Retrieve the pointer to the Ethernet data */
+    // eth = (struct ethhdr *)skb->data;
+
+    skb_pull(skb, 14);
+    //hdr_pads  = RWNX_SWTXHDR_ALIGN_PADS((long)eth);
+    hdr_pads  = RWNX_SWTXHDR_ALIGN_PADS((long)skb->data);
+    headroom  = sizeof(struct rwnx_txhdr) + hdr_pads;
+
+    skb_push(skb, headroom);
+
+    txhdr = (struct rwnx_txhdr *)skb->data;
+    sw_txhdr = kmem_cache_alloc(rwnx_hw->sw_txhdr_cache, GFP_ATOMIC);
+    if (unlikely(sw_txhdr == NULL))
+        goto free;
+    txhdr->sw_hdr = sw_txhdr;
+    desc = &sw_txhdr->desc;
+
+    frame_len = (u16)skb->len - headroom;// - sizeof(*eth);
+
+    sw_txhdr->txq       = txq;
+    sw_txhdr->frame_len = frame_len;
+    sw_txhdr->rwnx_sta  = sta;
+    sw_txhdr->rwnx_vif  = rwnx_vif;
+    sw_txhdr->skb       = skb;
+    sw_txhdr->headroom  = headroom;
+    sw_txhdr->map_len   = skb->len - offsetof(struct rwnx_txhdr, hw_hdr);
+
+#ifdef CONFIG_RWNX_AMSDUS_TX
+    sw_txhdr->amsdu.len = 0;
+    sw_txhdr->amsdu.nb = 0;
+#endif
+    // Fill-in the descriptor
+    memcpy(&desc->host.eth_dest_addr, eth_t.h_dest, ETH_ALEN);
+    memcpy(&desc->host.eth_src_addr, eth_t.h_source, ETH_ALEN);
+    desc->host.ethertype = eth_t.h_proto;
+    desc->host.staid = sta->sta_idx;
+    desc->host.tid = tid;
+    if (unlikely(rwnx_vif->wdev.iftype == NL80211_IFTYPE_AP_VLAN))
+        desc->host.vif_idx = rwnx_vif->ap_vlan.master->vif_index;
+    else
+        desc->host.vif_idx = rwnx_vif->vif_index;
+
+    if (rwnx_vif->use_4addr && (sta->sta_idx < NX_REMOTE_STA_MAX))
+        desc->host.flags = TXU_CNTRL_USE_4ADDR;
+    else
+        desc->host.flags = 0;
+
+    if ((rwnx_vif->tdls_status == TDLS_LINK_ACTIVE) &&
+        rwnx_vif->sta.tdls_sta &&
+        (memcmp(desc->host.eth_dest_addr.array, rwnx_vif->sta.tdls_sta->mac_addr, ETH_ALEN) == 0)) {
+        desc->host.flags |= TXU_CNTRL_TDLS;
+        rwnx_vif->sta.tdls_sta->tdls.last_tid = desc->host.tid;
+        //rwnx_vif->sta.tdls_sta->tdls.last_sn = desc->host.sn;
+    }
+
+    if (rwnx_vif->wdev.iftype == NL80211_IFTYPE_MESH_POINT) {
+        if (rwnx_vif->is_resending) {
+            desc->host.flags |= TXU_CNTRL_MESH_FWD;
+        }
+    }
+
+#ifdef CONFIG_RWNX_SPLIT_TX_BUF
+    desc->host.packet_len[0] = frame_len;
+#else
+    desc->host.packet_len = frame_len;
+#endif
+
+    txhdr->hw_hdr.cfm.status.value = 0;
+
+    if (unlikely(rwnx_prep_tx(rwnx_hw, txhdr))) {
+        kmem_cache_free(rwnx_hw->sw_txhdr_cache, sw_txhdr);
+        skb_pull(skb, headroom);
+        dev_kfree_skb_any(skb);
+        return NETDEV_TX_BUSY;
+    }
+
+    /* Fill-in TX descriptor */
+    frame_oft = sizeof(struct rwnx_txhdr) - offsetof(struct rwnx_txhdr, hw_hdr)
+                + hdr_pads;// + sizeof(*eth);
+#if 0
+#ifdef CONFIG_RWNX_SPLIT_TX_BUF
+    desc->host.packet_addr[0] = sw_txhdr->dma_addr + frame_oft;
+    desc->host.packet_cnt = 1;
+#else
+    desc->host.packet_addr = sw_txhdr->dma_addr + frame_oft;
+#endif
+#endif
+    desc->host.hostid = sw_txhdr->dma_addr;
 
     spin_lock_bh(&rwnx_hw->tx_lock);
     if (rwnx_txq_queue_skb(skb, txq, rwnx_hw, false))
@@ -1425,8 +1582,6 @@ free:
  * @cookie: updated with a unique value to identify the frame with upper layer
  *
  */
-
-
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
 int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
                          struct cfg80211_mgmt_tx_params *params, bool offchan,
@@ -1434,13 +1589,13 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
 #else
 int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
                          struct ieee80211_channel *channel, bool offchan,
-                         unsigned int wait, const u8* buf, size_t len,
-                    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
+                         unsigned int wait, const u8 *buf, size_t len,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
                          bool no_cck,
-                    #endif
-                    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
+#endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
                          bool dont_wait_for_ack,
-                    #endif
+#endif
                          u64 *cookie)
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
 {
@@ -1454,21 +1609,25 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
     struct rwnx_txq *txq;
     bool robust;
-    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
     const u8 *buf = params->buf;
     size_t len = params->len;
     bool no_cck = params->no_cck;
-    #endif
+#endif
+
+    AICWFDBG(LOGDEBUG,"mgmt xmit %x %x ",buf[0],buf[1]);
+
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+       ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)) {
+        nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
+    }
+
+
     headroom = sizeof(struct rwnx_txhdr);
     frame_len = len;
 
     //----------------------------------------------------------------------
-
-	if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-		((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-		g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-		nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
-	}
 
     /* Set TID and Queues indexes */
     if (sta) {
@@ -1514,13 +1673,13 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0))
     robust = ieee80211_is_robust_mgmt_frame(skb);
 #else
-	if (skb->len < 25){
-		robust = false;
-	}
-	robust = ieee80211_is_robust_mgmt_frame((void *)skb->data);
+    if (skb->len < 25) {
+        robust = false;
+    }
+    robust = ieee80211_is_robust_mgmt_frame((void *)skb->data);
 #endif
 
-    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0))
     /* Update CSA counter if present */
     if (unlikely(params->n_csa_offsets) &&
         vif->wdev.iftype == NL80211_IFTYPE_AP &&
@@ -1532,7 +1691,7 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
             data[params->csa_offsets[i]] = vif->ap.csa->count;
         }
     }
-    #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
 
     /*
      * Go back to the beginning of the allocated data area
@@ -1551,13 +1710,10 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
 
     /* Fill the SW TX Header */
     sw_txhdr = kmem_cache_alloc(rwnx_hw->sw_txhdr_cache, GFP_ATOMIC);
-	
     if (unlikely(sw_txhdr == NULL)) {
         dev_kfree_skb(skb);
         return -ENOMEM;
     }
-
-
     txhdr->sw_hdr = sw_txhdr;
 
     sw_txhdr->txq = txq;
@@ -1571,13 +1727,11 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
     sw_txhdr->amsdu.len = 0;
     sw_txhdr->amsdu.nb = 0;
 #endif
-    sw_txhdr->raw_frame = 0;
-    sw_txhdr->fixed_rate = 0;
     //----------------------------------------------------------------------
 
     /* Fill the Descriptor to be provided to the MAC SW */
     desc = &sw_txhdr->desc;
-	
+
     desc->host.ethertype = 0;
     desc->host.staid = (sta) ? sta->sta_idx : 0xFF;
     desc->host.vif_idx = vif->vif_index;
@@ -1604,366 +1758,25 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
     }
 
     frame_oft = sizeof(struct rwnx_txhdr) - offsetof(struct rwnx_txhdr, hw_hdr);
-	#if 0
+#if 0
 #ifdef CONFIG_RWNX_SPLIT_TX_BUF
     desc->host.packet_addr[0] = sw_txhdr->dma_addr + frame_oft;
     desc->host.packet_cnt = 1;
 #else
     desc->host.packet_addr = sw_txhdr->dma_addr + frame_oft;
 #endif
-	#endif
-    desc->host.status_desc_addr = sw_txhdr->dma_addr;
+#endif
+    desc->host.hostid = sw_txhdr->dma_addr;
 
     //----------------------------------------------------------------------
 
     spin_lock_bh(&rwnx_hw->tx_lock);
-	AICWFDBG(LOGDEBUG, "%s sta:%p skb:%p desc->host.staid:%d \r\n", __func__, sta, skb, desc->host.staid);
     if (rwnx_txq_queue_skb(skb, txq, rwnx_hw, false))
         rwnx_hwq_process(rwnx_hw, txq->hwq);
     spin_unlock_bh(&rwnx_hw->tx_lock);
 
     return 0;
 }
-
-#ifdef CONFIG_RWNX_MON_XMIT
-/**
- * netdev_tx_t (*ndo_start_xmit)(struct sk_buff *skb,
- *                               struct net_device *dev);
- *	Called when a packet needs to be transmitted.
- *	Must return NETDEV_TX_OK , NETDEV_TX_BUSY.
- *        (can also return NETDEV_TX_LOCKED if NETIF_F_LLTX)
- *
- *  - Initialize the desciptor for this pkt (stored in skb before data)
- *  - Push the pkt in the corresponding Txq
- *  - If possible (i.e. credit available and not in PS) the pkt is pushed
- *    to fw
- */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 11, 0))
-#define IEEE80211_RADIOTAP_MCS_HAVE_STBC	0x20
-#define IEEE80211_RADIOTAP_MCS_STBC_MASK	0x60
-#define IEEE80211_RADIOTAP_MCS_STBC_SHIFT	5
-#endif
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0))
-#define IEEE80211_RADIOTAP_CODING_LDPC_USER0			0x01
-#endif
-
-netdev_tx_t rwnx_start_monitor_if_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-    int rtap_len, ret, idx, tmp_len;
-    struct ieee80211_radiotap_header *rtap_hdr; // net/ieee80211_radiotap.h
-    struct ieee80211_radiotap_iterator iterator; // net/cfg80211.h
-    u8_l *rtap_buf = (u8_l *)skb->data;
-    u8_l rate;
-
-    struct rwnx_vif *vif = netdev_priv(dev);
-    struct rwnx_hw *rwnx_hw = vif->rwnx_hw;
-    struct rwnx_txhdr *txhdr;
-    struct rwnx_sw_txhdr *sw_txhdr;
-    struct txdesc_api *desc;
-    struct rwnx_sta *sta;
-    struct rwnx_txq *txq;
-    u16_l frame_len, headroom, frame_oft;
-    u8_l tid, rate_fmt = FORMATMOD_NON_HT, rate_idx = 0, txsig_bw = PHY_CHNL_BW_20;
-    u8_l *pframe, *data;
-    bool robust;
-    struct sk_buff *skb_mgmt;
-    bool offchan = false;
-    int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
-
-    rtap_hdr = (struct ieee80211_radiotap_header*)(rtap_buf);
-    rtap_len = ieee80211_get_radiotap_len(rtap_buf);
-    frame_len = skb->len;
-
-    printk("rwnx_start_monitor_if_xmit, skb_len=%d, rtap_len=%d\n", skb->len, rtap_len);
-
-    if((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8801) || 
-        ((g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DC ||
-        g_rwnx_plat->usbdev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
-            nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
-    }
-
-
-    if (unlikely(rtap_hdr->it_version))
-        goto free_tag;
-
-    if (unlikely(skb->len < rtap_len))
-        goto free_tag;
-
-    if (unlikely(rtap_len < sizeof(struct ieee80211_radiotap_header)))
-        goto free_tag;
-
-    frame_len -= rtap_len;
-    pframe = rtap_buf + rtap_len;
-
-    // Parse radiotap for injection items and overwrite attribs as needed
-    ret = ieee80211_radiotap_iterator_init(&iterator, rtap_hdr, rtap_len, NULL);
-    while (!ret) {
-        ret = ieee80211_radiotap_iterator_next(&iterator);
-        if (ret) {
-            continue;
-        }
-        switch (iterator.this_arg_index) {
-            case IEEE80211_RADIOTAP_RATE:
-                // This is basic 802.11b/g rate; use MCS/VHT for higher rates
-                rate = *iterator.this_arg;
-                printk("rate=0x%x\n", rate);
-                for (idx = 0; idx < HW_RATE_MAX; idx++) {
-                    if ((rate * 5) == tx_legrates_lut_rate[idx]) {
-                        break;
-                    }
-                }
-                if (idx < HW_RATE_MAX) {
-                    rate_idx = idx;
-                } else {
-                    printk("invalid radiotap rate: %d\n", rate);
-                }
-                break;
-
-            case IEEE80211_RADIOTAP_TX_FLAGS: {
-                u16_l txflags = get_unaligned_le16(iterator.this_arg);
-                printk("txflags=0x%x\n", txflags);
-                if ((txflags & IEEE80211_RADIOTAP_F_TX_NOACK) == 0) {
-                    printk("  TX_NOACK\n");
-                }
-                if (txflags & 0x0010) { // Use preconfigured seq num
-                    // NOTE: this is currently ignored due to qos_en=_FALSE and HW seq num override
-                    printk("  GetSequence\n");
-                }
-            }
-            break;
-
-            case IEEE80211_RADIOTAP_MCS: {
-                u8_l mcs_have = iterator.this_arg[0];
-                printk("mcs_have=0x%x\n", mcs_have);
-                rate_fmt = FORMATMOD_HT_MF;
-                if (mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_BW) {
-                    u8_l bw = (iterator.this_arg[1] & IEEE80211_RADIOTAP_MCS_BW_MASK);
-                    u8_l ch_offset = 0;
-                    if (bw == IEEE80211_RADIOTAP_MCS_BW_40) {
-                        txsig_bw = PHY_CHNL_BW_40;
-                    } else if (bw == IEEE80211_RADIOTAP_MCS_BW_20L) {
-                        bw = IEEE80211_RADIOTAP_MCS_BW_20;
-                        ch_offset = 1; // CHNL_OFFSET_LOWER;
-                    } else if (bw == IEEE80211_RADIOTAP_MCS_BW_20U) {
-                        bw = IEEE80211_RADIOTAP_MCS_BW_20;
-                        ch_offset = 2; // CHNL_OFFSET_UPPER;
-                    }
-                    printk("  bw=%d, ch_offset=%d\n", bw, ch_offset);
-                }
-                if (mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_MCS) {
-                    u8_l fixed_rate = iterator.this_arg[2] & 0x7f;
-                    if (fixed_rate > 31) {
-                        fixed_rate = 0;
-                    }
-                    rate_idx = fixed_rate;
-                    printk("  fixed_rate=0x%x\n", fixed_rate);
-                }
-                if ((mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_GI) && (iterator.this_arg[1] & IEEE80211_RADIOTAP_MCS_SGI)) {
-                    printk("  sgi\n");
-                }
-                if ((mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_FEC) && (iterator.this_arg[1] & IEEE80211_RADIOTAP_MCS_FEC_LDPC)) {
-                    printk("  ldpc\n");
-                }
-                if (mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_STBC) {
-                    u8 stbc = (iterator.this_arg[1] & IEEE80211_RADIOTAP_MCS_STBC_MASK) >> IEEE80211_RADIOTAP_MCS_STBC_SHIFT;
-                    printk("  stbc=0x%x\n", stbc);
-                }
-            }
-            break;
-
-            case IEEE80211_RADIOTAP_VHT: {
-                unsigned int mcs, nss;
-                u8 known = iterator.this_arg[0];
-                u8 flags = iterator.this_arg[2];
-                rate_fmt = FORMATMOD_VHT;
-                printk("known=0x%x, flags=0x%x\n", known, flags);
-                // NOTE: this code currently only supports 1SS for radiotap defined rates
-                if ((known & IEEE80211_RADIOTAP_VHT_KNOWN_STBC) && (flags & IEEE80211_RADIOTAP_VHT_FLAG_STBC)) {
-                    printk("  stbc\n");
-                }
-                if ((known & IEEE80211_RADIOTAP_VHT_KNOWN_GI) && (flags & IEEE80211_RADIOTAP_VHT_FLAG_SGI)) {
-                    printk("  sgi\n");
-                }
-                if (known & IEEE80211_RADIOTAP_VHT_KNOWN_BANDWIDTH) {
-                    u8_l bw = iterator.this_arg[3] & 0x1F;
-                    printk("  bw=0x%x\n",bw);
-                    // NOTE: there are various L and U, but we just use straight 20/40/80
-                    // since it's not clear how to set CHNL_OFFSET_LOWER/_UPPER with different
-                    // sideband sizes/configurations.  TODO.
-                    // Also, any 160 is treated as 80 due to lack of WIDTH_160.
-                    txsig_bw = PHY_CHNL_BW_40;
-                    if (bw == 0) {
-                        txsig_bw = PHY_CHNL_BW_20;
-                        printk("  20M\n");
-                    } else if (bw >=1 && bw <= 3) {
-                        printk("  40M\n");
-                    } else if (bw >=4 && bw <= 10) {
-                        printk("  80M\n");
-                    } else if (bw >= 11 && bw <= 25) {
-                        printk("  160M\n");
-                    }
-                }
-                // User 0
-                nss = iterator.this_arg[4] & 0x0F; // Number of spatial streams
-                printk("  nss=0x%x\n", nss);
-                if (nss > 0) {
-                    if (nss > 4) nss = 4;
-                    mcs = (iterator.this_arg[4]>>4) & 0x0F; // MCS rate index
-                    if (mcs > 8) mcs = 9;
-                    rate_idx = mcs;
-                    printk("    mcs=0x%x\n", mcs);
-                    if (iterator.this_arg[8] & IEEE80211_RADIOTAP_CODING_LDPC_USER0) {
-                        printk("    ldpc\n");
-                    }
-                }
-            }
-            break;
-
-            case IEEE80211_RADIOTAP_HE: {
-                u16 data1 = ((u16)iterator.this_arg[1] << 8) | iterator.this_arg[0];
-                u16 data2 = ((u16)iterator.this_arg[3] << 8) | iterator.this_arg[2];
-                u16 data3 = ((u16)iterator.this_arg[5] << 8) | iterator.this_arg[4];
-                u16 data5 = ((u16)iterator.this_arg[9] << 8) | iterator.this_arg[8];
-                u8 fmt_he = data1 & IEEE80211_RADIOTAP_HE_DATA1_FORMAT_MASK;
-                if (fmt_he == IEEE80211_RADIOTAP_HE_DATA1_FORMAT_MU) {
-                    rate_fmt = FORMATMOD_HE_MU;
-                } else if (fmt_he == IEEE80211_RADIOTAP_HE_DATA1_FORMAT_EXT_SU) {
-                    rate_fmt = FORMATMOD_HE_ER;
-                } else {
-                    rate_fmt = FORMATMOD_HE_SU;
-                }
-                if (data1 & IEEE80211_RADIOTAP_HE_DATA1_DATA_MCS_KNOWN) {
-                    u8 mcs = (data3 & IEEE80211_RADIOTAP_HE_DATA3_DATA_MCS) >> 8;
-                    if (mcs > 11) mcs = 11;
-                    rate_idx = mcs;
-                }
-                if (data1 & IEEE80211_RADIOTAP_HE_DATA1_BW_RU_ALLOC_KNOWN) {
-                    u8 bw = data5 & IEEE80211_RADIOTAP_HE_DATA5_DATA_BW_RU_ALLOC;
-                    txsig_bw = (bw == IEEE80211_RADIOTAP_HE_DATA5_DATA_BW_RU_ALLOC_20MHZ) ? PHY_CHNL_BW_20 : PHY_CHNL_BW_40;
-                }
-                if (data2 & IEEE80211_RADIOTAP_HE_DATA2_GI_KNOWN) {
-                    u8 gi = (data5 & IEEE80211_RADIOTAP_HE_DATA5_GI) >> 4;
-                    printk("  gi: %d\n", gi);
-                }
-            }
-            break;
-
-            default:
-                printk("unparsed arg: 0x%x\n",iterator.this_arg_index);
-                break;
-        }
-    }
-
-    #if 0
-    // dump buffer
-    tmp_len = 128;
-    if (skb->len < 128) {
-        tmp_len = skb->len;
-    }
-    for (idx = 0; idx < tmp_len; idx+=16) {
-        printk("[%04X] %02X %02X %02X %02X %02X %02X %02X %02X   %02X %02X %02X %02X %02X %02X %02X %02X\n", idx,
-            rtap_buf[idx+0],rtap_buf[idx+1],rtap_buf[idx+2],rtap_buf[idx+3],
-            rtap_buf[idx+4],rtap_buf[idx+5],rtap_buf[idx+6],rtap_buf[idx+7],
-            rtap_buf[idx+8],rtap_buf[idx+9],rtap_buf[idx+10],rtap_buf[idx+11],
-            rtap_buf[idx+12],rtap_buf[idx+13],rtap_buf[idx+14],rtap_buf[idx+15]);
-    }
-    #endif
-
-    /* Get the STA id and TID information */
-    sta = rwnx_get_tx_priv(vif, skb, &tid);
-    //if (!sta) {
-    //    printk("sta=null, tid=0x%x\n", tid);
-    //}
-    /* Set TID and Queues indexes */
-    if (sta) {
-        txq = rwnx_txq_sta_get(sta, 8, rwnx_hw);
-    } else {
-        if (offchan)
-            txq = &rwnx_hw->txq[nx_off_chan_txq_idx];
-        else
-            txq = rwnx_txq_vif_get(vif, NX_UNK_TXQ_TYPE);
-    }
-    if (txq->idx == TXQ_INACTIVE) {
-        printk("TXQ_INACTIVE\n");
-        goto free_tag;
-    }
-    // prepare to xmit
-    headroom = sizeof(struct rwnx_txhdr);
-    skb_mgmt = dev_alloc_skb(headroom + frame_len);
-    if (!skb_mgmt) {
-        printk("skb_mgmt alloc fail\n");
-        goto free_tag;
-    }
-    skb_reserve(skb_mgmt, headroom);
-    data = skb_put(skb_mgmt, frame_len);
-    /* Copy the provided data */
-    memcpy(data, pframe, frame_len);
-    robust = ieee80211_is_robust_mgmt_frame(
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0))
-		(void*)skb_mgmt
-#else
-		skb_mgmt
-#endif
-		);
-    skb_push(skb_mgmt, headroom);
-    /* Fill the TX Header */
-    txhdr = (struct rwnx_txhdr *)skb_mgmt->data;
-    txhdr->hw_hdr.cfm.status.value = 0;
-    /* Fill the SW TX Header */
-    sw_txhdr = kmem_cache_alloc(rwnx_hw->sw_txhdr_cache, GFP_ATOMIC);
-    if (unlikely(sw_txhdr == NULL)) {
-        dev_kfree_skb(skb_mgmt);
-        printk("sw_txhdr alloc fail\n");
-        goto free_tag;
-    }
-    txhdr->sw_hdr = sw_txhdr;
-    sw_txhdr->txq = txq;
-    sw_txhdr->frame_len = frame_len;
-    sw_txhdr->rwnx_sta = sta;
-    sw_txhdr->rwnx_vif = vif;
-    sw_txhdr->skb = skb_mgmt;
-    sw_txhdr->headroom = headroom;
-    sw_txhdr->map_len = skb_mgmt->len - offsetof(struct rwnx_txhdr, hw_hdr);
-    sw_txhdr->raw_frame = 1;
-    sw_txhdr->fixed_rate = 1;
-    sw_txhdr->rate_config = ((rate_fmt << FORMAT_MOD_TX_RCX_OFT) & FORMAT_MOD_TX_RCX_MASK) |
-                            ((txsig_bw << BW_TX_RCX_OFT) & BW_TX_RCX_MASK) |
-                            ((rate_idx << MCS_INDEX_TX_RCX_OFT) & MCS_INDEX_TX_RCX_MASK); // from radiotap
-    /* Fill the Descriptor to be provided to the MAC SW */
-    desc = &sw_txhdr->desc;
-    desc->host.staid = (sta) ? sta->sta_idx : 0xFF;
-    desc->host.vif_idx = vif->vif_index;
-    desc->host.tid = 0xFF;
-    desc->host.flags = TXU_CNTRL_MGMT;
-    if (robust) {
-        desc->host.flags |= TXU_CNTRL_MGMT_ROBUST;
-    }
-    frame_oft = sizeof(struct rwnx_txhdr) - offsetof(struct rwnx_txhdr, hw_hdr);
-	#if 0
-    #ifdef CONFIG_RWNX_SPLIT_TX_BUF
-    desc->host.packet_addr[0] = sw_txhdr->dma_addr + frame_oft;
-    desc->host.packet_len[0] = frame_len;
-    desc->host.packet_cnt = 1;
-    #else
-    desc->host.packet_addr = sw_txhdr->dma_addr + frame_oft;
-    desc->host.packet_len = frame_len;
-    #endif
-	#else
-	desc->host.packet_len = frame_len;
-	#endif
-
-    desc->host.status_desc_addr = sw_txhdr->dma_addr;
-
-    spin_lock_bh(&rwnx_hw->tx_lock);
-    if (rwnx_txq_queue_skb(skb_mgmt, txq, rwnx_hw, false))
-        rwnx_hwq_process(rwnx_hw, txq->hwq);
-    spin_unlock_bh(&rwnx_hw->tx_lock);
-
-free_tag:
-    dev_kfree_skb_any(skb);
-    return NETDEV_TX_OK;
-}
-#endif
 
 /**
  * rwnx_txdatacfm - FW callback for TX confirmation
@@ -1979,7 +1792,7 @@ int rwnx_txdatacfm(void *pthis, void *host_id)
     struct rwnx_sw_txhdr *sw_txhdr;
     struct rwnx_hwq *hwq;
     struct rwnx_txq *txq;
-    u16 headroom;
+    int headroom;
     //int peek_off = offsetof(struct rwnx_hw_txhdr, cfm);
     //int peek_len = sizeof(((struct rwnx_hw_txhdr *)0)->cfm);
 
@@ -2021,9 +1834,9 @@ int rwnx_txdatacfm(void *pthis, void *host_id)
 
     /* Update txq and HW queue credits */
     if (sw_txhdr->desc.host.flags & TXU_CNTRL_MGMT) {
-        trace_printk("done=%d retry_required=%d sw_retry_required=%d acknowledged=%d\n",
-                     rwnx_txst.tx_done, rwnx_txst.retry_required,
-                     rwnx_txst.sw_retry_required, rwnx_txst.acknowledged);
+        printk("done=%d retry_required=%d sw_retry_required=%d acknowledged=%d\n",
+               rwnx_txst.tx_done, rwnx_txst.retry_required,
+               rwnx_txst.sw_retry_required, rwnx_txst.acknowledged);
 #ifdef CREATE_TRACE_POINTS
         trace_mgmt_cfm(sw_txhdr->rwnx_vif->vif_index,
                        (sw_txhdr->rwnx_sta) ? sw_txhdr->rwnx_sta->sta_idx : 0xFF,
@@ -2054,7 +1867,7 @@ int rwnx_txdatacfm(void *pthis, void *host_id)
     /* STA may have disconnect (and txq stopped) when buffers were stored
        in fw. In this case do nothing when they're returned */
     if (txq->idx != TXQ_INACTIVE) {
-        #if 0
+#if 0
         if (txhdr->hw_hdr.cfm.credits) {
             txq->credits += txhdr->hw_hdr.cfm.credits;
             if (txq->credits <= 0)
@@ -2062,7 +1875,7 @@ int rwnx_txdatacfm(void *pthis, void *host_id)
             else if (txq->credits > 0)
                 rwnx_txq_start(txq, RWNX_TXQ_STOP_FULL);
         }
-        #endif
+#endif
 
         /* continue service period */
         if (unlikely(txq->push_limit && !rwnx_txq_is_full(txq))) {
@@ -2093,8 +1906,9 @@ int rwnx_txdatacfm(void *pthis, void *host_id)
     }
 #endif /* CONFIG_RWNX_AMSDUS_TX */
 
+    headroom = sw_txhdr->headroom;
     kmem_cache_free(rwnx_hw->sw_txhdr_cache, sw_txhdr);
-    skb_pull(skb, sw_txhdr->headroom);
+    skb_pull(skb, headroom);
     consume_skb(skb);
 
     return 0;

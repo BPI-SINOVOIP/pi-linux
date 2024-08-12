@@ -100,7 +100,7 @@ static int mmp_sspa_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dmaengine_dai_dma_data *dma_params;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		printk("%s, format=0x%x\n", __FUNCTION__, params_format(params));
+		pr_debug("%s, format=0x%x\n", __FUNCTION__, params_format(params));
 		dma_params = sspa_priv->dma_params;
 		dma_params->maxburst = 32;
 		dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
@@ -178,8 +178,27 @@ static void spacemit_dma_params_init(struct resource *res, struct snd_dmaengine_
 	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 }
 
+static int spacemit_sspa_suspend(struct snd_soc_component *component)
+{
+	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	reset_control_assert(priv->rst);
+	return 0;
+}
+
+static int spacemit_sspa_resume(struct snd_soc_component *component)
+{
+	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	u32 value = 0;
+	value = readl_relaxed(priv->base_hdmi);
+	value |= BIT(0);
+	writel(value, priv->base_hdmi);
+	reset_control_deassert(priv->rst);
+	return 0;
+}
 static const struct snd_soc_component_driver spacemit_snd_sspa_component = {
 	.name		= "spacemit-snd-sspa",
+	.suspend	= spacemit_sspa_suspend,
+	.resume		= spacemit_sspa_resume,
 };
 
 static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
@@ -270,7 +289,11 @@ void spacemit_snd_unregister_sspa_pdrv(void)
 }
 EXPORT_SYMBOL(spacemit_snd_unregister_sspa_pdrv);
 #else
-module_platform_driver(spacemit_snd_sspa_pdrv);
+static int spacemit_snd_sspa_init(void)
+{
+	return platform_driver_register(&spacemit_snd_sspa_pdrv);
+}
+late_initcall_sync(spacemit_snd_sspa_init);
 #endif
 
 MODULE_DESCRIPTION("SPACEMIT ASoC SSPA Driver");

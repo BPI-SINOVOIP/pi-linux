@@ -20,15 +20,10 @@
 #endif
 
 #define CMD_BUF_MAX                 1536
-#define DATA_BUF_MAX                2048
 #define TXPKT_BLOCKSIZE             512
 #define MAX_AGGR_TXPKT_LEN          (1536*64)
 #define CMD_TX_TIMEOUT              5000
 #define TX_ALIGNMENT                4
-
-#ifdef CONFIG_USB_TX_AGGR
-#define MAX_USB_AGGR_TXPKT_LEN          (1536*15)
-#endif
 
 #define RX_HWHRD_LEN                60 //58->60 word allined
 #define CCMP_OR_WEP_INFO            8
@@ -69,10 +64,10 @@ enum aicwf_bus_state {
 };
 
 struct aicwf_bus_ops {
-    int (*start) (struct device * dev);
-    void (*stop) (struct device * dev);
-    int (*txdata) (struct device * dev, struct sk_buff * skb);
-    int (*txmsg) (struct device * dev, u8 * msg, uint len);
+    int (*start) (struct device *dev);
+    void (*stop) (struct device *dev);
+    int (*txdata) (struct device *dev, struct sk_buff *skb);
+    int (*txmsg) (struct device *dev, u8 *msg, uint len);
 };
 
 struct frame_queue {
@@ -102,16 +97,10 @@ struct aicwf_bus {
     u8 *cmd_buf;
     struct completion bustx_trgg;
     struct completion busrx_trgg;
-#ifdef CONFIG_USB_MSG_IN_EP
-	struct completion msg_busrx_trgg;
-#endif
-
+    struct completion busirq_trgg;//new oob feature
     struct task_struct *bustx_thread;
     struct task_struct *busrx_thread;
-#ifdef CONFIG_USB_MSG_IN_EP
-	struct task_struct *msg_busrx_thread;
-#endif
-
+    struct task_struct *busirq_thread;//new oob feature
 };
 
 struct aicwf_tx_priv {
@@ -134,17 +123,7 @@ struct aicwf_tx_priv {
 #endif
 #ifdef AICWF_USB_SUPPORT
     struct aic_usb_dev *usbdev;
-#ifdef CONFIG_USB_TX_AGGR
-    int fw_avail_bufcnt;
-
-    //for data tx
-    atomic_t tx_pktcnt;
-
-    struct frame_queue txq;
-    spinlock_t txqlock;
-    spinlock_t txdlock;
 #endif
-#endif//AICWF_USB_SUPPORT
     struct sk_buff *aggr_buf;
     atomic_t aggr_count;
     u8 *head;
@@ -152,12 +131,12 @@ struct aicwf_tx_priv {
 };
 
 
+#define DEFRAG_MAX_WAIT         40 //100
 #ifdef AICWF_RX_REORDER
 #define MAX_REORD_RXFRAME       250
-#define REORDER_UPDATE_TIME     500//50
+#define REORDER_UPDATE_TIME     50
 #define AICWF_REORDER_WINSIZE   64
-//SN_LESS(a, b) a-b<0 is ture
-#define SN_LESS(a, b)           (((a-b)&0x800)!=0)
+#define SN_LESS(a, b)           (((a-b)&0x800) != 0)
 #define SN_EQUAL(a, b)          (a == b)
 
 struct reord_ctrl {
@@ -178,13 +157,14 @@ struct reord_ctrl_info {
 };
 
 struct recv_msdu {
-     struct sk_buff  *pkt;
-     u8 tid;
-	 u8 forward;
-     u16 seq_num;
-     uint len;
-     u8 *rx_data;
-     //for pending rx reorder list
+    struct sk_buff  *pkt;
+    u8  tid;
+    u16 seq_num;
+    u8 forward;
+    //uint len;
+    u32 is_amsdu;
+    u8 *rx_data;
+    //for pending rx reorder list
     struct list_head reord_pending_list;
     //for total frame list, when rxframe from busif, dequeue, when submit frame to net, enqueue
     struct list_head rxframe_list;
@@ -205,17 +185,10 @@ struct aicwf_rx_priv {
     u32 data_len;
     spinlock_t rxqlock;
 #ifdef CONFIG_PREALLOC_RX_SKB
-	struct rx_frame_queue rxq;
+    struct rx_frame_queue rxq;
 #else
-	struct frame_queue rxq;
+    struct frame_queue rxq;
 #endif
-
-#ifdef CONFIG_USB_MSG_IN_EP
-	atomic_t msg_rx_cnt;
-	spinlock_t msg_rxqlock;
-	struct frame_queue msg_rxq;
-#endif
-
 
 #ifdef AICWF_RX_REORDER
     spinlock_t freeq_lock;
@@ -224,11 +197,9 @@ struct aicwf_rx_priv {
     spinlock_t stas_reord_lock;
     struct recv_msdu *recv_frames;
 #endif
-
 #ifdef CONFIG_PREALLOC_RX_SKB
-	spinlock_t rxbuff_lock;
+    spinlock_t rxbuff_lock;
 #endif
-
 };
 
 static inline int aicwf_bus_start(struct aicwf_bus *bus)
@@ -266,10 +237,10 @@ static inline void aicwf_sched_timeout(u32 millisec)
 
 int aicwf_bus_init(uint bus_hdrlen, struct device *dev);
 void aicwf_bus_deinit(struct device *dev);
-void aicwf_tx_deinit(struct aicwf_tx_priv* tx_priv);
-void aicwf_rx_deinit(struct aicwf_rx_priv* rx_priv);
-struct aicwf_tx_priv* aicwf_tx_init(void *arg);
-struct aicwf_rx_priv* aicwf_rx_init(void *arg);
+void aicwf_tx_deinit(struct aicwf_tx_priv *tx_priv);
+void aicwf_rx_deinit(struct aicwf_rx_priv *rx_priv);
+struct aicwf_tx_priv *aicwf_tx_init(void *arg);
+struct aicwf_rx_priv *aicwf_rx_init(void *arg);
 void aicwf_frame_queue_init(struct frame_queue *pq, int num_prio, int max_len);
 void aicwf_frame_queue_flush(struct frame_queue *pq);
 bool aicwf_frame_enq(struct device *dev, struct frame_queue *q, struct sk_buff *pkt, int prio);

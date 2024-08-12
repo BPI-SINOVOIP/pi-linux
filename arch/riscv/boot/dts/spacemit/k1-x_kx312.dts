@@ -4,10 +4,13 @@
 /dts-v1/;
 
 #include "k1-x.dtsi"
+#include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
 #include "lcd/lcd_lt8911_edp_1920x1080.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
+#include "k1-x_opp_table.dtsi"
+#include "k1-x_thermal_cooling.dtsi"
 
 / {
 	model = "spacemit k1-x kx312 board";
@@ -145,11 +148,49 @@
 		gpios = <&gpio 49 0>;
 		vin-supply = <&ldo_8>;
 	};
+
+	spacemit_lid:spacemit_lid {
+		compatible = "spacemit,k1x-lid";
+		scan-interval-ms = <1000>;
+		lid-gpios     = <&gpio 74 0>;
+	};
+
+	rf_pwrseq: rf-pwrseq {
+		compatible = "spacemit,rf-pwrseq";
+		status = "okay";
+
+		wlan_pwrseq: wlan-pwrseq {
+			compatible = "spacemit,wlan-pwrseq";
+			regon-gpios     = <&gpio 76 0>;
+		};
+
+		bt_pwrseq: bt-pwrseq {
+			compatible = "spacemit,bt-pwrseq";
+			reset-gpios     = <&gpio 78 0>;
+		};
+	};
+};
+
+&pinctrl {
+	pinctrl_uart3_0: uart3_0_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_81,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))      /* uart3_txd */
+			K1X_PADCONF(GPIO_82,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))      /* uart3_rxd */
+			/* K1X_PADCONF(GPIO_83,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))*/  /* uart3_cts_n */
+			/* K1X_PADCONF(GPIO_84,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))*/  /* uart3_rts_n */
+		>;
+	};
 };
 
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart0_2>;
+	status = "okay";
+};
+
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart3_0>;
 	status = "okay";
 };
 
@@ -189,7 +230,7 @@
 
 	edp_panel: panel@0 {
 			status = "ok";
-			// compatible = "spacemit,edp-panel";
+			compatible = "spacemit,edp-panel";
 	};
 
 };
@@ -206,13 +247,13 @@
 &hdmi{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hdmi_0>;
-	use-no-edid;
 	status = "okay";
 };
 
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
+	spacemit,i2c-fast-mode;
 	status = "okay";
 
 	eeprom@50{
@@ -222,7 +263,7 @@
 		#size-cells = <1>;
 
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
-		status = "disabled";
+		status = "okay";
 
 		mac_address0: mac_address0@0 {
 			reg = <0x0 6>;
@@ -262,6 +303,13 @@
 		interrupt-parent = <&gpio>;
 		interrupts = <50 2>;
 		status = "okay";
+	};
+
+	battery: battery@b {
+		compatible = "sbs,sbs-battery";
+		reg = <0x0b>;
+		sbs,i2c-retry-count = <2>;
+		sbs,poll-retry-count = <1>;
 	};
 };
 
@@ -315,6 +363,11 @@
 				regulator-max-microvolt = <3450000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <650000>;
+				};
 			};
 
 			dcdc_2: DCDC_REG2 {
@@ -339,6 +392,11 @@
 				regulator-max-microvolt = <3300000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
+				};
 			};
 
 			dcdc_5: DCDC_REG5 {
@@ -363,24 +421,44 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
 				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_2: LDO_REG2 {
 				regulator-name = "ldo2";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_3: LDO_REG3 {
 				regulator-name = "ldo3";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_4: LDO_REG4 {
 				regulator-name = "ldo4";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			/* dldo */
@@ -389,18 +467,33 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
 				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_6: LDO_REG6 {
 				regulator-name = "ldo6";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_7: LDO_REG7 {
 				regulator-name = "ldo7";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_8: LDO_REG8 {
@@ -470,6 +563,8 @@
 		&range PRI_TCK  1 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_76  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
+		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -498,6 +593,8 @@
 		&pinctrl 63  GPIO_63  5
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
+		&pinctrl 76  GPIO_76  1
+		&pinctrl 78  GPIO_78  1
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 90  GPIO_90  3
 		&pinctrl 96  DVL0     2
@@ -568,9 +665,9 @@
 			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
 			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
-	spacemit,rx_dline_reg = <0x01>;
+	spacemit,rx_dline_reg = <0x0>;
 	spacemit,rx_tuning_limit = <50>;
-	spacemit,sdh-freq = <204800000>;
+	spacemit,sdh-freq = <375000000>;
 	status = "okay";
 };
 
@@ -609,6 +706,7 @@
 };
 
 &ehci1 {
+	spacemit,reset-on-resume;
 	status = "okay";
 };
 
@@ -627,18 +725,17 @@
 
 &usbdrd3 {
 	status = "okay";
+	reset-on-resume;
 	dwc3@c0a00000 {
 		dr_mode = "host";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
-		snps,dis-u1u2-quirk;
-		snps,dis-u2-freeclk-exists-quirk;
-		snps,dis-del-phy-power-chg-quirk;
 		snps,dis_u2_susphy_quirk;
 		snps,dis_u3_susphy_quirk;
-		snps,dis_rxdet_inp3_quirk;
-		snps,xhci-trb-ent-quirk;
+		snps,dis-del-phy-power-chg-quirk;
+		snps,dis-tx-ipgap-linecheck-quirk;
+		snps,parkmode-disable-ss-quirk;
 	};
 };
 
@@ -677,43 +774,26 @@
 &pwm_bl {
 	pwms = <&pwm14 2000>;
 	brightness-levels = <
-		0   60  60  60  60  60  60  60  60  60  60  60  60  60  60  60
-		60  60  60  60  60  60  60  60  60  60  60  60  60  60  60  60
-		60  60  60  60  60  60  60  60  60  60  60  60  60  60  60  60
-		60  60  60  60  60  60  60  60  60  60  60  60  60  61  62  63
-		64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79
-		80  81  82  83  84  85  86  87  88  89  90  91  92  93  94  95
-		96  97  98  99  100 101 102 103 104 105 106 107 108 109 110 111
-		112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127
-		128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143
-		144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159
-		160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175
-		176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191
-		192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207
-		208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223
-		224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239
-		240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255
+		0   64  64  64  64  65  65  65  65  66  66  66  66  67  67  68
+		68  69  69  70  70  71  71  72  72  73  73  74  74  75  75  76
+		76  77  78  79  80  80  81  82  83  84  84  85  86  87  88  88
+		89  90  91  92  92  93  94  95  96  96  97  98  99  100 100 101
+		102 103 104 104 105 106 107 108 108 109 110 111 112 112 113 114
+		115 116 116 117 118 119 120 120 121 122 123 124 124 125 126 127
+		128 128 129 130 131 132 132 133 134 135 136 136 137 138 139 140
+		140 141 142 143 144 144 145 146 147 148 148 149 150 151 152 152
+		153 154 155 156 156 157 158 159 160 160 161 162 163 164 164 165
+		166 167 168 168 169 170 171 172 172 173 174 175 176 176 177 178
+		179 180 180 181 182 183 184 184 185 186 187 188 188 189 190 191
+		192 192 193 194 195 196 196 197 198 199 200 200 201 202 203 204
+		204 205 206 207 208 208 209 210 211 212 212 213 214 215 216 216
+		217 218 219 220 220 221 222 223 224 224 225 226 227 228 228 229
+		230 231 232 232 233 234 235 236 236 237 238 239 240 240 241 242
+		243 244 244 245 246 247 248 248 249 250 251 252 252 253 254 255
 	>;
 	default-brightness-level = <128>;
 
 	status = "okay";
-};
-
-&cpu_0 {
-	clst0-supply = <&dcdc_1>;
-	vin-supply-names = "clst0";
-};
-
-&clst0_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
-};
-
-&clst1_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
 };
 
 &rcpu {
@@ -721,18 +801,8 @@
 	pinctrl-0 = <&pinctrl_rcpu>;
 	mboxes = <&mailbox 0>, <&mailbox 1>;
 	mbox-names = "vq0", "vq1";
-	interconnects = <&dram_range0>;
-	interconnect-names = "dma-mem";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
 	status = "okay";
-};
-
-&cls0_trip2 {
-	temperature = <115000>;
-};
-
-&cls1_trip2 {
-	temperature = <115000>;
 };
 
 &i2s0 {
@@ -745,8 +815,10 @@
 	status = "okay";
 };
 
-&sound_es8326 {
+&sound_codec {
 	status = "okay";
+	simple-audio-card,name = "snd-es8326";
+	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
 		sound-dai = <&es8326>;
 	};

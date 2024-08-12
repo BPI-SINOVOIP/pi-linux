@@ -125,6 +125,7 @@ struct spacemit_dpu {
 	struct work_struct work_update_bw;
 	struct dpu_mmu_tbl mmu_tbl;
 	int dev_id;
+	int type;
 	bool enable_dump_reg;
 	bool enable_dump_fps;
 	bool enable_auto_fc;
@@ -140,6 +141,7 @@ struct spacemit_dpu {
 	uint64_t cur_bw;
 	struct drm_property *color_matrix_property;
 	uint32_t bitclk;
+	uint32_t escclk;
 	struct reset_control *dsi_reset;
 	struct reset_control *mclk_reset;
 	struct reset_control *lcd_reset;

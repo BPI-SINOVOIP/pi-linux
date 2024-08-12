@@ -25,24 +25,13 @@
 #define N_VHT  (10 * 4 * 2 * 8)
 #define N_HE_SU (12 * 4 * 3 * 8)
 #define N_HE_MU (12 * 6 * 3 * 8)
+#define N_HE_ER (3 * 3 + 3) //RU242 + RU106
 
 /* conversion table from NL80211 to MACHW enum */
 extern const int chnl2bw[];
 
 /* conversion table from MACHW to NL80211 enum */
 extern const int bw2chnl[];
-
-/* Rate cntrl info */
-#define MCS_INDEX_TX_RCX_OFT    0
-#define MCS_INDEX_TX_RCX_MASK   (0x7F << MCS_INDEX_TX_RCX_OFT)
-#define BW_TX_RCX_OFT           7
-#define BW_TX_RCX_MASK          (0x3 << BW_TX_RCX_OFT)
-#define SHORT_GI_TX_RCX_OFT     9
-#define SHORT_GI_TX_RCX_MASK    (0x1 << SHORT_GI_TX_RCX_OFT)
-#define PRE_TYPE_TX_RCX_OFT     10
-#define PRE_TYPE_TX_RCX_MASK    (0x1 << PRE_TYPE_TX_RCX_OFT)
-#define FORMAT_MOD_TX_RCX_OFT   11
-#define FORMAT_MOD_TX_RCX_MASK  (0x7 << FORMAT_MOD_TX_RCX_OFT)
 
 /* Values for formatModTx */
 #define FORMATMOD_NON_HT          0
@@ -53,6 +42,7 @@ extern const int bw2chnl[];
 #define FORMATMOD_HE_SU           5
 #define FORMATMOD_HE_MU           6
 #define FORMATMOD_HE_ER           7
+#define FORMATMOD_HE_TB           8
 
 /* Values for navProtFrmEx */
 #define NAV_PROT_NO_PROT_BIT                 0
@@ -88,22 +78,6 @@ extern const int bw2chnl[];
 #define AMPDU_OFT                         21
 /// aMPDU bit
 #define AMPDU_BIT                         CO_BIT(AMPDU_OFT)
-
-enum {
-    HW_RATE_1MBPS   = 0,
-    HW_RATE_2MBPS   = 1,
-    HW_RATE_5_5MBPS = 2,
-    HW_RATE_11MBPS  = 3,
-    HW_RATE_6MBPS   = 4,
-    HW_RATE_9MBPS   = 5,
-    HW_RATE_12MBPS  = 6,
-    HW_RATE_18MBPS  = 7,
-    HW_RATE_24MBPS  = 8,
-    HW_RATE_36MBPS  = 9,
-    HW_RATE_48MBPS  = 10,
-    HW_RATE_54MBPS  = 11,
-    HW_RATE_MAX
-};
 
 union rwnx_mcs_index {
     struct {
@@ -245,17 +219,19 @@ union rwnx_hw_txstatus {
  * @amsdu_size: Size, in bytes, allowed to create a-msdu.
  * @status: transmission status
  */
-struct tx_cfm_tag
-{
-    u16_l pn[4];
-    u16_l sn;
-    u16_l timestamp;
+struct tx_cfm_tag {
+    /*
+    	u16_l pn[4];
+    	u16_l sn;
+    	u16_l timestamp;
+    */
     s8_l credits;
     u8_l ampdu_size;
 #ifdef CONFIG_RWNX_SPLIT_TX_BUF
     u16_l amsdu_size;
 #endif
     union rwnx_hw_txstatus status;
+    u32_l hostid;
 };
 
 /**
@@ -371,6 +347,7 @@ struct rwnx_hw_txhdr {
 
 #define __MDM_MAJOR_VERSION(v)     (((v) & 0xFF000000) >> 24)
 #define __MDM_MINOR_VERSION(v)     (((v) & 0x00FF0000) >> 16)
+#define __MDM_VERSION(v)            ((__MDM_MAJOR_VERSION(v) + 2) * 10 + __MDM_MINOR_VERSION(v))
 
 
 #endif // _HAL_DESC_H_
