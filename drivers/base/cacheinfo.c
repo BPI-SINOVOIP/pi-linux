@@ -261,7 +261,8 @@ static int cache_shared_cpu_map_setup(unsigned int cpu)
 	return 0;
 }
 
-static void cache_shared_cpu_map_remove(unsigned int cpu)
+
+static __maybe_unused void cache_shared_cpu_map_remove(unsigned int cpu)
 {
 	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
 	struct cacheinfo *this_leaf, *sib_leaf;
@@ -290,6 +291,7 @@ static void cache_shared_cpu_map_remove(unsigned int cpu)
 
 static void free_cache_attributes(unsigned int cpu)
 {
+#ifndef CONFIG_ARCH_R9A07G043F
 	if (!per_cpu_cacheinfo(cpu))
 		return;
 
@@ -297,6 +299,7 @@ static void free_cache_attributes(unsigned int cpu)
 
 	kfree(per_cpu_cacheinfo(cpu));
 	per_cpu_cacheinfo(cpu) = NULL;
+#endif
 }
 
 int __weak init_cache_level(unsigned int cpu)

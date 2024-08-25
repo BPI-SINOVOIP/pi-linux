@@ -1,0 +1,9 @@
+#
+# scc v0.8
+# processed: Fri 05 Jul 2024 11:03:01 AM CST
+#
+# This is a scc output file, do not edit
+#
+# _reloc_dir /yocto/meta-renesas/meta-rz-common/recipes-kernel/linux
+kconf /yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/linux-renesas/5.10.145-cip17+gitAUTOINC+397f22ac9c-r1/defconfig # non-hardware
+kconf /yocto/build/../meta-renesas/meta-rz-common/recipes-kernel/linux/linux-renesas/touch.cfg # non-hardware

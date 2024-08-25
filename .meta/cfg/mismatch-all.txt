@@ -1,0 +1,70 @@
+Config: CONFIG_LOCALVERSION
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_LOCALVERSION="-arm64-renesas"
+Actual value:     CONFIG_LOCALVERSION="-yocto-standard"
+
+Config: CONFIG_ARM64_LSE_ATOMICS
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  # CONFIG_ARM64_LSE_ATOMICS is not set
+Actual value:     CONFIG_ARM64_LSE_ATOMICS=y
+
+Config: CONFIG_KEYBOARD_CROS_EC
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_KEYBOARD_CROS_EC=y
+Actual value:     
+
+Config: CONFIG_INPUT_HISI_POWERKEY
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_INPUT_HISI_POWERKEY=y
+Actual value:     
+
+Config: CONFIG_THERMAL_GOV_POWER_ALLOCATOR
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_THERMAL_GOV_POWER_ALLOCATOR=y
+Actual value:     
+
+Config: CONFIG_RCAR_THERMAL_EMS_ENABLED
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_RCAR_THERMAL_EMS_ENABLED=y
+Actual value:     
+
+Config: CONFIG_UNIPHIER_WATCHDOG
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_UNIPHIER_WATCHDOG=y
+Actual value:     
+
+Config: CONFIG_BCM2835_WDT
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_BCM2835_WDT=y
+Actual value:     
+
+Config: CONFIG_DRM_DUMB_VGA_DAC
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_DRM_DUMB_VGA_DAC=y
+Actual value:     
+
+Config: CONFIG_BACKLIGHT_LCD_SUPPORT
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_BACKLIGHT_LCD_SUPPORT=y
+Actual value:     
+
+Config: CONFIG_BACKLIGHT_GENERIC
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_BACKLIGHT_GENERIC=y
+Actual value:     
+
+Config: CONFIG_SND_SIMPLE_SCU_CARD
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_SND_SIMPLE_SCU_CARD=y
+Actual value:     
+
+Config: CONFIG_EDAC
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_EDAC=y
+Actual value:     
+
+Config: CONFIG_VIDEOBUF2_DMA_CONTIG
+From: /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig
+Requested value:  CONFIG_VIDEOBUF2_DMA_CONTIG=m
+Actual value:     CONFIG_VIDEOBUF2_DMA_CONTIG=y
+

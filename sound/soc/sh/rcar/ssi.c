@@ -18,6 +18,7 @@
 
 #include <sound/simple_card_utils.h>
 #include <linux/delay.h>
+#include <linux/reset.h>
 #include "rsnd.h"
 #define RSND_SSI_NAME_SIZE 16
 
@@ -123,7 +124,11 @@ int rsnd_ssi_use_busif(struct rsnd_dai_stream *io)
 {
 	struct rsnd_mod *mod = rsnd_io_to_mod_ssi(io);
 	struct rsnd_ssi *ssi = rsnd_mod_to_ssi(mod);
+	struct rsnd_priv *priv = rsnd_mod_to_priv(mod);
 	int use_busif = 0;
+
+	if (rsnd_is_rzv2h(priv))
+		return 1;
 
 	if (!rsnd_ssi_is_dma_mode(mod))
 		return 0;
@@ -984,6 +989,8 @@ static int rsnd_ssi_common_remove(struct rsnd_mod *mod,
 		rsnd_flags_del(ssi, RSND_SSI_PROBED);
 	}
 
+	rsnd_dma_detach(io, mod, &io->dma);
+
 	return 0;
 }
 
@@ -1247,6 +1254,7 @@ int rsnd_ssi_probe(struct rsnd_priv *priv)
 	struct device *dev = rsnd_priv_to_dev(priv);
 	struct rsnd_mod_ops *ops;
 	struct clk *clk;
+	struct reset_control *rstc;
 	struct rsnd_ssi *ssi;
 	char name[RSND_SSI_NAME_SIZE];
 	int i, nr, ret;
@@ -1287,6 +1295,10 @@ int rsnd_ssi_probe(struct rsnd_priv *priv)
 			goto rsnd_ssi_probe_done;
 		}
 
+		rstc = devm_reset_control_get_optional(dev, name);
+		if (IS_ERR(rstc))
+			dev_dbg(dev, "failed to get cpg reset\n");
+
 		if (of_get_property(np, "shared-pin", NULL))
 			rsnd_flags_set(ssi, RSND_SSI_CLK_PIN_SHARE);
 
@@ -1305,7 +1317,7 @@ int rsnd_ssi_probe(struct rsnd_priv *priv)
 		else
 			ops = &rsnd_ssi_dma_ops;
 
-		ret = rsnd_mod_init(priv, rsnd_mod_get(ssi), ops, clk,
+		ret = rsnd_mod_init(priv, rsnd_mod_get(ssi), ops, clk, rstc,
 				    RSND_MOD_SSI, i);
 		if (ret) {
 			of_node_put(np);

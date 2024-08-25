@@ -1,0 +1,244 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for the Silicon Linux RZ/G2E 96board platform (CAT874)
+ * Rev.C
+ *
+ * Copyright (C) 2019 Renesas Electronics Corp.
+ */
+
+/dts-v1/;
+#include "r8a774c0.dtsi"
+#define WIFI_PARENT_SDHI	sdhi3
+#include "cat874-common.dtsi"
+#include <dt-bindings/display/tda998x.h>
+
+/ {
+	hdmi-out {
+		compatible = "hdmi-connector";
+		type = "a";
+
+		port {
+			hdmi_con_out: endpoint {
+				remote-endpoint = <&tda19988_out>;
+			};
+		};
+	};
+
+	leds {
+		led2 {
+			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;
+			label = "LED2";
+		};
+	};
+
+	sound: sound {
+		compatible = "simple-audio-card";
+
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "rcar_sound";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		simple-audio-card,dai-link@0 {
+			reg = <0>;
+			format = "i2s";
+			cpu {
+				sound-dai = <&rcar_sound 0>;
+				bitclock-master;
+				frame-master;
+			};
+
+			codec {
+				sound-dai = <&tda19988>;
+			};
+		};
+
+		simple-audio-card,dai-link@1 {
+			reg = <1>;
+			format = "i2s";
+			cpu {
+				sound-dai = <&rcar_sound 1>;
+				bitclock-master;
+				frame-master;
+			};
+
+			codec {
+				sound-dai = <&pcm5102a>;
+			};
+		};
+	};
+
+	pcm5102a: pcm5102a {
+		compatible = "ti,pcm5102a";
+		#sound-dai-cells = <0>;
+	};
+};
+
+&audio_clk_a {
+	clock-frequency = <22579200>;
+};
+
+&du {
+	ports {
+		port@0 {
+			endpoint {
+				remote-endpoint = <&tda19988_in>;
+			};
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	hd3ss3220@47 {
+		compatible = "ti,hd3ss3220";
+		reg = <0x47>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "dual";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					hd3ss3220_ep: endpoint {
+						remote-endpoint = <&usb3_role_switch>;
+					};
+				};
+			};
+		};
+	};
+
+	tda19988: tda19988@70 {
+		compatible = "nxp,tda998x";
+		reg = <0x70>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
+
+		video-ports = <0x234501>;
+
+		#sound-dai-cells = <0>;
+		audio-ports = <TDA998x_I2S 0x03>;
+		clocks = <&rcar_sound 1>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tda19988_in: endpoint {
+					remote-endpoint = <&du_out_rgb>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				tda19988_out: endpoint {
+					remote-endpoint = <&hdmi_con_out>;
+				};
+			};
+		};
+	};
+};
+
+&rcar_sound {
+	pinctrl-0 = <&sound_pins &sound_clk_pins>;
+	pinctrl-names = "default";
+
+	/* Single DAI */
+	#sound-dai-cells = <1>;
+
+	/* audio_clkout0/1/2/3 */
+	#clock-cells = <1>;
+	clock-frequency = <11289600>;
+
+	status = "okay";
+
+	rcar_sound,dai {
+		dai0 {
+			playback = <&ssi0 &src0 &dvc0>;
+		};
+
+		dai1 {
+			playback = <&ssi4 &src4 &dvc1>;
+		};
+	};
+
+};
+
+&ssi4 {
+	shared-pin;
+};
+
+&ohci0 {
+	dr_mode = "host";
+};
+
+&ehci0 {
+	dr_mode = "host";
+};
+
+&usb2_phy0 {
+	renesas,no-otg-pins;
+};
+
+&usb3_peri0 {
+	usb-role-switch;
+
+	port {
+		usb3_role_switch: endpoint {
+			remote-endpoint = <&hd3ss3220_ep>;
+		};
+	};
+};
+
+&xhci0 {
+	pinctrl-0 = <&usb30_pins>;
+	pinctrl-names = "default";
+};
+
+&sdhi3 {
+	pinctrl-0 = <&sdhi3_pins>;
+	pinctrl-names = "default";
+};
+
+&hscif2 {
+	bluetooth {
+		enable-gpios = <&gpio4 6 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&pfc {
+	sdhi3_pins: sd3 {
+		groups = "sdhi3_data4", "sdhi3_ctrl";
+		function = "sdhi3";
+		power-source = <1800>;
+	};
+
+	usb30_pins: usb30 {
+		groups = "usb30", "usb30_id";
+		function = "usb30";
+	};
+
+	sound_clk_pins: sound_clk {
+		groups = "audio_clkout1_a",
+			 "audio_clk_a", "audio_clk_b_a", "audio_clk_c_a";
+		function = "audio_clk";
+	};
+
+	sound_pins: sound {
+		groups = "ssi01239_ctrl", "ssi0_data",
+			 "ssi349_ctrl", "ssi3_data", "ssi4_data";
+		function = "ssi";
+	};
+};

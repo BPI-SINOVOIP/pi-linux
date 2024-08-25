@@ -7,7 +7,7 @@
  * Based on clk-mstp.c, clk-rcar-gen2.c, and clk-rcar-gen3.c
  *
  * Copyright (C) 2013 Ideas On Board SPRL
- * Copyright (C) 2015 Renesas Electronics Corp.
+ * Copyright (C) 2015-2020 Renesas Electronics Corp.
  */
 
 #include <linux/clk.h>
@@ -348,6 +348,7 @@ static void __init cpg_mssr_register_core_clk(const struct cpg_core_clk *core,
 	case CLK_TYPE_FF:
 	case CLK_TYPE_DIV6P1:
 	case CLK_TYPE_DIV6_RO:
+
 		WARN_DEBUG(core->parent >= priv->num_core_clks);
 		parent = priv->clks[core->parent];
 		if (IS_ERR(parent)) {
@@ -357,9 +358,32 @@ static void __init cpg_mssr_register_core_clk(const struct cpg_core_clk *core,
 
 		parent_name = __clk_get_name(parent);
 
-		if (core->type == CLK_TYPE_DIV6_RO)
+		if (core->type == CLK_TYPE_DIV6_RO) {
+			unsigned int rckcr_div;
+
+			rckcr_div = (readl(priv->base + core->offset) & 0x3f);
+			if (rckcr_div != 0x2f) {
+				/* Stop RCLK by setting CKSTP to 1 */
+				writel(readl(priv->base + core->offset) | BIT(8)
+						, priv->base + core->offset);
+
+				/* Wait at least 3 cycles by RCLK
+				 * with RCLK = 31.25KHz
+				 */
+				udelay(105);
+
+				/* Write H’2F to DIV[5:0] and 0 to CKSTP,
+				 * keep the value of bit 15, bit 12
+				 * and write 0 to all reserved bits
+				 */
+				writel(((readl(priv->base + core->offset) &
+						(BIT(15) | BIT(12))) | 0x2f),
+						priv->base + core->offset);
+			}
+
 			/* Multiply with the DIV6 register value */
 			div *= (readl(priv->base + core->offset) & 0x3f) + 1;
+		}
 
 		if (core->type == CLK_TYPE_DIV6P1) {
 			clk = cpg_div6_register(core->name, 1, &parent_name,
@@ -727,6 +751,12 @@ static const struct of_device_id cpg_mssr_match[] = {
 #ifdef CONFIG_CLK_R8A774A1
 	{
 		.compatible = "renesas,r8a774a1-cpg-mssr",
+		.data = &r8a774a1_cpg_mssr_info,
+	},
+#endif
+#ifdef CONFIG_CLK_R8A774A3
+	{
+		.compatible = "renesas,r8a774a3-cpg-mssr",
 		.data = &r8a774a1_cpg_mssr_info,
 	},
 #endif

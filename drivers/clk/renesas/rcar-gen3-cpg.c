@@ -78,7 +78,7 @@ static void cpg_simple_notifier_register(struct raw_notifier_head *notifiers,
 }
 
 /*
- * Z Clock & Z2 Clock
+ * Z Clock & Z2 & ZG Clock
  *
  * Traits of this clock:
  * prepare - clk_prepare only ensures that parents are prepared
@@ -211,6 +211,39 @@ static struct clk * __init cpg_z_clk_register(const char *name,
 	clk = clk_register(NULL, &zclk->hw);
 	if (IS_ERR(clk))
 		kfree(zclk);
+
+	return clk;
+}
+
+static struct clk * __init cpg_zg_clk_register(const char *name,
+					       const char *parent_name,
+					       void __iomem *reg,
+					       unsigned int div,
+					       unsigned int offset)
+{
+	struct clk_init_data init;
+	struct cpg_z_clk *zclk;
+	struct clk *clk;
+
+	zclk = kzalloc(sizeof(*zclk), GFP_KERNEL);
+	if (!zclk)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = name;
+	init.ops = &cpg_z_clk_ops;
+	init.flags = 0;
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
+
+	zclk->reg = reg + CPG_FRQCRB;
+	zclk->kick_reg = reg + CPG_FRQCRB;
+	zclk->hw.init = &init;
+	zclk->mask = GENMASK(offset + 4, offset);
+	zclk->fixed_div = div; /* PLLVCO x 1/div1 x 3DGE divider x 1/div2 */
+
+	clk = clk_register(NULL, &zclk->hw);
+	if (IS_ERR(clk))
+	kfree(zclk);
 
 	return clk;
 }
@@ -696,6 +729,34 @@ struct clk * __init rcar_gen3_cpg_clk_register(struct device *dev,
 						  cpg_rpcsrc_div_table,
 						  &cpg_lock);
 
+	case CLK_TYPE_GEN3_E3_RPCSRC:
+		/*
+		 * Register RPCSRC as fixed factor clock based on the
+		 * MD[4:1] pins and CPG_RPCCKCR[4:3] register value for
+		 * which has been set prior to booting the kernel.
+		 */
+		value = (readl(base + CPG_RPCCKCR) & GENMASK(4, 3)) >> 3;
+
+		switch (value) {
+		case 0:
+			div = 5;
+			break;
+		case 1:
+			div = 3;
+			break;
+		case 2:
+			parent = clks[core->parent >> 16];
+			if (IS_ERR(parent))
+				return ERR_CAST(parent);
+			div = core->div;
+			break;
+		case 3:
+		default:
+			div = 2;
+			break;
+		}
+		break;
+
 	case CLK_TYPE_GEN3_RPC:
 		return cpg_rpc_clk_register(core->name, base,
 					    __clk_get_name(parent), notifiers);
@@ -703,6 +764,10 @@ struct clk * __init rcar_gen3_cpg_clk_register(struct device *dev,
 	case CLK_TYPE_GEN3_RPCD2:
 		return cpg_rpcd2_clk_register(core->name, base,
 					      __clk_get_name(parent));
+
+	case CLK_TYPE_GEN3_ZG:
+		return cpg_zg_clk_register(core->name, __clk_get_name(parent),
+					   base, core->div, core->offset);
 
 	default:
 		return ERR_PTR(-EINVAL);

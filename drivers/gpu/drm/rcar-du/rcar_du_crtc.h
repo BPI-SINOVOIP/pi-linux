@@ -13,6 +13,7 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
+#include <linux/reset.h>
 
 #include <drm/drm_crtc.h>
 #include <drm/drm_writeback.h>
@@ -50,6 +51,12 @@ struct rcar_du_crtc {
 	struct rcar_du_device *dev;
 	struct clk *clock;
 	struct clk *extclock;
+	struct reset_control *rstc;
+	struct {
+		struct clk *aclk;
+		struct clk *pclk;
+		struct clk *dclk;
+	} rzg2l_clocks;
 	unsigned int mmio_offset;
 	unsigned int index;
 	bool initialized;
@@ -100,6 +107,7 @@ enum rcar_du_output {
 	RCAR_DU_OUTPUT_LVDS1,
 	RCAR_DU_OUTPUT_HDMI0,
 	RCAR_DU_OUTPUT_HDMI1,
+	RCAR_DU_OUTPUT_MIPI_DSI0,
 	RCAR_DU_OUTPUT_TCON,
 	RCAR_DU_OUTPUT_MAX,
 };

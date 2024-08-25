@@ -28,7 +28,8 @@ properties:
 
       - items:
           - enum:
-              - renesas,etheravb-r8a774a1     # RZ/G2M
+              - renesas,etheravb-r8a774a1     # RZ/G2M v1.3
+              - renesas,etheravb-r8a774a3     # RZ/G2M v3.0
               - renesas,etheravb-r8a774b1     # RZ/G2N
               - renesas,etheravb-r8a774c0     # RZ/G2E
               - renesas,etheravb-r8a774e1     # RZ/G2H
@@ -42,14 +43,22 @@ properties:
               - renesas,etheravb-r8a77995     # R-Car D3
           - const: renesas,etheravb-rcar-gen3 # R-Car Gen3 and RZ/G2
 
+      - items:
+          - enum:
+              - renesas,r9a07g043-gbeth # RZ/G2UL
+              - renesas,r9a07g044-gbeth # RZ/G2{L,LC}
+              - renesas,r9a07g054-gbeth # RZ/V2L
+          - const: renesas,rzg2l-gbeth  # RZ/{G2L,G2UL,V2L} family
+
   reg: true
 
   interrupts: true
 
   interrupt-names: true
 
-  clocks:
-    maxItems: 1
+  clocks: true
+
+  clock-names: true
 
   iommus:
     maxItems: 1
@@ -135,14 +144,20 @@ allOf:
       properties:
         compatible:
           contains:
-            const: renesas,etheravb-rcar-gen2
+            enum:
+              - renesas,etheravb-rcar-gen2
+              - renesas,rzg2l-gbeth
     then:
       properties:
         interrupts:
-          maxItems: 1
+          minItems: 1
+          maxItems: 3
         interrupt-names:
+          minItems: 1
           items:
             - const: mux
+            - const: fil
+            - const: arp_ns
         rx-internal-delay-ps: false
     else:
       properties:
@@ -196,6 +211,36 @@ allOf:
       properties:
         tx-internal-delay-ps:
           const: 2000
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: renesas,rzg2l-gbeth
+    then:
+      properties:
+        clocks:
+          items:
+            - description: Main clock
+            - description: Register access clock
+            - description: Reference clock for RGMII
+        clock-names:
+          items:
+            - const: axi
+            - const: chi
+            - const: refclk
+    else:
+      properties:
+        clocks:
+          minItems: 1
+          items:
+            - description: AVB functional clock
+            - description: Optional TXC reference clock
+        clock-names:
+          minItems: 1
+          items:
+            - const: fck
+            - const: refclk
 
 additionalProperties: false
 

@@ -1,0 +1,5 @@
+Using /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/defconfig as base
+Merging /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs/touch.cfg
+#
+# merged configuration written to /yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.meta/cfg/.config (needs make)
+#

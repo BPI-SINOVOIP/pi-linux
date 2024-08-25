@@ -51,6 +51,14 @@ static bool hwcalib_xy;
 module_param(hwcalib_xy, bool, 0644);
 MODULE_PARM_DESC(hwcalib_xy, "If set hw-calibrated X/Y are used if available");
 
+static bool invert_x;
+module_param(invert_x, bool, 0644);
+MODULE_PARM_DESC(invert_x, " If set invert X axis.");
+
+static bool invert_y;
+module_param(invert_y, bool, 0644);
+MODULE_PARM_DESC(invert_y, "If set invert Y axis.");
+
 /* device specifc data/functions */
 struct usbtouch_usb;
 struct usbtouch_device_info {
@@ -132,6 +140,7 @@ enum {
 
 #define USB_DEVICE_HID_CLASS(vend, prod) \
 	.match_flags = USB_DEVICE_ID_MATCH_INT_CLASS \
+		| USB_DEVICE_ID_MATCH_INT_PROTOCOL \
 		| USB_DEVICE_ID_MATCH_DEVICE, \
 	.idVendor = (vend), \
 	.idProduct = (prod), \
@@ -1391,6 +1400,11 @@ static void usbtouch_process_pkt(struct usbtouch_usb *usbtouch,
 			return;
 
 	input_report_key(usbtouch->input, BTN_TOUCH, usbtouch->touch);
+	if (invert_x)
+		usbtouch->x = type->max_xc - usbtouch->x + type->min_xc;
+
+	if (invert_y)
+		usbtouch->y = type->max_yc - usbtouch->y + type->min_yc;
 
 	if (swap_xy) {
 		input_report_abs(usbtouch->input, ABS_X, usbtouch->y);

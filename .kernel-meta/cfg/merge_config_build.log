@@ -1,0 +1,72 @@
+Using .kernel-meta/configs///defconfig as base
+Merging .kernel-meta/configs///touch.cfg
+make[1]: Entering directory '/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/linux-renesas/5.10.145-cip17+gitAUTOINC+397f22ac9c-r1/linux-rzv2h_evk_ver1-standard-build'
+  GEN     Makefile
+  HOSTCC  scripts/basic/fixdep
+  HOSTCC  scripts/kconfig/conf.o
+  HOSTCC  scripts/kconfig/confdata.o
+  HOSTCC  scripts/kconfig/expr.o
+  LEX     scripts/kconfig/lexer.lex.c
+  YACC    scripts/kconfig/parser.tab.[ch]
+  HOSTCC  scripts/kconfig/lexer.lex.o
+  HOSTCC  scripts/kconfig/parser.tab.o
+  HOSTCC  scripts/kconfig/preprocess.o
+  HOSTCC  scripts/kconfig/symbol.o
+  HOSTCC  scripts/kconfig/util.o
+  HOSTLD  scripts/kconfig/conf
+#
+# configuration written to .config
+#
+make[1]: Leaving directory '/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/linux-renesas/5.10.145-cip17+gitAUTOINC+397f22ac9c-r1/linux-rzv2h_evk_ver1-standard-build'
+Value requested for CONFIG_ARM64_LSE_ATOMICS not in final .config
+Requested value:  # CONFIG_ARM64_LSE_ATOMICS is not set
+Actual value:     CONFIG_ARM64_LSE_ATOMICS=y
+
+Value requested for CONFIG_KEYBOARD_CROS_EC not in final .config
+Requested value:  CONFIG_KEYBOARD_CROS_EC=y
+Actual value:     
+
+Value requested for CONFIG_INPUT_HISI_POWERKEY not in final .config
+Requested value:  CONFIG_INPUT_HISI_POWERKEY=y
+Actual value:     
+
+Value requested for CONFIG_THERMAL_GOV_POWER_ALLOCATOR not in final .config
+Requested value:  CONFIG_THERMAL_GOV_POWER_ALLOCATOR=y
+Actual value:     
+
+Value requested for CONFIG_RCAR_THERMAL_EMS_ENABLED not in final .config
+Requested value:  CONFIG_RCAR_THERMAL_EMS_ENABLED=y
+Actual value:     
+
+Value requested for CONFIG_UNIPHIER_WATCHDOG not in final .config
+Requested value:  CONFIG_UNIPHIER_WATCHDOG=y
+Actual value:     
+
+Value requested for CONFIG_BCM2835_WDT not in final .config
+Requested value:  CONFIG_BCM2835_WDT=y
+Actual value:     
+
+Value requested for CONFIG_DRM_DUMB_VGA_DAC not in final .config
+Requested value:  CONFIG_DRM_DUMB_VGA_DAC=y
+Actual value:     
+
+Value requested for CONFIG_BACKLIGHT_LCD_SUPPORT not in final .config
+Requested value:  CONFIG_BACKLIGHT_LCD_SUPPORT=y
+Actual value:     
+
+Value requested for CONFIG_BACKLIGHT_GENERIC not in final .config
+Requested value:  CONFIG_BACKLIGHT_GENERIC=y
+Actual value:     
+
+Value requested for CONFIG_SND_SIMPLE_SCU_CARD not in final .config
+Requested value:  CONFIG_SND_SIMPLE_SCU_CARD=y
+Actual value:     
+
+Value requested for CONFIG_EDAC not in final .config
+Requested value:  CONFIG_EDAC=y
+Actual value:     
+
+Value requested for CONFIG_VIDEOBUF2_DMA_CONTIG not in final .config
+Requested value:  CONFIG_VIDEOBUF2_DMA_CONTIG=m
+Actual value:     CONFIG_VIDEOBUF2_DMA_CONTIG=y
+

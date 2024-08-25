@@ -44,6 +44,7 @@ enum clk_ids {
 	CLK_S2,
 	CLK_S3,
 	CLK_SDSRC,
+	CLK_RPCSRC,
 	CLK_RINT,
 	CLK_OCO,
 
@@ -74,6 +75,13 @@ static const struct cpg_core_clk r8a774c0_core_clks[] __initconst = {
 	DEF_FIXED(".s3",       CLK_S3,             CLK_PLL1,       6, 1),
 	DEF_FIXED(".sdsrc",    CLK_SDSRC,          CLK_PLL1,       2, 1),
 
+	DEF_FIXED_RPCSRC_E3(".rpcsrc", CLK_RPCSRC, CLK_PLL0, CLK_PLL1),
+
+	DEF_BASE("rpc",		R8A774C0_CLK_RPC, CLK_TYPE_GEN3_RPC,
+		 CLK_RPCSRC),
+	DEF_BASE("rpcd2",	R8A774C0_CLK_RPCD2, CLK_TYPE_GEN3_RPCD2,
+		 R8A774C0_CLK_RPC),
+
 	DEF_DIV6_RO(".r",      CLK_RINT,           CLK_EXTAL, CPG_RCKCR, 32),
 
 	DEF_RATE(".oco",       CLK_OCO,            8 * 1000 * 1000),
@@ -82,6 +90,7 @@ static const struct cpg_core_clk r8a774c0_core_clks[] __initconst = {
 	DEF_FIXED("za2",       R8A774C0_CLK_ZA2,   CLK_PLL0D24,    1, 1),
 	DEF_FIXED("za8",       R8A774C0_CLK_ZA8,   CLK_PLL0D8,     1, 1),
 	DEF_GEN3_Z("z2",       R8A774C0_CLK_Z2,    CLK_TYPE_GEN3_Z, CLK_PLL0, 4, 8),
+	DEF_GEN3_Z("zg",       R8A774C0_CLK_ZG,    CLK_TYPE_GEN3_ZG, CLK_PLL0, 8, 24),
 	DEF_FIXED("ztr",       R8A774C0_CLK_ZTR,   CLK_PLL1,       6, 1),
 	DEF_FIXED("zt",        R8A774C0_CLK_ZT,    CLK_PLL1,       4, 1),
 	DEF_FIXED("zx",        R8A774C0_CLK_ZX,    CLK_PLL1,       3, 1),
@@ -123,11 +132,15 @@ static const struct cpg_core_clk r8a774c0_core_clks[] __initconst = {
 };
 
 static const struct mssr_mod_clk r8a774c0_mod_clks[] __initconst = {
+	DEF_MOD("3dge",			 112,	R8A774C0_CLK_ZG),
+	DEF_MOD("fdp1-0",		 119,	R8A774C0_CLK_S0D1),
 	DEF_MOD("tmu4",			 121,	R8A774C0_CLK_S0D6C),
 	DEF_MOD("tmu3",			 122,	R8A774C0_CLK_S3D2C),
 	DEF_MOD("tmu2",			 123,	R8A774C0_CLK_S3D2C),
 	DEF_MOD("tmu1",			 124,	R8A774C0_CLK_S3D2C),
 	DEF_MOD("tmu0",			 125,	R8A774C0_CLK_CP),
+	DEF_MOD("vcplf",		 130,	R8A774C0_CLK_S3D1),
+	DEF_MOD("vdpb",			 131,	R8A774C0_CLK_S3D1),
 	DEF_MOD("scif5",		 202,	R8A774C0_CLK_S3D4C),
 	DEF_MOD("scif4",		 203,	R8A774C0_CLK_S3D4C),
 	DEF_MOD("scif3",		 204,	R8A774C0_CLK_S3D4C),
@@ -145,6 +158,7 @@ static const struct mssr_mod_clk r8a774c0_mod_clks[] __initconst = {
 	DEF_MOD("cmt2",			 301,	R8A774C0_CLK_R),
 	DEF_MOD("cmt1",			 302,	R8A774C0_CLK_R),
 	DEF_MOD("cmt0",			 303,	R8A774C0_CLK_R),
+	DEF_MOD("tpu",                   304,   R8A774C0_CLK_S3D4C),
 	DEF_MOD("scif2",		 310,	R8A774C0_CLK_S3D4C),
 	DEF_MOD("sdif3",		 311,	R8A774C0_CLK_SD3),
 	DEF_MOD("sdif1",		 313,	R8A774C0_CLK_SD1),
@@ -199,8 +213,10 @@ static const struct mssr_mod_clk r8a774c0_mod_clks[] __initconst = {
 	DEF_MOD("can-fd",		 914,	R8A774C0_CLK_S3D2),
 	DEF_MOD("can-if1",		 915,	R8A774C0_CLK_S3D4),
 	DEF_MOD("can-if0",		 916,	R8A774C0_CLK_S3D4),
+	DEF_MOD("rpc-if",		 917,	R8A774C0_CLK_RPCD2),
 	DEF_MOD("i2c6",			 918,	R8A774C0_CLK_S3D2),
 	DEF_MOD("i2c5",			 919,	R8A774C0_CLK_S3D2),
+	DEF_MOD("adg",			 922,	R8A774C0_CLK_ZA8),
 	DEF_MOD("i2c-dvfs",		 926,	R8A774C0_CLK_CP),
 	DEF_MOD("i2c4",			 927,	R8A774C0_CLK_S3D2),
 	DEF_MOD("i2c3",			 928,	R8A774C0_CLK_S3D2),

@@ -8,10 +8,15 @@ Required Properties:
     - "renesas,du-r8a7744" for R8A7744 (RZ/G1N) compatible DU
     - "renesas,du-r8a7745" for R8A7745 (RZ/G1E) compatible DU
     - "renesas,du-r8a77470" for R8A77470 (RZ/G1C) compatible DU
-    - "renesas,du-r8a774a1" for R8A774A1 (RZ/G2M) compatible DU
+    - "renesas,du-r8a774a1" for R8A774A1 (RZ/G2M v1.3) compatible DU
+    - "renesas,du-r8a774a3" for R8A774A3 (RZ/G2M v3.0) compatible DU
     - "renesas,du-r8a774b1" for R8A774B1 (RZ/G2N) compatible DU
     - "renesas,du-r8a774c0" for R8A774C0 (RZ/G2E) compatible DU
     - "renesas,du-r8a774e1" for R8A774E1 (RZ/G2H) compatible DU
+    - "renesas,du-rzg2ul" for R9A07G043 (RZ/G2UL) compatible DU
+    - "renesas,du-rzg2l" for R9A07G044 (RZ/G2L) compatible DU
+    - "renesas,du-rzg2lc" for R9A07G044 (RZ/G2LC) compatible DU
+    - "renesas,du-rzv2l" for R9A07G054 (RZ/V2L) compatible DU
     - "renesas,du-r8a7779" for R8A7779 (R-Car H1) compatible DU
     - "renesas,du-r8a7790" for R8A7790 (R-Car H2) compatible DU
     - "renesas,du-r8a7791" for R8A7791 (R-Car M2-W) compatible DU
@@ -76,10 +81,15 @@ corresponding to each DU output.
  R8A7744 (RZ/G1N)       DPAD 0         LVDS 0         -              -
  R8A7745 (RZ/G1E)       DPAD 0         DPAD 1         -              -
  R8A77470 (RZ/G1C)      DPAD 0         DPAD 1         LVDS 0         -
- R8A774A1 (RZ/G2M)      DPAD 0         HDMI 0         LVDS 0         -
+ R8A774A1 (RZ/G2M v1.3) DPAD 0         HDMI 0         LVDS 0         -
+ R8A774A3 (RZ/G2M v3.0) DPAD 0         HDMI 0         LVDS 0         -
  R8A774B1 (RZ/G2N)      DPAD 0         HDMI 0         LVDS 0         -
  R8A774C0 (RZ/G2E)      DPAD 0         LVDS 0         LVDS 1         -
  R8A774E1 (RZ/G2H)      DPAD 0         HDMI 0         LVDS 0         -
+ R9A07G043 (RZ/G2UL)    DPAD 0         -              -              -
+ R9A07G044 (RZ/G2L)     DPAD 0         MIPI DSI 0     -              -
+ R9A07G044 (RZ/G2LC)    MIPI DSI 0     -              -              -
+ R9A07G054 (RZ/V2L)     DPAD 0         MIPI DSI 0     -              -
  R8A7779 (R-Car H1)     DPAD 0         DPAD 1         -              -
  R8A7790 (R-Car H2)     DPAD 0         LVDS 0         LVDS 1         -
  R8A7791 (R-Car M2-W)   DPAD 0         LVDS 0         -              -

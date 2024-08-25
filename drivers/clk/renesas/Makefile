@@ -10,6 +10,7 @@ obj-$(CONFIG_CLK_R8A7743)		+= r8a7743-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A7745)		+= r8a7745-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A77470)		+= r8a77470-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A774A1)		+= r8a774a1-cpg-mssr.o
+obj-$(CONFIG_CLK_R8A774A3)		+= r8a774a1-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A774B1)		+= r8a774b1-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A774C0)		+= r8a774c0-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A774E1)		+= r8a774e1-cpg-mssr.o
@@ -29,12 +30,18 @@ obj-$(CONFIG_CLK_R8A77990)		+= r8a77990-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A77995)		+= r8a77995-cpg-mssr.o
 obj-$(CONFIG_CLK_R8A779A0)		+= r8a779a0-cpg-mssr.o
 obj-$(CONFIG_CLK_R9A06G032)		+= r9a06g032-clocks.o
+obj-$(CONFIG_CLK_R9A07G043)		+= r9a07g043-cpg.o
+obj-$(CONFIG_CLK_R9A07G043F)		+= r9a07g043f-cpg.o
+obj-$(CONFIG_CLK_R9A07G044)		+= r9a07g044-cpg.o
+obj-$(CONFIG_CLK_R9A07G054)		+= r9a07g044-cpg.o
+obj-$(CONFIG_CLK_R9A09G057)		+= r9a09g057-cpg.o
 obj-$(CONFIG_CLK_SH73A0)		+= clk-sh73a0.o
 
 # Family
 obj-$(CONFIG_CLK_RCAR_GEN2_CPG)		+= rcar-gen2-cpg.o
 obj-$(CONFIG_CLK_RCAR_GEN3_CPG)		+= rcar-gen3-cpg.o
 obj-$(CONFIG_CLK_RCAR_USB2_CLOCK_SEL)	+= rcar-usb2-clock-sel.o
+obj-$(CONFIG_CLK_RZG2L)			+= rzg2l-cpg.o
 
 # Generic
 obj-$(CONFIG_CLK_RENESAS_CPG_MSSR)	+= renesas-cpg-mssr.o

@@ -15,6 +15,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_graph.h>
 #include <linux/slab.h>
+#include <linux/sys_soc.h>
 
 #include "rcar_du_crtc.h"
 #include "rcar_du_drv.h"
@@ -317,7 +318,16 @@ done:
 	of_node_put(du_node);
 }
 
+static const struct soc_device_attribute rzg2l_match[] = {
+	{ .family = "RZ/G2L" },
+	{ .family = "RZ/G2UL" },
+	{ .family = "RZ/V2L" },
+	{ .family = "RZ/V2H" },
+	{ /* sentinel*/ }
+};
+
 void __init rcar_du_of_init(const struct of_device_id *of_ids)
 {
-	rcar_du_of_lvds_patch(of_ids);
+	if (!soc_device_match(rzg2l_match))
+		rcar_du_of_lvds_patch(of_ids);
 }

@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * Device Tree Source for the RZ/{G2L,V2L} SMARC EVK common parts
+ *
+ * Copyright (C) 2021 Renesas Electronics Corp.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/rzg2l-pinctrl.h>
+
+/* comment the #define statement to disable SCIF2 (SER0) on PMOD1 (CN7) */
+//#define PMOD1_SER0	1
+
+/ {
+	aliases {
+		serial1 = &scif2;
+		i2c3 = &i2c3;
+	};
+
+	sound_card {
+		compatible = "audio-graph-card";
+		dais = <&i2s2_port0>;
+	};
+
+	x1_clk: x1-clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&cpu_dai {
+	sound-dai = <&ssi0>;
+};
+
+&codec_dai {
+	clocks = <&versa3 3>;
+};
+
+&i2c3 {
+	pinctrl-0 = <&i2c3_pins>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+
+	status = "okay";
+
+	versa3: versa3@68 {
+		compatible = "renesas,5p35023";
+		reg = <0x68>;
+		#clock-cells = <1>;
+		clocks = <&x1_clk>;
+		clock-names = "x1";
+		assigned-clocks = <&versa3 0>,
+				   <&versa3 1>,
+				   <&versa3 2>,
+				   <&versa3 3>,
+				   <&versa3 4>,
+				   <&versa3 5>;
+		assigned-clock-rates =	<12288000>, <25000000>,
+					<12000000>, <11289600>,
+					<11289600>, <24000000>;
+		clock-divider-read-only = <1>, <1>, <1>, <1>, <1>;
+		clock-flags = <2176>, <2176>, <2176>, <2052>, <2176>, <2048>;
+	};
+
+	wm8978: codec@1a {
+		compatible = "wlf,wm8978";
+		#sound-dai-cells = <0>;
+		reg = <0x1a>;
+	};
+};
+
+/*
+ * To enable SCIF2 (SER0) on PMOD1 (CN7)
+ * SW1 should be at position 2->3 so that SER0_CTS# line is activated
+ * SW2 should be at position 2->3 so that SER0_TX line is activated
+ * SW3 should be at position 2->3 so that SER0_RX line is activated
+ * SW4 should be at position 2->3 so that SER0_RTS# line is activated
+ */
+#if PMOD1_SER0
+&scif2 {
+	pinctrl-0 = <&scif2_pins>;
+	pinctrl-names = "default";
+
+	uart-has-rtscts;
+	status = "okay";
+};
+#endif
+
+&ssi0 {
+	pinctrl-0 = <&ssi0_pins>;
+	pinctrl-names = "default";
+
+	status = "okay";
+};
+
+&ssi1 {
+	pinctrl-0 = <&ssi1_pins>;
+	pinctrl-names = "default";
+
+	status = "okay";
+
+	ports {
+		i2s2_port0: port@0 {
+			i2s2_cpu_endpoint: endpoint {
+				remote-endpoint = <&codec_endpoint>;
+				dai-format = "i2s";
+			};
+		};
+	};
+};
+
+&vccq_sdhi1 {
+	gpios = <&pinctrl RZG2L_GPIO(39, 1) GPIO_ACTIVE_HIGH>;
+};
+
+&ov5645 {
+	enable-gpios = <&pinctrl RZG2L_GPIO(2, 0) GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&pinctrl RZG2L_GPIO(40, 2) GPIO_ACTIVE_LOW>;
+};
+
+&adv7535 {
+	interrupt-parent = <&pinctrl>;
+	interrupts = <RZG2L_GPIO(2, 1) IRQ_TYPE_EDGE_FALLING>;
+};
+
+#if (MTU3_PWM_SUPPORT || MTU3_PHASE_COUNTING_SUPPORT)
+&mtu3 {
+	pinctrl-0 = <&mtu3_pins>;
+	pinctrl-names = "default";
+
+#if MTU3_PWM_SUPPORT
+	/* MTU3 PWM functions setting. */
+#if MTU3_PWM_COMPLEMENTARY_SELECT
+	/* Enable PWM complementary for MTIOC3B and MTIOC3D pins. */
+	pwm_complementary = <3 1>;
+#else
+	/* Enable PWM mode 1 out for MTIOC3A pins. */
+	pwm_mode1 = <3 0>;
+#endif
+#endif
+
+#if MTU3_PHASE_COUNTING_SUPPORT
+	/* MTU3 Phase counting functions setting. */
+#if MTU3_32BIT_PHASE_COUNTING_SELECT
+	/* Enable 1 32-bit phase counting counter by using both MTU1 and MTU2. */
+	32-bit_phase_counting;
+#else
+	/* Enable 2 16-bit phase counting counters of MTU1 and MTU2. */
+	16-bit_phase_counting = <1 2>;
+#endif
+#endif
+};
+#endif
+
+#if (MTU3_PWM_SUPPORT && MTU3_PWM_COMPLEMENTARY_SELECT && POE3_SUPPORT)
+&poe3 {
+	status = "okay";
+
+	mtu3_ch34 {
+		mtu3_outputs = <0>; /* MTIOC3B-MTIOC3D */
+	};
+};
+#endif

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Device Tree Source for the Silicon Linux RZ/G2E evaluation kit (EK874)
+ * Rev.[D,E].
  *
  * Copyright (C) 2019 Renesas Electronics Corp.
  */

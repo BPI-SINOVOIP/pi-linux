@@ -70,6 +70,15 @@ struct renesas_sdhi {
 	DECLARE_BITMAP(smpcmp, BITS_PER_LONG);
 	unsigned int tap_num;
 	unsigned int tap_set;
+
+	struct reset_control *rstc;
+
+	/*
+	 * To check Pin Voltage Switching support in PFC:
+	 * - 1 for not supported
+	 * - 0 for supported
+	 */
+	bool no_pin_volt_switch;
 };
 
 #define host_to_priv(host) \

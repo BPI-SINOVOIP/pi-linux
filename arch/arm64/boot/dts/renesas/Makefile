@@ -3,25 +3,52 @@ dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-beacon-rzg2m-kit.dtb
 dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m.dtb
 dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-ex.dtb
 dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-ex-idk-1110wr.dtb
+dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-ex-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-ex-mipi-2.4.dtb
 dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-rev2.dtb
 dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-rev2-ex.dtb
 dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-rev2-ex-idk-1110wr.dtb
+dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-rev2-ex-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774A1) += r8a774a1-hihope-rzg2m-rev2-ex-mipi-2.4.dtb
+
+dtb-$(CONFIG_ARCH_R8A774A3) += r8a774a3-hihope-rzg2m.dtb
+dtb-$(CONFIG_ARCH_R8A774A3) += r8a774a3-hihope-rzg2m-ex.dtb
+dtb-$(CONFIG_ARCH_R8A774A3) += r8a774a3-hihope-rzg2m-ex-idk-1110wr.dtb
+dtb-$(CONFIG_ARCH_R8A774A3) += r8a774a3-hihope-rzg2m-ex-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774A3) += r8a774a3-hihope-rzg2m-ex-mipi-2.4.dtb
 
 dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n.dtb
 dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-ex.dtb
 dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-ex-idk-1110wr.dtb
+dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-ex-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-ex-mipi-2.4.dtb
 dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-rev2.dtb
 dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-rev2-ex.dtb
 dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-rev2-ex-idk-1110wr.dtb
+dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-rev2-ex-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774B1) += r8a774b1-hihope-rzg2n-rev2-ex-mipi-2.4.dtb
 
 dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-cat874.dtb
 dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874.dtb
 dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-idk-2121wr.dtb
 dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-mipi-2.4.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-cat874-revc.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-revc.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-revc-idk-2121wr.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-revc-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-ek874-revc-mipi-2.4.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-es10-cat874.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-es10-ek874.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-es10-ek874-idk-2121wr.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-es10-ek874-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774C0) += r8a774c0-es10-ek874-mipi-2.4.dtb
 
 dtb-$(CONFIG_ARCH_R8A774E1) += r8a774e1-hihope-rzg2h.dtb
 dtb-$(CONFIG_ARCH_R8A774E1) += r8a774e1-hihope-rzg2h-ex.dtb
 dtb-$(CONFIG_ARCH_R8A774E1) += r8a774e1-hihope-rzg2h-ex-idk-1110wr.dtb
+dtb-$(CONFIG_ARCH_R8A774E1) += r8a774e1-hihope-rzg2h-ex-mipi-2.1.dtb
+dtb-$(CONFIG_ARCH_R8A774E1) += r8a774e1-hihope-rzg2h-ex-mipi-2.4.dtb
 
 dtb-$(CONFIG_ARCH_R8A77950) += r8a77950-salvator-x.dtb
 dtb-$(CONFIG_ARCH_R8A77950) += r8a77950-ulcb.dtb
@@ -56,3 +83,18 @@ dtb-$(CONFIG_ARCH_R8A77990) += r8a77990-ebisu.dtb
 dtb-$(CONFIG_ARCH_R8A77995) += r8a77995-draak.dtb
 
 dtb-$(CONFIG_ARCH_R8A779A0) += r8a779a0-falcon.dtb
+
+dtb-$(CONFIG_ARCH_R9A07G043) += r9a07g043u11-smarc.dtb
+dtb-$(CONFIG_ARCH_R9A07G043) += r9a07g043u11-dev.dtb
+
+dtb-$(CONFIG_ARCH_R9A07G044) += r9a07g044c2-smarc.dtb
+dtb-$(CONFIG_ARCH_R9A07G044) += r9a07g044c2-dev.dtb
+dtb-$(CONFIG_ARCH_R9A07G044) += r9a07g044l2-smarc.dtb
+dtb-$(CONFIG_ARCH_R9A07G044) += r9a07g044l2-dev.dtb
+
+dtb-$(CONFIG_ARCH_R9A07G054) += r9a07g054l2-smarc.dtb
+dtb-$(CONFIG_ARCH_R9A07G054) += r9a07g054l2-dev.dtb
+
+dtb-$(CONFIG_ARCH_R9A09G057) += r9a09g057h4-dev.dtb
+dtb-$(CONFIG_ARCH_R9A09G057) += r9a09g057h4-evk-alpha.dtb
+dtb-$(CONFIG_ARCH_R9A09G057) += r9a09g057h4-evk-ver1.dtb

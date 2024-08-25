@@ -1,0 +1,5 @@
+0x00000000	vspm_get_status	/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/kernel-module-vspm/1.0-r0/git/vspm-module/files/vspm/drv/vspm	EXPORT_SYMBOL	
+0x00000000	vspm_quit_driver	/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/kernel-module-vspm/1.0-r0/git/vspm-module/files/vspm/drv/vspm	EXPORT_SYMBOL	
+0x00000000	vspm_cancel_job	/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/kernel-module-vspm/1.0-r0/git/vspm-module/files/vspm/drv/vspm	EXPORT_SYMBOL	
+0x00000000	vspm_entry_job	/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/kernel-module-vspm/1.0-r0/git/vspm-module/files/vspm/drv/vspm	EXPORT_SYMBOL	
+0x00000000	vspm_init_driver	/yocto/build/tmp/work/rzv2h_evk_ver1-poky-linux/kernel-module-vspm/1.0-r0/git/vspm-module/files/vspm/drv/vspm	EXPORT_SYMBOL	

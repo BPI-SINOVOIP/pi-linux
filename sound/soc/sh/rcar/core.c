@@ -99,6 +99,7 @@
  */
 
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 #include "rsnd.h"
 
 #define RSND_RATES SNDRV_PCM_RATE_8000_192000
@@ -110,6 +111,7 @@ static const struct of_device_id rsnd_of_match[] = {
 	{ .compatible = "renesas,rcar_sound-gen1", .data = (void *)RSND_GEN1 },
 	{ .compatible = "renesas,rcar_sound-gen2", .data = (void *)RSND_GEN2 },
 	{ .compatible = "renesas,rcar_sound-gen3", .data = (void *)RSND_GEN3 },
+	{ .compatible = "renesas,rcar_sound-r9a09g057", .data = (void *)RSND_RZV2H },
 	/* Special Handling */
 	{ .compatible = "renesas,rcar_sound-r8a77990", .data = (void *)(RSND_GEN3 | RSND_SOC_E) },
 	{},
@@ -202,10 +204,11 @@ int rsnd_mod_init(struct rsnd_priv *priv,
 		  struct rsnd_mod *mod,
 		  struct rsnd_mod_ops *ops,
 		  struct clk *clk,
+		  struct reset_control *rstc,
 		  enum rsnd_mod_type type,
 		  int id)
 {
-	int ret = clk_prepare(clk);
+	int ret = clk_prepare_enable(clk);
 
 	if (ret)
 		return ret;
@@ -214,7 +217,18 @@ int rsnd_mod_init(struct rsnd_priv *priv,
 	mod->ops	= ops;
 	mod->type	= type;
 	mod->clk	= clk;
+	mod->rstc	= rstc;
 	mod->priv	= priv;
+
+	usleep_range(2000, 4000);
+
+	ret = reset_control_deassert(mod->rstc);
+	if (ret < 0)
+		return ret;
+
+	usleep_range(2000, 4000);
+
+	clk_disable(clk);
 
 	return ret;
 }
@@ -516,6 +530,7 @@ static enum rsnd_mod_type rsnd_mod_sequence[][RSND_MOD_MAX] = {
 		RSND_MOD_SSIM1,
 		RSND_MOD_SSIP,
 		RSND_MOD_SSI,
+		RSND_MOD_SPDIF,
 	}, {
 		/* PLAYBACK */
 		RSND_MOD_AUDMAPP,
@@ -531,6 +546,7 @@ static enum rsnd_mod_type rsnd_mod_sequence[][RSND_MOD_MAX] = {
 		RSND_MOD_CTU,
 		RSND_MOD_CMD,
 		RSND_MOD_SRC,
+		RSND_MOD_SPDIF,
 	},
 };
 
@@ -605,7 +621,7 @@ int rsnd_dai_connect(struct rsnd_mod *mod,
 	return 0;
 }
 
-static void rsnd_dai_disconnect(struct rsnd_mod *mod,
+void rsnd_dai_disconnect(struct rsnd_mod *mod,
 				struct rsnd_dai_stream *io,
 				enum rsnd_mod_type type)
 {
@@ -684,6 +700,7 @@ static void rsnd_dai_stream_init(struct rsnd_dai_stream *io,
 				struct snd_pcm_substream *substream)
 {
 	io->substream		= substream;
+	io->dma_buffer_pos	= 0;
 }
 
 static void rsnd_dai_stream_quit(struct rsnd_dai_stream *io)
@@ -1313,6 +1330,7 @@ static void __rsnd_dai_probe(struct rsnd_priv *priv,
 		rsnd_parse_connect_ctu(rdai, playback, capture);
 		rsnd_parse_connect_mix(rdai, playback, capture);
 		rsnd_parse_connect_dvc(rdai, playback, capture);
+		rsnd_parse_connect_spdif(rdai, playback, capture);
 
 		of_node_put(playback);
 		of_node_put(capture);
@@ -1365,7 +1383,7 @@ static int rsnd_dai_probe(struct rsnd_priv *priv)
 	if (is_graph) {
 		for_each_endpoint_of_node(dai_node, dai_np) {
 			__rsnd_dai_probe(priv, dai_np, dai_i);
-			if (rsnd_is_gen3(priv)) {
+			if (rsnd_is_gen3(priv) || rsnd_is_rzv2h(priv)) {
 				struct rsnd_dai *rdai = rsnd_rdai_get(priv, dai_i);
 
 				rsnd_parse_connect_graph(priv, &rdai->playback, dai_np);
@@ -1376,7 +1394,7 @@ static int rsnd_dai_probe(struct rsnd_priv *priv)
 	} else {
 		for_each_child_of_node(dai_node, dai_np) {
 			__rsnd_dai_probe(priv, dai_np, dai_i);
-			if (rsnd_is_gen3(priv)) {
+			if (rsnd_is_gen3(priv) || rsnd_is_rzv2h(priv)) {
 				struct rsnd_dai *rdai = rsnd_rdai_get(priv, dai_i);
 
 				rsnd_parse_connect_simple(priv, &rdai->playback, dai_np);
@@ -1790,6 +1808,7 @@ static int rsnd_probe(struct platform_device *pdev)
 		rsnd_dvc_probe,
 		rsnd_cmd_probe,
 		rsnd_adg_probe,
+		rsnd_spdif_probe,
 		rsnd_dai_probe,
 	};
 	int ret, i;
@@ -1871,6 +1890,7 @@ static int rsnd_remove(struct platform_device *pdev)
 		rsnd_dvc_remove,
 		rsnd_cmd_remove,
 		rsnd_adg_remove,
+		rsnd_spdif_remove,
 	};
 	int ret = 0, i;
 

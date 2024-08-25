@@ -12,6 +12,8 @@
 	aliases {
 		serial0 = &scif2;
 		serial1 = &hscif0;
+		serial2 = &hscif1;
+		serial3 = &scif0;
 		mmc0 = &sdhi3;
 		mmc1 = &sdhi0;
 		mmc2 = &sdhi2;
@@ -76,7 +78,8 @@
 
 		label = "rcar-sound";
 
-		dais = <&rsnd_port>;
+		dais = <&rsnd_port0	/* HDMI Audio */
+			&rsnd_port1>;	/* External PCM5102A Codec */
 	};
 
 	vbus0_usb2: regulator-vbus0-usb2 {
@@ -113,6 +116,21 @@
 		#clock-cells = <0>;
 		clock-frequency = <25000000>;
 	};
+
+	vspm_if {
+		compatible = "renesas,vspm_if";
+	};
+
+	pcm5102a: pcm5102a {
+		compatible = "ti,pcm5102a";
+		#sound-dai-cells = <0>;
+
+		port {
+			pcm5102a_endpoint: endpoint {
+				remote-endpoint = <&rsnd_endpoint1>;
+			};
+		};
+	};
 };
 
 &audio_clk_a {
@@ -140,7 +158,7 @@
 };
 
 &gpio6 {
-	usb1-reset {
+	usb1-reset-hog {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_LOW>;
 		output-low;
@@ -172,6 +190,21 @@
 	pinctrl-names = "default";
 
 	uart-has-rtscts;
+	status = "okay";
+};
+
+&hscif1 {
+	pinctrl-0 = <&hscif1_pins>;
+	pinctrl-names = "default";
+
+	uart-has-rtscts;
+	status = "okay";
+};
+
+&scif0 {
+	pinctrl-0 = <&scif0_pins>;
+	pinctrl-names = "default";
+
 	status = "okay";
 };
 
@@ -224,6 +257,16 @@
 		function = "scif_clk";
 	};
 
+	hscif1_pins: hscif1 {
+		groups = "hscif1_data_a", "hscif1_ctrl_a";
+		function = "hscif1";
+	};
+
+	scif0_pins: scif0 {
+		groups = "scif0_data";
+		function = "scif0";
+	};
+
 	sdhi0_pins: sd0 {
 		groups = "sdhi0_data4", "sdhi0_ctrl";
 		function = "sdhi0";
@@ -263,11 +306,25 @@
 			pins = "GP_6_27";
 			bias-pull-up;
 		};
+
+		pwen {
+			pins = "GP_6_26";
+		};
 	};
 
 	usb30_pins: usb30 {
 		groups = "usb30";
 		function = "usb30";
+	};
+
+	sound_clk_pins: sound_clk {
+		groups = "audio_clk_a_a";
+		function = "audio_clk";
+	};
+
+	sound_pins: sound {
+		groups = "ssi01239_ctrl", "ssi0_data", "ssi1_data_a";
+		function = "ssi";
 	};
 };
 
@@ -331,6 +388,7 @@
 	vqmmc-supply = <&reg_1p8v>;
 	bus-width = <8>;
 	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
 	non-removable;
 	fixed-emmc-driver-type = <1>;
 	status = "okay";
@@ -377,4 +435,81 @@
 	pinctrl-names = "default";
 
 	status = "okay";
+};
+
+&cmt0 {
+	status = "okay";
+};
+
+&cmt1 {
+	status = "okay";
+};
+
+&cmt2 {
+	status = "okay";
+};
+
+&cmt3 {
+	status = "okay";
+};
+
+&tmu0 {
+	status = "okay";
+};
+
+&tmu1 {
+	status = "okay";
+};
+
+&tmu2 {
+	status = "okay";
+};
+
+&tmu3 {
+	status = "okay";
+};
+
+&tmu4 {
+	status = "okay";
+};
+
+&rcar_sound {
+	pinctrl-0 = <&sound_clk_pins &sound_pins>;
+	pinctrl-names = "default";
+
+	status = "okay";
+
+	/* Single DAI */
+	#sound-dai-cells = <0>;
+
+	ports {
+		rsnd_port0: port@0 {
+			rsnd_endpoint: endpoint {
+				remote-endpoint = <&dw_hdmi0_snd_in>;
+
+
+				dai-format = "i2s";
+				bitclock-master = <&rsnd_endpoint>;
+				frame-master = <&rsnd_endpoint>;
+
+				playback = <&ssi2>;
+			};
+		};
+
+		rsnd_port1: port@1 {
+			rsnd_endpoint1: endpoint {
+				remote-endpoint = <&pcm5102a_endpoint>;
+
+				dai-format = "i2s";
+				bitclock-master = <&rsnd_endpoint1>;
+				frame-master = <&rsnd_endpoint1>;
+
+				playback = <&ssi1 &src1 &dvc0>;
+			};
+		};
+	};
+};
+
+&ssi1 {
+	shared-pin;
 };

@@ -37,6 +37,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 #include <linux/scatterlist.h>
 #include <linux/serial.h>
 #include <linux/serial_sci.h>
@@ -156,6 +157,7 @@ struct sci_port {
 
 	bool has_rtscts;
 	bool autorts;
+	bool is_rz_sci;
 };
 
 #define SCI_NPORTS CONFIG_SERIAL_SH_SCI_NR_UARTS
@@ -183,6 +185,7 @@ static const struct sci_port_params sci_port_params[SCIx_NR_REGTYPES] = {
 			[SCxTDR]	= { 0x03,  8 },
 			[SCxSR]		= { 0x04,  8 },
 			[SCxRDR]	= { 0x05,  8 },
+			[SCIGSEMR]	= { 0x07,  8 },
 		},
 		.fifosize = 1,
 		.overrun_reg = SCxSR,
@@ -289,7 +292,7 @@ static const struct sci_port_params sci_port_params[SCIx_NR_REGTYPES] = {
 	},
 
 	/*
-	 * The "SCIFA" that is in RZ/T and RZ/A2.
+	 * The "SCIFA" that is in RZ/A2, RZ/G2L and RZ/T.
 	 * It looks like a normal SCIF with FIFO data, but with a
 	 * compressed address space. Also, the break out of interrupts
 	 * are different: ERI/BRI, RXI, TXI, TEI, DRI.
@@ -298,6 +301,7 @@ static const struct sci_port_params sci_port_params[SCIx_NR_REGTYPES] = {
 		.regs = {
 			[SCSMR]		= { 0x00, 16 },
 			[SCBRR]		= { 0x02,  8 },
+			[MDDR]          = { 0x02,  8 },
 			[SCSCR]		= { 0x04, 16 },
 			[SCxTDR]	= { 0x06,  8 },
 			[SCxSR]		= { 0x08, 16 },
@@ -306,6 +310,7 @@ static const struct sci_port_params sci_port_params[SCIx_NR_REGTYPES] = {
 			[SCFDR]		= { 0x0E, 16 },
 			[SCSPTR]	= { 0x10, 16 },
 			[SCLSR]		= { 0x12, 16 },
+			[SEMR]		= { 0x14, 8 },
 		},
 		.fifosize = 16,
 		.overrun_reg = SCLSR,
@@ -585,6 +590,18 @@ static void sci_start_tx(struct uart_port *port)
 
 	if (s->chan_tx && !uart_circ_empty(&s->port.state->xmit) &&
 	    dma_submit_error(s->cookie_tx)) {
+
+		/* Disable SCIF interrupt while transfer DMA */
+		ctrl = serial_port_in(port, SCSCR);
+		serial_port_out(port, SCSCR, ctrl & ~SCSCR_TIE);
+		/* Disable Transmit interrupt, Transmit end interrupt */
+		disable_irq(s->irqs[SCIx_TXI_IRQ]);
+		disable_irq(s->irqs[SCIx_TEI_IRQ]);
+
+		/* DMA need TIE enable */
+		ctrl = serial_port_in(port, SCSCR);
+		serial_port_out(port, SCSCR, ctrl | SCSCR_TIE);
+
 		s->cookie_tx = 0;
 		schedule_work(&s->work_tx);
 	}
@@ -593,6 +610,15 @@ static void sci_start_tx(struct uart_port *port)
 	if (!s->chan_tx || port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
 		/* Set TIE (Transmit Interrupt Enable) bit in SCSCR */
 		ctrl = serial_port_in(port, SCSCR);
+
+		/*
+		 * For SCIg, TE (transmit enable) must be set after setting TIE
+		 * (transmit interrupt enable) or in the same instruction to
+		 * start the transmitting process.
+		 */
+		if (s->is_rz_sci)
+			ctrl |= SCSCR_TE;
+
 		serial_port_out(port, SCSCR, ctrl | SCSCR_TIE);
 	}
 }
@@ -1189,6 +1215,7 @@ static void sci_dma_tx_complete(void *arg)
 	struct uart_port *port = &s->port;
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned long flags;
+	unsigned short ctrl;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
 
@@ -1207,10 +1234,20 @@ static void sci_dma_tx_complete(void *arg)
 		schedule_work(&s->work_tx);
 	} else {
 		s->cookie_tx = -EINVAL;
+		s->chan_tx = NULL;
 		if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
 			u16 ctrl = serial_port_in(port, SCSCR);
 			serial_port_out(port, SCSCR, ctrl & ~SCSCR_TIE);
 		}
+
+		/* Stop DMA transfer */
+		dmaengine_pause(s->chan_tx_saved);
+
+		/* Re enable SCIF interrupt after DMA transfer complete */
+		ctrl = serial_port_in(port, SCSCR);
+		serial_port_out(port, SCSCR, ctrl & ~SCSCR_TIE);
+		enable_irq(s->irqs[SCIx_TXI_IRQ]);
+		enable_irq(s->irqs[SCIx_TEI_IRQ]);
 	}
 
 	spin_unlock_irqrestore(&port->lock, flags);
@@ -1281,10 +1318,13 @@ static void sci_dma_rx_reenable_irq(struct sci_port *s)
 
 	/* Direct new serial port interrupts back to CPU */
 	scr = serial_port_in(port, SCSCR);
-	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
+	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB)
 		scr &= ~SCSCR_RDRQE;
-		enable_irq(s->irqs[SCIx_RXI_IRQ]);
-	}
+
+	enable_irq(s->irqs[SCIx_RXI_IRQ]);
+
+	scif_set_rtrg(port, s->rx_trigger);
+
 	serial_port_out(port, SCSCR, scr | SCSCR_RIE);
 }
 
@@ -1703,14 +1743,19 @@ static irqreturn_t sci_rx_interrupt(int irq, void *ptr)
 
 		/* Disable future Rx interrupts */
 		if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
-			disable_irq_nosync(irq);
+			disable_irq_nosync(s->irqs[SCIx_RXI_IRQ]);
 			scr |= SCSCR_RDRQE;
 		} else {
 			if (sci_dma_rx_submit(s, false) < 0)
 				goto handle_pio;
 
-			scr &= ~SCSCR_RIE;
+			disable_irq_nosync(s->irqs[SCIx_RXI_IRQ]);
+			/* DMA need RIE enable */
+			scr |= SCSCR_RIE;
 		}
+
+		scif_set_rtrg(port, 1);
+
 		serial_port_out(port, SCSCR, scr);
 		/* Clear current interrupt */
 		serial_port_out(port, SCxSR,
@@ -2392,6 +2437,10 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	int best_clk = -1;
 	unsigned long flags;
 
+	/* Set the start bit condition of SCIg from logic LOW to FAILLING EDGE. */
+	if (s->is_rz_sci)
+		serial_port_out(port, SCIGSEMR, SCIGSEMR_RXDESEL);
+
 	if ((termios->c_cflag & CSIZE) == CS7) {
 		smr_val |= SCSMR_CHR;
 	} else {
@@ -2531,6 +2580,9 @@ done:
 	if (termios->c_cflag & PARENB)
 		bits++;
 
+	if (sci_getreg(port, SEMR)->size)
+		serial_port_out(port, SEMR, 0);
+
 	if (best_clk >= 0) {
 		if (port->type == PORT_SCIFA || port->type == PORT_SCIFB)
 			switch (srr + 1) {
@@ -2547,6 +2599,28 @@ done:
 		serial_port_out(port, SCSCR, scr_val | s->hscif_tot);
 		serial_port_out(port, SCSMR, smr_val);
 		serial_port_out(port, SCBRR, brr);
+
+		/* Enable Serial Extended Mode Register (SEMR) */
+		if ((sci_getreg(port, MDDR)->size) && (sci_getreg(port, SEMR)->size)
+				&& baud == 921600) {
+			unsigned int mddr, prediv;
+			unsigned long freq = s->port.type != PORT_HSCIF ?
+				s->clk_rates[SCI_FCK]*2 : s->clk_rates[SCI_FCK];
+
+			serial_port_out(port, SEMR,
+					serial_port_in(port, SEMR) | (SEMR_BRME | SEMR_MDDRS));
+			serial_port_out(port, SCSCR,
+					serial_port_in(port, SCSCR) & (~(SCSCR_TE | SCSCR_RE)));
+
+			prediv = (srr + 1) * (1 << (2 * cks + 1));
+			mddr = DIV_ROUND_CLOSEST((long)prediv * baud * 256 * (brr + 1), freq);
+			mddr = clamp(mddr, 128U, 256U);
+
+			serial_port_out(port, MDDR, mddr);
+			serial_port_out(port, SCSCR,
+					serial_port_in(port, SCSCR) | (SCSCR_TE | SCSCR_RE));
+		}
+
 		if (sci_getreg(port, HSSRR)->size) {
 			unsigned int hssrr = srr | HSCIF_SRE;
 			/* Calculate deviation from intended rate at the
@@ -2612,8 +2686,10 @@ done:
 		sci_set_mctrl(port, port->mctrl);
 	}
 
-	scr_val |= SCSCR_RE | SCSCR_TE |
+	scr_val |= SCSCR_RE |
 		   (s->cfg->scscr & ~(SCSCR_CKE1 | SCSCR_CKE0));
+	if (!s->is_rz_sci)
+		scr_val |= SCSCR_TE;
 	serial_port_out(port, SCSCR, scr_val | s->hscif_tot);
 	if ((srr + 1 == 5) &&
 	    (port->type == PORT_SCIFA || port->type == PORT_SCIFB)) {
@@ -2988,7 +3064,7 @@ static int sci_init_single(struct platform_device *dev,
 	port->flags		= UPF_FIXED_PORT | UPF_BOOT_AUTOCONF | p->flags;
 	port->fifosize		= sci_port->params->fifosize;
 
-	if (port->type == PORT_SCI) {
+	if ((port->type == PORT_SCI) && (!sci_port->is_rz_sci)) {
 		if (sci_port->reg_size >= 0x20)
 			port->regshift = 2;
 		else
@@ -3198,6 +3274,18 @@ static const struct of_device_id of_sci_match[] = {
 		.compatible = "renesas,scif-r7s9210",
 		.data = SCI_OF_DATA(PORT_SCIF, SCIx_RZ_SCIFA_REGTYPE),
 	},
+	{
+		.compatible = "renesas,scif-r9a07g044",
+		.data = SCI_OF_DATA(PORT_SCIF, SCIx_RZ_SCIFA_REGTYPE),
+	},
+	{
+		.compatible = "renesas,scif-r9a07g043",
+		.data = SCI_OF_DATA(PORT_SCIF, SCIx_RZ_SCIFA_REGTYPE),
+	},
+	{
+		.compatible = "renesas,scif-r9a07g043f",
+		.data = SCI_OF_DATA(PORT_SCIF, SCIx_RZ_SCIFA_REGTYPE),
+	},
 	/* Family-specific types */
 	{
 		.compatible = "renesas,rcar-gen1-scif",
@@ -3226,28 +3314,55 @@ static const struct of_device_id of_sci_match[] = {
 		.compatible = "renesas,sci",
 		.data = SCI_OF_DATA(PORT_SCI, SCIx_SCI_REGTYPE),
 	}, {
+		.compatible = "renesas,rz-sci",
+		.data = SCI_OF_DATA(PORT_SCI, SCIx_SCI_REGTYPE),
+	}, {
 		/* Terminator */
 	},
 };
 MODULE_DEVICE_TABLE(of, of_sci_match);
 
+static void sci_reset_control_assert(void *data)
+{
+	reset_control_assert(data);
+}
+
 static struct plat_sci_port *sci_parse_dt(struct platform_device *pdev,
 					  unsigned int *dev_id)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct reset_control *rstc;
 	struct plat_sci_port *p;
 	struct sci_port *sp;
 	const void *data;
-	int id;
+	int id, ret;
 
 	if (!IS_ENABLED(CONFIG_OF) || !np)
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	data = of_device_get_match_data(&pdev->dev);
 
+	rstc = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(rstc))
+		return ERR_PTR(dev_err_probe(&pdev->dev, PTR_ERR(rstc),
+					     "failed to get reset ctrl\n"));
+
+	ret = reset_control_deassert(rstc);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to deassert reset %d\n", ret);
+		return ERR_PTR(ret);
+	}
+
+	ret = devm_add_action_or_reset(&pdev->dev, sci_reset_control_assert, rstc);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register assert devm action, %d\n",
+			ret);
+		return ERR_PTR(ret);
+	}
+
 	p = devm_kzalloc(&pdev->dev, sizeof(struct plat_sci_port), GFP_KERNEL);
 	if (!p)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	/* Get the line number from the aliases node. */
 	id = of_alias_get_id(np, "serial");
@@ -3255,11 +3370,11 @@ static struct plat_sci_port *sci_parse_dt(struct platform_device *pdev,
 		id = ffz(sci_ports_in_use);
 	if (id < 0) {
 		dev_err(&pdev->dev, "failed to get alias id (%d)\n", id);
-		return NULL;
+		return ERR_PTR(-EINVAL);
 	}
 	if (id >= ARRAY_SIZE(sci_ports)) {
 		dev_err(&pdev->dev, "serial%d out of range\n", id);
-		return NULL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	sp = &sci_ports[id];
@@ -3346,8 +3461,8 @@ static int sci_probe(struct platform_device *dev)
 
 	if (dev->dev.of_node) {
 		p = sci_parse_dt(dev, &dev_id);
-		if (p == NULL)
-			return -EINVAL;
+		if (IS_ERR(p))
+			return PTR_ERR(p);
 	} else {
 		p = dev->dev.platform_data;
 		if (p == NULL) {
@@ -3360,6 +3475,9 @@ static int sci_probe(struct platform_device *dev)
 
 	sp = &sci_ports[dev_id];
 	platform_set_drvdata(dev, sp);
+
+	if (of_device_is_compatible(dev->dev.of_node, "renesas,rz-sci"))
+		sp->is_rz_sci = 1;
 
 	ret = sci_probe_single(dev, dev_id, p, sp);
 	if (ret)
@@ -3480,6 +3598,7 @@ static int __init rzscifa_early_console_setup(struct earlycon_device *device,
 	port_cfg.regtype = SCIx_RZ_SCIFA_REGTYPE;
 	return early_console_setup(device, PORT_SCIF);
 }
+
 static int __init scifa_early_console_setup(struct earlycon_device *device,
 					  const char *opt)
 {
@@ -3499,6 +3618,9 @@ static int __init hscif_early_console_setup(struct earlycon_device *device,
 OF_EARLYCON_DECLARE(sci, "renesas,sci", sci_early_console_setup);
 OF_EARLYCON_DECLARE(scif, "renesas,scif", scif_early_console_setup);
 OF_EARLYCON_DECLARE(scif, "renesas,scif-r7s9210", rzscifa_early_console_setup);
+OF_EARLYCON_DECLARE(scif, "renesas,scif-r9a07g044", rzscifa_early_console_setup);
+OF_EARLYCON_DECLARE(scif, "renesas,scif-r9a07g043", rzscifa_early_console_setup);
+OF_EARLYCON_DECLARE(scif, "renesas,scif-r9a07g043f", rzscifa_early_console_setup);
 OF_EARLYCON_DECLARE(scifa, "renesas,scifa", scifa_early_console_setup);
 OF_EARLYCON_DECLARE(scifb, "renesas,scifb", scifb_early_console_setup);
 OF_EARLYCON_DECLARE(hscif, "renesas,hscif", hscif_early_console_setup);

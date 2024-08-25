@@ -648,7 +648,7 @@ config SPI_RB4XX
 
 config SPI_RPCIF
 	tristate "Renesas RPC-IF SPI driver"
-	depends on RENESAS_RPCIF
+	depends on RENESAS_RPCIF || RENESAS_XSPI
 	help
 	  SPI driver for Renesas R-Car Gen3 RPC-IF.
 
@@ -657,6 +657,12 @@ config SPI_RSPI
 	depends on SUPERH || ARCH_RENESAS || COMPILE_TEST
 	help
 	  SPI driver for Renesas RSPI and QSPI blocks.
+
+config SPI_RSPI_V2H
+        tristate "Renesas RSPI RZ/V2H controller"
+        depends on ARCH_RENESAS || COMPILE_TEST
+        help
+          SPI driver for Renesas RSPI RZ/V2H
 
 config SPI_QCOM_QSPI
 	tristate "QTI QSPI controller"

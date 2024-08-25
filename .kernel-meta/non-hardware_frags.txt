@@ -1,0 +1,4 @@
+/yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs///defconfig
+/yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs///touch.cfg
+/yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs///defconfig
+/yocto/build/tmp/work-shared/rzv2h-evk-ver1/kernel-source/.kernel-meta/configs///touch.cfg

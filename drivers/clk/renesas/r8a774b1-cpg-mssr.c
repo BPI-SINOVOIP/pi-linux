@@ -40,6 +40,7 @@ enum clk_ids {
 	CLK_S2,
 	CLK_S3,
 	CLK_SDSRC,
+	CLK_RPCSRC,
 	CLK_RINT,
 
 	/* Module Clocks */
@@ -65,11 +66,18 @@ static const struct cpg_core_clk r8a774b1_core_clks[] __initconst = {
 	DEF_FIXED(".s2",        CLK_S2,            CLK_PLL1_DIV2,  4, 1),
 	DEF_FIXED(".s3",        CLK_S3,            CLK_PLL1_DIV2,  6, 1),
 	DEF_FIXED(".sdsrc",     CLK_SDSRC,         CLK_PLL1_DIV2,  2, 1),
+	DEF_BASE(".rpcsrc",     CLK_RPCSRC, CLK_TYPE_GEN3_RPCSRC, CLK_PLL1),
+
+	DEF_BASE("rpc",         R8A774B1_CLK_RPC, CLK_TYPE_GEN3_RPC,
+		 CLK_RPCSRC),
+	DEF_BASE("rpcd2",       R8A774B1_CLK_RPCD2, CLK_TYPE_GEN3_RPCD2,
+		 R8A774B1_CLK_RPC),
 
 	DEF_GEN3_OSC(".r",      CLK_RINT,          CLK_EXTAL,      32),
 
 	/* Core Clock Outputs */
 	DEF_GEN3_Z("z",         R8A774B1_CLK_Z,     CLK_TYPE_GEN3_Z,  CLK_PLL0, 2, 8),
+	DEF_GEN3_Z("zg",        R8A774B1_CLK_ZG,    CLK_TYPE_GEN3_ZG, CLK_PLL4, 4, 24),
 	DEF_FIXED("ztr",        R8A774B1_CLK_ZTR,   CLK_PLL1_DIV2,  6, 1),
 	DEF_FIXED("ztrd2",      R8A774B1_CLK_ZTRD2, CLK_PLL1_DIV2, 12, 1),
 	DEF_FIXED("zt",         R8A774B1_CLK_ZT,    CLK_PLL1_DIV2,  4, 1),
@@ -110,11 +118,14 @@ static const struct cpg_core_clk r8a774b1_core_clks[] __initconst = {
 };
 
 static const struct mssr_mod_clk r8a774b1_mod_clks[] __initconst = {
+	DEF_MOD("3dge",			 112,	R8A774B1_CLK_ZG),
 	DEF_MOD("tmu4",			 121,	R8A774B1_CLK_S0D6),
 	DEF_MOD("tmu3",			 122,	R8A774B1_CLK_S3D2),
 	DEF_MOD("tmu2",			 123,	R8A774B1_CLK_S3D2),
 	DEF_MOD("tmu1",			 124,	R8A774B1_CLK_S3D2),
 	DEF_MOD("tmu0",			 125,	R8A774B1_CLK_CP),
+	DEF_MOD("vcplf",		 130,	R8A774B1_CLK_S0D2),
+	DEF_MOD("vdpb",			 131,	R8A774B1_CLK_S0D2),
 	DEF_MOD("fdp1-0",		 119,	R8A774B1_CLK_S0D1),
 	DEF_MOD("scif5",		 202,	R8A774B1_CLK_S3D4),
 	DEF_MOD("scif4",		 203,	R8A774B1_CLK_S3D4),
@@ -196,6 +207,7 @@ static const struct mssr_mod_clk r8a774b1_mod_clks[] __initconst = {
 	DEF_MOD("can-fd",		 914,	R8A774B1_CLK_S3D2),
 	DEF_MOD("can-if1",		 915,	R8A774B1_CLK_S3D4),
 	DEF_MOD("can-if0",		 916,	R8A774B1_CLK_S3D4),
+	DEF_MOD("rpc-if",		 917,	R8A774B1_CLK_RPCD2),
 	DEF_MOD("i2c6",			 918,	R8A774B1_CLK_S0D6),
 	DEF_MOD("i2c5",			 919,	R8A774B1_CLK_S0D6),
 	DEF_MOD("i2c-dvfs",		 926,	R8A774B1_CLK_CP),
@@ -246,19 +258,19 @@ static const unsigned int r8a774b1_crit_mod_clks[] __initconst = {
  * 14 13 19 17	(MHz)
  *-----------------------------------------------------------------
  * 0  0  0  0	16.66 x 1	x180	x192	x192	x144	/16
- * 0  0  0  1	16.66 x 1	x180	x192	x128	x144	/16
+ * 0  0  0  1	16.66 x 1	x180	x192	x168	x144	/16
  * 0  0  1  0	Prohibited setting
  * 0  0  1  1	16.66 x 1	x180	x192	x192	x144	/16
  * 0  1  0  0	20    x 1	x150	x160	x160	x120	/19
- * 0  1  0  1	20    x 1	x150	x160	x106	x120	/19
+ * 0  1  0  1	20    x 1	x150	x160	x140	x120	/19
  * 0  1  1  0	Prohibited setting
  * 0  1  1  1	20    x 1	x150	x160	x160	x120	/19
  * 1  0  0  0	25    x 1	x120	x128	x128	x96	/24
- * 1  0  0  1	25    x 1	x120	x128	x84	x96	/24
+ * 1  0  0  1	25    x 1	x120	x128	x112	x96	/24
  * 1  0  1  0	Prohibited setting
  * 1  0  1  1	25    x 1	x120	x128	x128	x96	/24
  * 1  1  0  0	33.33 / 2	x180	x192	x192	x144	/32
- * 1  1  0  1	33.33 / 2	x180	x192	x128	x144	/32
+ * 1  1  0  1	33.33 / 2	x180	x192	x168	x144	/32
  * 1  1  1  0	Prohibited setting
  * 1  1  1  1	33.33 / 2	x180	x192	x192	x144	/32
  */
@@ -270,19 +282,19 @@ static const unsigned int r8a774b1_crit_mod_clks[] __initconst = {
 static const struct rcar_gen3_cpg_pll_config cpg_pll_configs[16] __initconst = {
 	/* EXTAL div	PLL1 mult/div	PLL3 mult/div	OSC prediv */
 	{ 1,		192,	1,	192,	1,	16,	},
-	{ 1,		192,	1,	128,	1,	16,	},
+	{ 1,		192,	1,	168,	1,	16,	},
 	{ 0, /* Prohibited setting */				},
 	{ 1,		192,	1,	192,	1,	16,	},
 	{ 1,		160,	1,	160,	1,	19,	},
-	{ 1,		160,	1,	106,	1,	19,	},
+	{ 1,		160,	1,	140,	1,	19,	},
 	{ 0, /* Prohibited setting */				},
 	{ 1,		160,	1,	160,	1,	19,	},
 	{ 1,		128,	1,	128,	1,	24,	},
-	{ 1,		128,	1,	84,	1,	24,	},
+	{ 1,		128,	1,	112,	1,	24,	},
 	{ 0, /* Prohibited setting */				},
 	{ 1,		128,	1,	128,	1,	24,	},
 	{ 2,		192,	1,	192,	1,	32,	},
-	{ 2,		192,	1,	128,	1,	32,	},
+	{ 2,		192,	1,	168,	1,	32,	},
 	{ 0, /* Prohibited setting */				},
 	{ 2,		192,	1,	192,	1,	32,	},
 };

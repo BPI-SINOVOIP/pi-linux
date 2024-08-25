@@ -56,6 +56,7 @@ struct rcar_pcie_host {
 	struct clk		*bus_clk;
 	struct			rcar_msi msi;
 	int			(*phy_init_fn)(struct rcar_pcie_host *host);
+	struct irq_domain	*intx_domain;
 };
 
 static u32 rcar_read_conf(struct rcar_pcie *pcie, int where)
@@ -405,9 +406,6 @@ static int rcar_pcie_hw_init(struct rcar_pcie *pcie)
 	if (err)
 		return err;
 
-	/* Enable INTx interrupts */
-	rcar_rmw32(pcie, PCIEINTXR, 0, 0xF << 8);
-
 	wmb();
 
 	return 0;
@@ -475,6 +473,31 @@ static int rcar_pcie_phy_init_gen3(struct rcar_pcie_host *host)
 	return err;
 }
 
+/* INTx Functions */
+
+/**
+ * rcar_pcie_intx_map - Set the handler for the INTx and mark IRQ as valid
+ * @domain: IRQ domain
+ * @irq: Virtual IRQ number
+ * @hwirq: HW interrupt number
+ *
+ * Return: Always returns 0.
+ */
+
+static int rcar_pcie_intx_map(struct irq_domain *domain, unsigned int irq,
+			      irq_hw_number_t hwirq)
+{
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	irq_set_chip_data(irq, domain->host_data);
+
+	return 0;
+}
+
+/* INTx IRQ Domain operations */
+static const struct irq_domain_ops intx_domain_ops = {
+	.map = rcar_pcie_intx_map,
+};
+
 static int rcar_msi_alloc(struct rcar_msi *chip)
 {
 	int msi;
@@ -521,9 +544,28 @@ static irqreturn_t rcar_pcie_msi_irq(int irq, void *data)
 
 	reg = rcar_pci_read_reg(pcie, PCIEMSIFR);
 
-	/* MSI & INTx share an interrupt - we only handle MSI here */
+	/* MSI & INTx share an interrupt */
 	if (!reg)
-		return IRQ_NONE;
+	{
+		unsigned int intx_irq, index_intx;
+		unsigned long reg_intx;
+
+		reg_intx = rcar_pci_read_reg(pcie, PCIEINTXR);
+		index_intx = find_first_bit(&reg_intx, 4);
+
+		if(!reg_intx)
+			return IRQ_NONE;
+
+		intx_irq = irq_find_mapping(host->intx_domain, index_intx);
+		if (intx_irq) {
+			generic_handle_irq(intx_irq);
+		} else {
+			/* Unknown INTx, just clear it */
+			dev_dbg(dev, "unexpected INTx\n");
+		}
+
+		return IRQ_HANDLED;
+	}
 
 	while (reg) {
 		unsigned int index = find_first_bit(&reg, 32);
@@ -679,6 +721,19 @@ static void rcar_pcie_unmap_msi(struct rcar_pcie_host *host)
 	irq_domain_remove(msi->domain);
 }
 
+static void rcar_pcie_unmap_legacy(struct rcar_pcie_host *host)
+{
+	int i, irq;
+
+	for (i = 0; i < PCI_NUM_INTX; i++) {
+		irq = irq_find_mapping(host->intx_domain, i);
+		if (irq > 0)
+			irq_dispose_mapping(irq);
+	}
+
+	irq_domain_remove(host->intx_domain);
+}
+
 static void rcar_pcie_hw_enable_msi(struct rcar_pcie_host *host)
 {
 	struct rcar_pcie *pcie = &host->pcie;
@@ -747,6 +802,51 @@ err:
 	return err;
 }
 
+static int rcar_pcie_enable_legacy(struct rcar_pcie_host *host)
+{
+	struct rcar_pcie *pcie = &host->pcie;
+	struct device *dev = pcie->dev;
+	struct rcar_msi *msi = &host->msi;
+	int err, i;
+
+	host->intx_domain = irq_domain_add_linear(dev->of_node, PCI_NUM_INTX,
+						  &intx_domain_ops,
+						  pcie);
+
+	if (!host->intx_domain) {
+		dev_err(dev, "failed to create INTx IRQ domain\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < PCI_NUM_INTX; i++)
+		irq_create_mapping(host->intx_domain, i);
+
+	/* Enable INTx interrupts */
+	rcar_rmw32(pcie, PCIEINTXR, 0, 0xF << 8);
+
+	/* Two irqs are for MSI, but they are also used for non-MSI irqs
+	 * If CONFIG_PCI_MSI is not enabled, they are not set up yet */
+	if (!IS_ENABLED(CONFIG_PCI_MSI)) {
+		err = devm_request_irq(dev, msi->irq1, rcar_pcie_msi_irq,
+					   IRQF_SHARED | IRQF_NO_THREAD,
+					   rcar_msi_irq_chip.name, host);
+		if (err < 0) {
+			dev_err(dev, "failed to request IRQ: %d\n", err);
+			return err;
+		}
+
+		err = devm_request_irq(dev, msi->irq2, rcar_pcie_msi_irq,
+					   IRQF_SHARED | IRQF_NO_THREAD,
+					   rcar_msi_irq_chip.name, host);
+		if (err < 0) {
+			dev_err(dev, "failed to request IRQ: %d\n", err);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
 static void rcar_pcie_teardown_msi(struct rcar_pcie_host *host)
 {
 	struct rcar_pcie *pcie = &host->pcie;
@@ -761,6 +861,16 @@ static void rcar_pcie_teardown_msi(struct rcar_pcie_host *host)
 	free_pages(msi->pages, 0);
 
 	rcar_pcie_unmap_msi(host);
+}
+
+static void rcar_pcie_teardown_legacy(struct rcar_pcie_host *host)
+{
+	struct rcar_pcie *pcie = &host->pcie;
+
+	/* Disable INTx interrupts */
+	rcar_rmw32(pcie, PCIEINTXR, 0xF << 8, 0);
+
+	rcar_pcie_unmap_legacy(host);
 }
 
 static int rcar_pcie_get_resources(struct rcar_pcie_host *host)
@@ -961,11 +1071,22 @@ static int rcar_pcie_probe(struct platform_device *pdev)
 		}
 	}
 
+	err = rcar_pcie_enable_legacy(host);
+	if (err < 0) {
+		dev_warn(dev,
+			"failed to enable Legacy (INTx) support: %d\n",
+			err);
+		goto err_msi_teardown;
+	}
+
 	err = rcar_pcie_enable(host);
 	if (err)
-		goto err_msi_teardown;
+		goto err_legacy_teardown;
 
 	return 0;
+
+err_legacy_teardown:
+	rcar_pcie_teardown_legacy(host);
 
 err_msi_teardown:
 	if (IS_ENABLED(CONFIG_PCI_MSI))
@@ -1051,3 +1172,31 @@ static struct platform_driver rcar_pcie_driver = {
 	.probe = rcar_pcie_probe,
 };
 builtin_platform_driver(rcar_pcie_driver);
+
+static int rcar_pcie_pci_notifier(struct notifier_block *nb,
+				  unsigned long action, void *data)
+{
+	struct device *dev = data;
+
+	switch (action) {
+	case BUS_NOTIFY_BOUND_DRIVER:
+		/* Force the DMA mask to lower 32-bits */
+		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+		break;
+	default:
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block device_nb = {
+	.notifier_call = rcar_pcie_pci_notifier,
+};
+
+static int __init register_rcar_pcie_pci_notifier(void)
+{
+	return bus_register_notifier(&pci_bus_type, &device_nb);
+}
+
+arch_initcall(register_rcar_pcie_pci_notifier);

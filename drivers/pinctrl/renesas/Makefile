@@ -10,6 +10,7 @@ obj-$(CONFIG_PINCTRL_PFC_R8A7744)	+= pfc-r8a7791.o
 obj-$(CONFIG_PINCTRL_PFC_R8A7745)	+= pfc-r8a7794.o
 obj-$(CONFIG_PINCTRL_PFC_R8A77470)	+= pfc-r8a77470.o
 obj-$(CONFIG_PINCTRL_PFC_R8A774A1)	+= pfc-r8a7796.o
+obj-$(CONFIG_PINCTRL_PFC_R8A774A3)	+= pfc-r8a7796.o
 obj-$(CONFIG_PINCTRL_PFC_R8A774B1)	+= pfc-r8a77965.o
 obj-$(CONFIG_PINCTRL_PFC_R8A774C0)	+= pfc-r8a77990.o
 obj-$(CONFIG_PINCTRL_PFC_R8A774E1)	+= pfc-r8a77951.o
@@ -45,6 +46,7 @@ obj-$(CONFIG_PINCTRL_PFC_SHX3)		+= pfc-shx3.o
 
 obj-$(CONFIG_PINCTRL_RZA1)	+= pinctrl-rza1.o
 obj-$(CONFIG_PINCTRL_RZA2)	+= pinctrl-rza2.o
+obj-$(CONFIG_PINCTRL_RZG2L)	+= pinctrl-rzg2l.o
 obj-$(CONFIG_PINCTRL_RZN1)	+= pinctrl-rzn1.o
 
 ifeq ($(CONFIG_COMPILE_TEST),y)
