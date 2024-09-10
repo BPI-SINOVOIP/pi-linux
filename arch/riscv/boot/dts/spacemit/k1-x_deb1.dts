@@ -196,6 +196,24 @@
 	status = "okay";
 };
 
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5_3>;
+	status = "disabled";
+};
+
+&pwm7 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm7_0>;
+	status = "disabled";
+};
+
+&pwm9 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm9_2>;
+	status = "disabled";
+};
+
 &pwm14 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm14_1>;
@@ -293,6 +311,7 @@
 };
 
 &i2c4 {
+	spacemit,i2c-fast-mode;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
 	status = "disabled";
@@ -551,14 +570,9 @@
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_65  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_67  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range PRI_TDI  2 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
-		&range PRI_TCK  1 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
-		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
-		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
-		&range GPIO_91  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range DVL0     1 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range DVL1     1 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS0)
 		&range GPIO_110 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -572,13 +586,6 @@
 		&range GPIO_124 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_125 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 	>;
-
-	pinctrl_rcpu: pinctrl_rcpu_grp {
-		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
-			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
-		>;
-	};
 
 	pinctrl_gmac0: gmac0_grp {
 		pinctrl-single,pins =<
@@ -635,10 +642,8 @@
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  3
 		&pinctrl 67  GPIO_67  1
-		&pinctrl 70  PRI_TDI  4
-		&pinctrl 74  GPIO_74  1
 		&pinctrl 80  GPIO_80  4
-		&pinctrl 90  GPIO_90  3
+		&pinctrl 90  GPIO_90  1
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
 		&pinctrl 111 GPIO_111 1
@@ -900,6 +905,19 @@
 	};
 };
 
+&spi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ssp3_0>;
+	k1x,ssp-disable-dma;
+	status = "disabled";
+
+	spidev@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0x0>;
+		spi-max-frequency = <52000000>;
+	};
+};
+
 &pwm_bl {
 	pwms = <&pwm14 2000>;
 	brightness-levels = <
@@ -1002,8 +1020,6 @@
 };
 
 &rcpu {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_rcpu>;
 	mboxes = <&mailbox 0>, <&mailbox 1>;
 	mbox-names = "vq0", "vq1";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
