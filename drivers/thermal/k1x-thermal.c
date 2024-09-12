@@ -10,6 +10,7 @@
 #include <linux/thermal.h>
 #include <linux/reset.h>
 #include "k1x-thermal.h"
+#include "thermal_hwmon.h"
 
 #define MAX_SENSOR_NUMBER		5
 
@@ -286,14 +287,22 @@ static int k1x_thermal_probe(struct platform_device *pdev)
 	for (i = s->sr[0]; i <= s->sr[1]; ++i) {
 		s->sdesc[i].base = s->base;
 
-		s->sdesc[i].tzd = devm_thermal_of_zone_register(dev,
-				i, s->sdesc + i, &k1x_of_thermal_ops);
-		if (IS_ERR(s->sdesc[i].tzd)) {
-			ret = PTR_ERR(s->sdesc[i].tzd);
-			dev_err(dev, "faild to register sensor id %d: %d\n",
-					i, ret);
+		struct thermal_zone_device *tzd =
+			devm_thermal_of_zone_register(dev, i, s->sdesc + i, &k1x_of_thermal_ops);
+		if (IS_ERR(tzd)) {
+			ret = PTR_ERR(tzd);
+			dev_err_probe(dev, ret, "faild to register sensor id %d", i);
 			return ret;
 		}
+		tzd->tzp->no_hwmon = false;
+
+		ret = devm_thermal_add_hwmon_sysfs(tzd);
+		if (ret < 0) {
+			dev_err_probe(dev, ret, "failed to register the hwmon entry");
+			return ret;
+		}
+
+		s->sdesc[i].tzd = tzd;
 
 		ret = devm_request_threaded_irq(dev, s->irq, k1x_thermal_irq,
 				k1x_thermal_irq_thread, IRQF_SHARED,
