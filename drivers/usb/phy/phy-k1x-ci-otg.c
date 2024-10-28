@@ -229,7 +229,6 @@ static int mv_otg_enable_internal(struct mv_otg *mvotg)
 		"otg enabled, will enable clk, release rst\n");
 
 	otg_clock_enable(mvotg);
-	otg_reset_assert(mvotg);
 	otg_reset_deassert(mvotg);
 	retval = usb_phy_init(mvotg->outer_phy);
 	if (retval) {
@@ -566,6 +565,10 @@ static int mv_otg_setup_role_switch(struct mv_otg *mvotg)
 	if (mvotg->role_switch_default_mode == USB_DR_MODE_UNKNOWN) {
 		mvotg->role_switch_default_mode = USB_DR_MODE_PERIPHERAL;
 	}
+	if (mvotg->role_switch_default_mode == USB_DR_MODE_PERIPHERAL)
+		mvotg->desired_otg_role = MV_OTG_ROLE_DEVICE_ACTIVE;
+	else
+		mvotg->desired_otg_role = MV_OTG_ROLE_HOST_ACTIVE;
 
 	mv_otg_role_switch.fwnode = dev_fwnode(dev);
 	mv_otg_role_switch.set = mv_otg_usb_role_switch_set;
@@ -770,7 +773,7 @@ static int mv_otg_probe(struct platform_device *pdev)
 	}
 
 	mvotg->host_remote_wakeup =
-		device_property_read_bool(&pdev->dev, "wakeup-source");
+		!device_property_read_bool(&pdev->dev, "spacemit,reset-on-resume");
 
 	mv_otg_run_state_machine(mvotg, 2 * HZ);
 

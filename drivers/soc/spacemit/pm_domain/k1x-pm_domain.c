@@ -262,6 +262,9 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 
 	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
 	if (val & (1 << spd->param.bit_pwr_stat)) {
+		if (spd->pm_index == K1X_PMU_LCD_PWR_DOMAIN)
+			return 0;
+
 		if (!spd->param.use_hw) {
 			/* this is the sw type */
 			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
@@ -480,7 +483,8 @@ static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct devic
 	}
 
 	if (pos->handle_pm_domain) {
-		atomic_freq_qos_remove_request(&pos->qos);
+		if (pos->qos.qos)
+			atomic_freq_qos_remove_request(&pos->qos);
 	}
 
 	dev_pm_qos_remove_request(&pos->req);

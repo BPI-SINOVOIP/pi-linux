@@ -495,12 +495,6 @@ void rtw_os_ndev_free(_adapter *adapter)
 	rtw_cfg80211_ndev_res_free(adapter);
 #endif
 
-	/* free the old_pnetdev */
-	if (adapter->rereg_nd_name_priv.old_pnetdev) {
-		rtw_free_netdev(adapter->rereg_nd_name_priv.old_pnetdev);
-		adapter->rereg_nd_name_priv.old_pnetdev = NULL;
-	}
-
 	if (adapter->pnetdev) {
 		rtw_free_netdev(adapter->pnetdev);
 		adapter->pnetdev = NULL;
@@ -653,7 +647,7 @@ int rtw_os_ndev_register(_adapter *adapter, const char *name)
 	if (rtnl_lock_needed)
 		ret = (register_netdev(ndev) == 0) ? _SUCCESS : _FAIL;
 	else
-		ret = (register_netdevice(ndev) == 0) ? _SUCCESS : _FAIL;
+		ret = (cfg80211_register_netdevice(ndev) == 0) ? _SUCCESS : _FAIL;
 
 	if (ret == _SUCCESS)
 		adapter->registered = 1;
@@ -695,7 +689,7 @@ void rtw_os_ndev_unregister(_adapter *adapter)
 		if (rtnl_lock_needed)
 			unregister_netdev(netdev);
 		else
-			unregister_netdevice(netdev);
+			cfg80211_unregister_netdevice(netdev);
 	}
 
 	adapter->registered = 0;
@@ -3303,6 +3297,11 @@ int rtw_resume_process_wow(_adapter *padapter)
 			rtw_roaming(padapter, NULL);
 		}
 	}
+
+#ifdef CONFIG_RTW_LPS_DEFAULT_OFF
+	/* Set LPS off after WOW resume, it can be turn on by proc cmd */
+	rtw_phl_ps_set_rt_cap(GET_PHL_INFO(dvobj), HW_BAND_0, _FALSE, PS_RT_DEBUG);
+#endif
 
 	if (pwrpriv->wowlan_mode == _TRUE) {
 #ifdef CONFIG_CMD_GENERAL

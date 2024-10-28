@@ -16,6 +16,7 @@ SPM8821_IRQS_DESC;
 SPM8821_IRQ_CHIP_DESC;
 SPM8821_POWER_KEY_RESOURCES_DESC;
 SPM8821_RTC_RESOURCES_DESC;
+SPM8821_ADC_RESOURCES_DESC;
 SPM8821_MFD_CELL;
 SPM8821_MFD_MATCH_DATA;
 
@@ -38,6 +39,8 @@ static const struct restart_config_info config_info[] = {
 	{"fastboot", 1},
 	// enter uboot shell after restart
 	{"uboot", 2},
+	// bit3 for charging flag
+	{"shutdown-charging", 4},
 };
 
 static const struct of_device_id spacemit_pmic_of_match[] = {
@@ -72,6 +75,16 @@ static int spacemit_restart_notify(struct notifier_block *this, unsigned long mo
 {
 	int i, ret;
 	struct spacemit_pmic *pmic = (struct spacemit_pmic *)match_data->ptr;
+
+	for (i = 0; i < ARRAY_SIZE(config_info); ++i) {
+		if(!strncmp(config_info[i].cmd_para, "shutdown-charging",
+					sizeof("shutdown-charging"))) {
+			regmap_update_bits(pmic->regmap, match_data->non_reset.reg,
+					match_data->non_reset.bit, config_info[i].value);
+			break;
+		}
+	}
+
 
 	if (NULL != cmd) {
 		for (i = 0; i < ARRAY_SIZE(config_info); i++) {

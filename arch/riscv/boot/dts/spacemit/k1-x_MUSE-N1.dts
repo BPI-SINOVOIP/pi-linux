@@ -380,6 +380,10 @@
 		ext_rtc: rtc {
 			compatible = "pmic,rtc,spm8821";
 		};
+
+		ext_adc: adc {
+			compatible = "pmic,adc,spm8821";
+		};
 	};
 };
 
@@ -637,19 +641,48 @@
 };
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
+	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;*/
 	spacemit,udc-mode = <MV_USB_MODE_UDC>;
 	status = "okay";
+};
+
+&ehci {
+	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
+};
+
+&otg {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "peripheral";
+	vbus-gpios = <&gpio 123 0>;
+	status = "disabled";
 };
 
 &usbphy1 {
 	status = "okay";
 };
 
+&udc1 {
+	/*spacemit,udc-mode = <MV_USB_MODE_UDC>;*/
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
+};
+
 &ehci1 {
 	spacemit,reset-on-resume;
 	status = "okay";
+};
+
+&otg1 {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "host";
+	vbus-gpios = <&gpio 123 0>;
+	status = "disabled";
 };
 
 &usb2phy {
@@ -678,7 +711,7 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		usb-role-switch;
-		role-switch-default-mode = "peripheral";
+		role-switch-default-mode = "host";
 	};
 };
 
