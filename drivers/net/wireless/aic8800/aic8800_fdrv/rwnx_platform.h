@@ -33,9 +33,6 @@
 #endif
 
 #define RWNX_FCU_FW_NAME                "fcuram.bin"
-#if (defined(CONFIG_DPD) && !defined(CONFIG_FORCE_DPD_CALIB))
-#define FW_DPDRESULT_NAME_8800DC        "aic_dpdresult_lite_8800dc.bin"
-#endif
 
 /**
  * Type of memory to access (cf rwnx_plat.get_address)
@@ -46,9 +43,9 @@
  *
  */
 enum rwnx_platform_addr {
-    RWNX_ADDR_CPU,
-    RWNX_ADDR_SYSTEM,
-    RWNX_ADDR_MAX,
+	RWNX_ADDR_CPU,
+	RWNX_ADDR_SYSTEM,
+	RWNX_ADDR_MAX,
 };
 
 struct rwnx_hw;
@@ -72,26 +69,26 @@ struct rwnx_hw;
  * @priv Private data for the link driver
  */
 struct rwnx_plat {
-    struct pci_dev *pci_dev;
+	struct pci_dev *pci_dev;
 
 #ifdef AICWF_SDIO_SUPPORT
-    struct aic_sdio_dev *sdiodev;
+	struct aic_sdio_dev *sdiodev;
 #endif
 
 #ifdef AICWF_USB_SUPPORT
-    struct aic_usb_dev *usbdev;
+	struct aic_usb_dev *usbdev;
 #endif
-    bool enabled;
+	bool enabled;
 
-    int (*enable)(struct rwnx_hw *rwnx_hw);
-    int (*disable)(struct rwnx_hw *rwnx_hw);
-    void (*deinit)(struct rwnx_plat *rwnx_plat);
-    u8* (*get_address)(struct rwnx_plat *rwnx_plat, int addr_name,
-                       unsigned int offset);
-    void (*ack_irq)(struct rwnx_plat *rwnx_plat);
-    int (*get_config_reg)(struct rwnx_plat *rwnx_plat, const u32 **list);
+	int (*enable)(struct rwnx_hw *rwnx_hw);
+	int (*disable)(struct rwnx_hw *rwnx_hw);
+	void (*deinit)(struct rwnx_plat *rwnx_plat);
+	u8* (*get_address)(struct rwnx_plat *rwnx_plat, int addr_name,
+					   unsigned int offset);
+	void (*ack_irq)(struct rwnx_plat *rwnx_plat);
+	int (*get_config_reg)(struct rwnx_plat *rwnx_plat, const u32 **list);
 
-    u8 priv[0] __aligned(sizeof(void *));
+	u8 priv[0] __aligned(sizeof(void *));
 };
 
 #define RWNX_ADDR(plat, base, offset)           \
@@ -114,23 +111,19 @@ void rwnx_platform_off(struct rwnx_hw *rwnx_hw, void **config);
 int rwnx_platform_register_drv(void);
 void rwnx_platform_unregister_drv(void);
 
+void get_userconfig_txpwr_lvl_v2(txpwr_lvl_conf_v2_t *txpwr_lvl_v2);
+void get_userconfig_txpwr_lvl_v3(txpwr_lvl_conf_v3_t *txpwr_lvl_v3);
+void get_userconfig_txpwr_lvl_adj(txpwr_lvl_adj_conf_t *txpwr_lvl_adj);
 void get_userconfig_txpwr_idx(txpwr_idx_conf_t *txpwr_idx);
 void get_userconfig_txpwr_ofst(txpwr_ofst_conf_t *txpwr_ofst);
+void get_userconfig_txpwr_ofst2x(txpwr_ofst2x_conf_t *txpwr_ofst2x);
 void get_userconfig_xtal_cap(xtal_cap_conf_t *xtal_cap);
 
-void get_userconfig_txpwr_lvl_in_fdrv(txpwr_lvl_conf_t *txpwr_lvl);
-void get_userconfig_txpwr_lvl_v2_in_fdrv(txpwr_lvl_conf_v2_t *txpwr_lvl_v2);
-void get_userconfig_txpwr_lvl_v3_in_fdrv(txpwr_lvl_conf_v3_t *txpwr_lvl_v3);
-void get_userconfig_txpwr_lvl_adj_in_fdrv(txpwr_lvl_adj_conf_t *txpwr_lvl_adj);
-
-void get_userconfig_txpwr_ofst_in_fdrv(txpwr_ofst_conf_t *txpwr_ofst);
-void get_userconfig_txpwr_ofst2x_in_fdrv(txpwr_ofst2x_conf_t *txpwr_ofst2x);
-void get_userconfig_txpwr_loss(txpwr_loss_conf_t *txpwr_loss);
 extern struct device *rwnx_platform_get_dev(struct rwnx_plat *rwnx_plat);
 
 static inline unsigned int rwnx_platform_get_irq(struct rwnx_plat *rwnx_plat)
 {
-    return rwnx_plat->pci_dev->irq;
+	return rwnx_plat->pci_dev->irq;
 }
 
 #endif /* _RWNX_PLATFORM_H_ */

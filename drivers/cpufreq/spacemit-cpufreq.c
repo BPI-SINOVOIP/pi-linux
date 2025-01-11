@@ -34,7 +34,8 @@ extern struct thermal_cooling_device **
 of_hotplug_cooling_register(struct cpufreq_policy *policy);
 #endif
 
-#define TURBO_FREQUENCY		(1600000000)
+#define TURBO0_FREQUENCY		(1600000000)
+#define TURBO1_FREQUENCY		(3200000000)
 #define STABLE_FREQUENCY	(1200000000)
 
 #define FILTER_POINTS_0		(135)
@@ -97,7 +98,7 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 	struct cpufreq_policy *policy = ( struct cpufreq_policy *)freqs->policy;
 	struct opp_table *opp_table;
 	struct device_node *np;
-	struct clk *tcm_clk, *ace0_clk, *ace1_clk, *pll_clk;
+	struct clk *tcm_clk, *ace0_clk, *ace1_clk, *pll_clk, *c0hi, *c1hi;
 	u64 rates;
 	u32 microvol;
 	int i;
@@ -119,6 +120,8 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 	ace0_clk = of_clk_get_by_name(opp_table->np, "ace0");
 	ace1_clk = of_clk_get_by_name(opp_table->np, "ace1");
 	pll_clk = of_clk_get_by_name(opp_table->np, "pll3");
+	c0hi = of_clk_get_by_name(opp_table->np, "c0hi");
+	c1hi = of_clk_get_by_name(opp_table->np, "c1hi");
 
 	if (event == CPUFREQ_PRECHANGE) {
 		/**
@@ -140,16 +143,29 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 			clk_put(tcm_clk);
 		}
 
-		if (freqs->new * 1000 >= TURBO_FREQUENCY) {
-			if (freqs->old * 1000 >= TURBO_FREQUENCY) {
+		if (freqs->new * 1000 >= TURBO0_FREQUENCY) {
+			if (freqs->old * 1000 >= TURBO0_FREQUENCY) {
 				for (i = 0; i < opp_table->clk_count; ++i) {
 					clk_set_rate(opp_table->clks[i], STABLE_FREQUENCY);
 				}
 			}
 
 			/* change the frequency of pll3 first */
-			clk_set_rate(pll_clk, freqs->new * 1000);
-			clk_put(pll_clk);
+			if (freqs->new * 1000 == TURBO0_FREQUENCY) {
+				/* PLL3 = 3.2G */
+				clk_set_rate(pll_clk, TURBO1_FREQUENCY);
+				/* HI = 1.6G */
+				clk_set_rate(c0hi, TURBO0_FREQUENCY);
+				clk_set_rate(c1hi, TURBO0_FREQUENCY);
+			}
+
+			if (freqs->new * 1000 > TURBO0_FREQUENCY) {
+				/* PLL3 = 1.8G */
+				clk_set_rate(pll_clk, freqs->new * 1000);
+				/* HI = 1.8G */
+				clk_set_rate(c0hi, freqs->new * 1000);
+				clk_set_rate(c1hi, freqs->new * 1000);
+			}
 		}
 
 	}
@@ -157,7 +173,6 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 	if (event == CPUFREQ_POSTCHANGE) {
 
 		if (!IS_ERR(tcm_clk)) {
-			clk_get_rate(clk_get_parent(tcm_clk));
 			/* get the tcm-hz */
 			of_property_read_u64_array(np, "tcm-hz", &rates, 1);
 			/* then set rate */
@@ -166,7 +181,6 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 		}
 
 		if (!IS_ERR(ace0_clk)) {
-			clk_get_rate(clk_get_parent(ace0_clk));
 			/* get the ace-hz */
 			of_property_read_u64_array(np, "ace0-hz", &rates, 1);
 			/* then set rate */
@@ -175,7 +189,6 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 		}
 
 		if (!IS_ERR(ace1_clk)) {
-			clk_get_rate(clk_get_parent(ace1_clk));
 			/* get the ace-hz */
 			of_property_read_u64_array(np, "ace1-hz", &rates, 1);
 			/* then set rate */
@@ -183,6 +196,10 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 			clk_put(ace1_clk);
 		}
 	}
+
+	clk_put(pll_clk);
+	clk_put(c0hi);
+	clk_put(c1hi);
 
 	dev_pm_opp_put_opp_table(opp_table);
 
@@ -394,7 +411,7 @@ free_cpumask:
 
 static int spacemit_dt_cpufreq_pre_probe(struct platform_device *pdev)
 {
-	int cpu;
+	int cpu, ret;
 	struct device_node *cpus;
 	struct device_node *product_id, *wafer_id;
 	u32 prop = 0;
@@ -423,9 +440,12 @@ static int spacemit_dt_cpufreq_pre_probe(struct platform_device *pdev)
 			if (prop <= FILTER_POINTS_0)
 				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
 			else if (prop <= FILTER_POINTS_1)
-				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_1);
+				ret = spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_1);
 			else
-				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_2);
+				ret = spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_2);
+
+			if (ret)
+				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
 		}
 	} else {
 		for_each_possible_cpu(cpu) {

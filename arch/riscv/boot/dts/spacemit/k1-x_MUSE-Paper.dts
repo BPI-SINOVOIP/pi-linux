@@ -12,6 +12,9 @@
 #include "k1-x_opp_table.dtsi"
 #include "k1-x_thermal_cooling.dtsi"
 #include "k1-x-camera-sdk.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/usb/pd.h>
 
 / {
 	model = "M1-MUSE-PAPER";
@@ -164,6 +167,66 @@
 		};
 	};
 
+	typec_0: connector@0 {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+		sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)
+				PDO_VAR(5000, 9000, 2000)>;
+		op-sink-microwatt = <10000000>;
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				otg_con_ep: endpoint {
+					remote-endpoint = <&con_u2_ep>;
+				};
+			};
+			port@1 {
+				reg = <0x1>;
+				otg_ep: endpoint {
+					remote-endpoint = <&otg_role_switch>;
+				};
+			};
+		};
+	};
+
+	typec_1: connector@1 {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+		sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)
+				PDO_VAR(5000, 9000, 2000)>;
+		op-sink-microwatt = <10000000>;
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				dwc3_con_ep: endpoint {
+					remote-endpoint = <&con_u3_ep>;
+				};
+			};
+			port@1 {
+				reg = <0x1>;
+				dwc3_ep: endpoint {
+					remote-endpoint = <&dwc3_role_switch>;
+				};
+			};
+		};
+	};
+
 	usb2hub: usb2hub {
 		compatible = "spacemit,usb3-hub";
 		vbus-gpios = <&gpio 91 0>;	/* for usb2 hub output vbus */
@@ -174,11 +237,33 @@
 		compatible = "spacemit,hall-sensor-as1911";
 		detect-gpio = <&gpio 74 0>;
 	};
+
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+
+		key0: volumeup {
+			label = "KEY0";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio 70 GPIO_ACTIVE_LOW>;
+		};
+
+		key1: volumedown {
+			label = "KEY1";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio 71 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
 
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart0_2>;
+	status = "okay";
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart2>;
 	status = "okay";
 };
 
@@ -274,8 +359,91 @@
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
-	status = "disabled";
+	status = "okay";
+
+	cw2015: cw2015@62 {
+		compatible = "cellwise,cw2015";
+		reg = <0x62>;
+		cellwise,battery-profile = /bits/ 8 <
+			0x17 0x67 0x73 0x69 0x68 0x65 0x64 0x55
+			0x75 0x60 0x4A 0x57 0x57 0x4E 0x42 0x3A
+			0x30 0x28 0x23 0x1E 0x23 0x35 0x46 0x4D
+			0x14 0x86 0x06 0x66 0x25 0x45 0x51 0x63
+			0x72 0x69 0x66 0x6B 0x3F 0x1B 0x78 0x39
+			0x0A 0x2F 0x1A 0x46 0x88 0x94 0x9B 0x12
+			0x3B 0x5F 0x9A 0xB6 0x80 0x57 0x7F 0xCB
+			0x2F 0x00 0x64 0xA5 0xB5 0xC1 0x46 0xAE
+		>;
+		status = "okay";
+	};
+
+	husb239_u2: tcpc@62 {
+		compatible = "hynetek,husb239";
+		reg = <0x62>;
+		vbus-gpios = <&gpio 14 0>,
+				<&gpio 92 0>;
+		chg-gpio = <&gpio 13 0>;
+		int-gpio = <&gpio 06 0>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				con_u2_ep: endpoint {
+					remote-endpoint = <&otg_con_ep>;
+				};
+			};
+		};
+	};
+
+	husb239_u3: tcpc@42 {
+		compatible = "hynetek,husb239";
+		reg = <0x42>;
+		vbus-gpios = <&gpio 89 0>,
+				<&gpio 124 0>;
+		chg-gpio = <&gpio 04 0>;
+		int-gpio = <&gpio 01 0>;
+		aud-gpio = <&gpio 86 0>;
+		mic-gpio = <&gpio 79 0>;
+		orient-oe-gpio  = <&gpio 48 0>;
+		orient-sel-gpio = <&gpio 78 0>;
+		orientation;
+		status = "okay";
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				con_u3_ep: endpoint {
+					remote-endpoint = <&dwc3_con_ep>;
+				};
+			};
+		};
+	};
 };
+
+&i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c5_0>;
+	status = "okay";
+
+	accelerometer: accel@15 {
+		compatible = "memsic,mxc4005";
+		reg = <0x15>;
+		status = "okay";
+	};
+
+	icm42607@68 {
+		compatible = "invn,icm42607";
+		reg = <0x68>;
+	};
+};
+
 
 &i2c6 {
 	pinctrl-names = "default";
@@ -506,7 +674,10 @@
 
 &pinctrl {
 	pinctrl-single,gpio-range = <
-		&range GPIO_03  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_01  4 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_06  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_13  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_48  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_3V_DS4)
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -517,9 +688,9 @@
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_76  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
+		&range GPIO_78  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_86  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_89  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_91  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -548,15 +719,17 @@
 
 &gpio{
 	gpio-ranges = <
-		&pinctrl 03  GPIO_03  1
-		&pinctrl 49  GPIO_49  2
+		&pinctrl 01  GPIO_01  4
+		&pinctrl 06  GPIO_06  1
+		&pinctrl 13  GPIO_13  2
+		&pinctrl 48  GPIO_48  3
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  5
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
 		&pinctrl 76  GPIO_76  1
-		&pinctrl 78  GPIO_78  1
-		&pinctrl 80  GPIO_80  4
+		&pinctrl 78  GPIO_78  6
+		&pinctrl 86  GPIO_86  1
 		&pinctrl 89  GPIO_89  4
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
@@ -572,7 +745,6 @@
 	pinctrl-1 = <&pinctrl_mmc1_fast>;
 	bus-width = <4>;
 	cd-gpios = <&gpio 80 0>;
-	cd-inverted;
 	vmmc-supply = <&dcdc_4>;
 	vqmmc-supply = <&ldo_1>;
 	no-mmc;
@@ -657,14 +829,34 @@
 
 &ehci {
 	spacemit,reset-on-resume;
-	status = "disabled";
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "okay";
 };
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
-	spacemit,udc-mode = <MV_USB_MODE_UDC>;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
+};
+
+&otg {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	status = "okay";
+
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0x0>;
+			otg_role_switch: endpoint {
+				remote-endpoint = <&otg_ep>;
+			};
+		};
+	};
 };
 
 &usbphy1 {
@@ -687,14 +879,14 @@
 &usb3hub {
 	vbus-gpios = <&gpio 89 0>,
 		     <&gpio 124 0>;
-	status = "okay";
+	status = "disabled";
 };
 
 &usbdrd3 {
 	status = "okay";
 	reset-on-resume;
 	dwc3@c0a00000 {
-		dr_mode = "host";
+		dr_mode = "otg";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
@@ -703,6 +895,19 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
+
+		usb-role-switch;
+		role-switch-default-mode = "peripheral";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0x0>;
+				dwc3_role_switch: endpoint {
+					remote-endpoint = <&dwc3_ep>;
+				};
+			};
+		};
 	};
 };
 
@@ -722,6 +927,79 @@
 		m25p,fast-read;
 		broken-flash-reset;
 		status = "okay";
+	};
+};
+
+&spi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ssp3_1>;
+	status = "okay";
+
+	chipone_tddi@0 {
+		compatible = "chipone-tddi";
+		reg = <0>;
+		spi-max-frequency = <9600000>;
+		//interrupt-parent = <&gpio>;
+		//interrupts = <29 0x2008>;
+		chipone,rst-gpio = <&gpio 32 0x00>;
+		chipone,irq-gpio = <&gpio 29 0x00>;
+		pwron-gpios = <&gpio 33 0>;
+		//chipone,cs-gpio = <&gpio 8 0>;
+		chipone,x-res = <1200>;
+		chipone,y-res = <1920>;
+
+		/* Charger detect */
+		chipone,touch-charger-detect-enable;
+		chipone,touch-charger-detect-type = "notify"; /* notify, poll */
+		chipone,touch-charger-detect-psy-name = "charger";
+		chipone,touch-charger-detect-psp = "POWER_SUPPLY_PROP_ONLINE";
+		chipone,touch-charger-detect-psp-poll-interval = <1000>;
+
+		/* Earjack detect */
+		chipone,touch-earjack-detect-enable;
+		/* MTK:  /sys/bus/platform/drivers/Accdet_Driver/state,
+			Sprd: /sys/kernel/headset/state
+			QCOM: None, and disable it */
+		chipone,touch-earjack-state-filepath = "/sys/bus/platform/drivers/Accdet_Driver/state";
+		chipone,touch-earjack-poll-interval = <1000>;
+
+		/* For tp selftest */
+		chipone,test-reset-pin;
+		chipone,test-int-pin;
+		chipone,test-rawdata;
+		chipone,test-rawdata-frames      = <1>;
+		chipone,rawdata-min              = <100>;
+		chipone,rawdata-max              = <10000>;
+		chipone,test-noise;
+		chipone,test-noise-frames        = <50>;
+		chipone,noise-max                = <1000>;
+		chipone,test-open;
+		chipone,open-min                 = <200>;
+		chipone,test-short;
+		chipone,short-min                = <200>;
+		chipone,test-compensate-cap;
+		chipone,compensate-cap-min       = <1>;
+		chipone,compensate-cap-max       = <127>;
+
+		/* gesture data test */
+		chipone,test-gesture-rawdata;
+		chipone,test-gesture-rawdata-frames = <1>;
+		chipone,gesture-rawdata-min = <100>;
+		chipone,gesture-rawdata-max = <10000>;
+
+		chipone,test-gesture-lp-rawdata;
+		chipone,test-gesture-lp-rawdata-frames = <1>;
+		chipone,gesture-lp-rawdata-min = <100>;
+		chipone,gesture-lp-rawdata-max = <10000>;
+
+		chipone,test-gesture-noise;
+		chipone,test-gesture-noise-frames = <50>;
+		chipone,gesture-noise-max = <1000>;
+
+		chipone,test-gesture-lp-noise;
+		chipone,test-gesture-lp-noise-frames = <50>;
+		chipone,gesture-lp-noise-max = <1000>;
+		chipone,panel = <&panel2>;
 	};
 };
 

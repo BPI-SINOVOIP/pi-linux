@@ -484,10 +484,22 @@ static const struct i2c_device_id mxc4005_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mxc4005_id);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static const struct of_device_id mxc4005_of_match[] = {
+	{ .compatible = "memsic,mxc4005", },
+	{ .compatible = "memsic,mxc6655", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, mxc4005_of_match);
+#endif
+
 static struct i2c_driver mxc4005_driver = {
 	.driver = {
 		.name = MXC4005_DRV_NAME,
 		.acpi_match_table = ACPI_PTR(mxc4005_acpi_match),
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+		.of_match_table = mxc4005_of_match,
+#endif
 	},
 	.probe		= mxc4005_probe,
 	.id_table	= mxc4005_id,

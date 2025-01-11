@@ -30,13 +30,13 @@ struct rwnx_sta;
  *         (cf @rwnx_mu_group_sta_select)
  */
 struct rwnx_sta_group_info {
-    struct list_head active;
-    struct list_head update;
-    u16 last_update;
-    int cnt;
-    u64 map;
-    int traffic;
-    u8  group;
+	struct list_head active;
+	struct list_head update;
+	u16 last_update;
+	int cnt;
+	u64 map;
+	int traffic;
+	u8  group;
 };
 
 /**
@@ -48,10 +48,10 @@ struct rwnx_sta_group_info {
  * @users: Pointer to the sta, ordered by user position
  */
 struct rwnx_mu_group {
-    struct list_head list;
-    int group_id;
-    int user_cnt;
-    struct rwnx_sta *users[CONFIG_USER_MAX];
+	struct list_head list;
+	int group_id;
+	int user_cnt;
+	struct rwnx_sta *users[CONFIG_USER_MAX];
 };
 
 /**
@@ -74,15 +74,15 @@ struct rwnx_mu_group {
  * @group_cnt: Number of group created
  */
 struct rwnx_mu_info {
-    struct list_head active_groups;
-    struct list_head active_sta;
-    struct list_head update_sta;
-    struct rwnx_mu_group groups[NX_MU_GROUP_MAX];
-    struct delayed_work group_work;
-    u16 update_count;
-    struct semaphore lock;
-    unsigned long next_group_select;
-    u8 group_cnt;
+	struct list_head active_groups;
+	struct list_head active_sta;
+	struct list_head update_sta;
+	struct rwnx_mu_group groups[NX_MU_GROUP_MAX];
+	struct delayed_work group_work;
+	u16 update_count;
+	struct semaphore lock;
+	unsigned long next_group_select;
+	u8 group_cnt;
 };
 
 #define RWNX_SU_GROUP BIT_ULL(0)
@@ -112,24 +112,24 @@ struct rwnx_mu_info {
 static inline
 struct rwnx_mu_group *rwnx_mu_group_from_id(struct rwnx_mu_info *mu, int id)
 {
-    if (id > NX_MU_GROUP_MAX)
-        return NULL;
+	if (id > NX_MU_GROUP_MAX)
+		return NULL;
 
-    return &mu->groups[id - 1];
+	return &mu->groups[id - 1];
 }
 
 
 void rwnx_mu_group_sta_init(struct rwnx_sta *sta,
-                            const struct ieee80211_vht_cap *vht_cap);
+							const struct ieee80211_vht_cap *vht_cap);
 void rwnx_mu_group_sta_del(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta);
 u64 rwnx_mu_group_sta_get_map(struct rwnx_sta *sta);
 int rwnx_mu_group_sta_get_pos(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
-                              int group_id);
+							  int group_id);
 
 void rwnx_mu_group_init(struct rwnx_hw *rwnx_hw);
 
 void rwnx_mu_set_active_sta(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
-                            int traffic);
+							int traffic);
 void rwnx_mu_set_active_group(struct rwnx_hw *rwnx_hw, int group_id);
 void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw);
 
@@ -138,7 +138,7 @@ void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw);
 
 static inline
 void rwnx_mu_group_sta_init(struct rwnx_sta *sta,
-                            const struct ieee80211_vht_cap *vht_cap)
+							const struct ieee80211_vht_cap *vht_cap)
 {}
 
 static inline
@@ -148,14 +148,14 @@ void rwnx_mu_group_sta_del(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta)
 static inline
 u64 rwnx_mu_group_sta_get_map(struct rwnx_sta *sta)
 {
-    return 0;
+	return 0;
 }
 
 static inline
 int rwnx_mu_group_sta_get_pos(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
-                              int group_id)
+							  int group_id)
 {
-    return 0;
+	return 0;
 }
 
 static inline
@@ -164,7 +164,7 @@ void rwnx_mu_group_init(struct rwnx_hw *rwnx_hw)
 
 static inline
 void rwnx_mu_set_active_sta(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
-                            int traffic)
+							int traffic)
 {}
 
 static inline

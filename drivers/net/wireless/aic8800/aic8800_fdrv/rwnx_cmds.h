@@ -24,7 +24,7 @@
 #ifdef AICWF_USB_SUPPORT
 #define RWNX_80211_CMD_TIMEOUT_MS    2000//300
 #else
-#define RWNX_80211_CMD_TIMEOUT_MS    3000//500//300
+#define RWNX_80211_CMD_TIMEOUT_MS    6000//500//300
 #endif
 #endif
 
@@ -61,54 +61,52 @@ struct rwnx_term_stream;
 struct rwnx_hw;
 struct rwnx_cmd;
 typedef int (*msg_cb_fct)(struct rwnx_hw *rwnx_hw, struct rwnx_cmd *cmd,
-                          struct rwnx_cmd_e2amsg *msg);
+						  struct rwnx_cmd_e2amsg *msg);
 static inline void put_u16(u8 *buf, u16 data)
 {
-    buf[0] = (u8)(data&0x00ff);
-    buf[1] = (u8)((data >> 8)&0x00ff);
+	buf[0] = (u8)(data&0x00ff);
+	buf[1] = (u8)((data >> 8)&0x00ff);
 }
 
 enum rwnx_cmd_mgr_state {
-    RWNX_CMD_MGR_STATE_DEINIT,
-    RWNX_CMD_MGR_STATE_INITED,
-    RWNX_CMD_MGR_STATE_CRASHED,
+	RWNX_CMD_MGR_STATE_DEINIT,
+	RWNX_CMD_MGR_STATE_INITED,
+	RWNX_CMD_MGR_STATE_CRASHED,
 };
 
 struct rwnx_cmd {
-    struct list_head list;
-    lmac_msg_id_t id;
-    lmac_msg_id_t reqid;
-    struct rwnx_cmd_a2emsg *a2e_msg;
-    char *e2a_msg;
-    u32 tkn;
-    u16 flags;
+	struct list_head list;
+	lmac_msg_id_t id;
+	lmac_msg_id_t reqid;
+	struct rwnx_cmd_a2emsg *a2e_msg;
+	char *e2a_msg;
+	u32 tkn;
+	u16 flags;
 
-    struct completion complete;
-    u32 result;
-    u8 used;
-    int array_id;
-#ifdef CONFIG_RWNX_FHOST
-    struct rwnx_term_stream *stream;
-#endif
+	struct completion complete;
+	u32 result;
+	#ifdef CONFIG_RWNX_FHOST
+	struct rwnx_term_stream *stream;
+	#endif
 };
 
 struct rwnx_cmd_mgr {
-    enum rwnx_cmd_mgr_state state;
-    spinlock_t lock;
-    u32 next_tkn;
-    u32 queue_sz;
-    u32 max_queue_sz;
+	enum rwnx_cmd_mgr_state state;
+	spinlock_t lock;
+	u32 next_tkn;
+	u32 queue_sz;
+	u32 max_queue_sz;
 
-    struct list_head cmds;
+	struct list_head cmds;
 
-    int  (*queue)(struct rwnx_cmd_mgr *, struct rwnx_cmd *);
-    int  (*llind)(struct rwnx_cmd_mgr *, struct rwnx_cmd *);
-    int  (*msgind)(struct rwnx_cmd_mgr *, struct rwnx_cmd_e2amsg *, msg_cb_fct);
-    void (*print)(struct rwnx_cmd_mgr *);
-    void (*drain)(struct rwnx_cmd_mgr *);
+	int  (*queue)(struct rwnx_cmd_mgr *, struct rwnx_cmd *);
+	int  (*llind)(struct rwnx_cmd_mgr *, struct rwnx_cmd *);
+	int  (*msgind)(struct rwnx_cmd_mgr *, struct rwnx_cmd_e2amsg *, msg_cb_fct);
+	void (*print)(struct rwnx_cmd_mgr *);
+	void (*drain)(struct rwnx_cmd_mgr *);
 
-    struct work_struct cmdWork;
-    struct workqueue_struct *cmd_wq;
+	struct work_struct cmdWork;
+	struct workqueue_struct *cmd_wq;
 };
 
 #define WAKE_CMD_WORK(cmd_mgr) \

@@ -30,62 +30,66 @@
 #define AICWF_USB_MAX_PKT_SIZE          (2048)
 
 typedef enum {
-    USB_TYPE_DATA         = 0X00,
-    USB_TYPE_CFG          = 0X10,
-    USB_TYPE_CFG_CMD_RSP  = 0X11,
-    USB_TYPE_CFG_DATA_CFM = 0X12
+	USB_TYPE_DATA         = 0X00,
+	USB_TYPE_CFG          = 0X10,
+	USB_TYPE_CFG_CMD_RSP  = 0X11,
+	USB_TYPE_CFG_DATA_CFM = 0X12
 } usb_type;
 
 enum aicwf_usb_state {
-    USB_DOWN_ST,
-    USB_UP_ST,
-    USB_SLEEP_ST
+	USB_DOWN_ST,
+	USB_UP_ST,
+	USB_SLEEP_ST
 };
 
 struct aicwf_usb_buf {
-    struct list_head list;
-    struct aic_usb_dev *usbdev;
-    struct urb *urb;
-    struct sk_buff *skb;
-    bool cfm;
+	struct list_head list;
+	struct aic_usb_dev *usbdev;
+	struct urb *urb;
+	struct sk_buff *skb;
+	bool cfm;
 };
 
 struct aic_usb_dev {
-    struct rwnx_hw *rwnx_hw;
-    struct aicwf_bus *bus_if;
-    struct usb_device *udev;
-    struct device *dev;
-    struct aicwf_rx_priv *rx_priv;
-    enum aicwf_usb_state state;
-    struct rwnx_cmd_mgr cmd_mgr;
+	struct rwnx_hw *rwnx_hw;
+	struct aicwf_bus *bus_if;
+	struct usb_device *udev;
+	struct device *dev;
+	struct aicwf_rx_priv *rx_priv;
+	enum aicwf_usb_state state;
+	struct rwnx_cmd_mgr cmd_mgr;
 
-    struct usb_anchor rx_submitted;
-    struct work_struct rx_urb_work;
+	struct usb_anchor rx_submitted;
+	struct work_struct rx_urb_work;
 
-    spinlock_t rx_free_lock;
-    spinlock_t tx_free_lock;
-    spinlock_t tx_post_lock;
-    spinlock_t tx_flow_lock;
+	spinlock_t rx_free_lock;
+	spinlock_t tx_free_lock;
+	spinlock_t tx_post_lock;
+	spinlock_t tx_flow_lock;
 
-    struct list_head rx_free_list;
-    struct list_head tx_free_list;
-    struct list_head tx_post_list;
+	struct list_head rx_free_list;
+	struct list_head tx_free_list;
+	struct list_head tx_post_list;
 
-    uint bulk_in_pipe;
-    uint bulk_out_pipe;
+	uint bulk_in_pipe;
+	uint bulk_out_pipe;
 
-    int tx_free_count;
-    int tx_post_count;
+#ifdef CONFIG_USB_MSG_EP
+	uint msg_out_pipe;
+#endif
 
-    struct aicwf_usb_buf usb_tx_buf[AICWF_USB_TX_URBS];
-    struct aicwf_usb_buf usb_rx_buf[AICWF_USB_RX_URBS];
+	int tx_free_count;
+	int tx_post_count;
 
-    int msg_finished;
-    wait_queue_head_t msg_wait;
-    ulong msg_busy;
-    struct urb *msg_out_urb;
+	struct aicwf_usb_buf usb_tx_buf[AICWF_USB_TX_URBS];
+	struct aicwf_usb_buf usb_rx_buf[AICWF_USB_RX_URBS];
 
-    bool tbusy;
+	int msg_finished;
+	wait_queue_head_t msg_wait;
+	ulong msg_busy;
+	struct urb *msg_out_urb;
+
+	bool tbusy;
 };
 
 extern void aicwf_usb_exit(void);

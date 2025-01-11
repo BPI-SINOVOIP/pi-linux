@@ -1,5 +1,5 @@
 config AIC8800_BTLPM_SUPPORT
-	tristate "AIC8800 bluetooth Support"
+	tristate "AIC8800 bluetooth Support (UART)"
 	help
-	  This is support for aic bluetooh driver.
+	  This is support for aic uart bluetooh driver.
 

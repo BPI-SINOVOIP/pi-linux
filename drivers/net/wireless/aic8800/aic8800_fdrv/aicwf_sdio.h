@@ -15,10 +15,11 @@
 #include <linux/ieee80211.h>
 #include <linux/semaphore.h>
 #include "rwnx_cmds.h"
-#include "aicwf_rx_prealloc.h"
 #define AICWF_SDIO_NAME                 "aicwf_sdio"
 #define SDIOWIFI_FUNC_BLOCKSIZE         512
 
+#define SDIO_VENDOR_ID_AIC                  0x8800
+#define SDIO_DEVICE_ID_AIC                  0x0001
 #define SDIOWIFI_BYTEMODE_LEN_REG           0x02
 #define SDIOWIFI_INTR_CONFIG_REG            0x04
 #define SDIOWIFI_SLEEP_REG	                0x05
@@ -56,87 +57,61 @@
 #define SDIO_SLEEP_ST                    0
 #define SDIO_ACTIVE_ST                   1
 
-#define DATA_FLOW_CTRL_THRESH 2
-#ifdef CONFIG_TX_NETIF_FLOWCTRL
-#define AICWF_SDIO_TX_LOW_WATER          100
-#define AICWF_SDIO_TX_HIGH_WATER         500
-#endif
+#define DATA_FLOW_CTRL_THRESH            2
 
 typedef enum {
-    SDIO_TYPE_DATA         = 0X00,
-    SDIO_TYPE_CFG          = 0X10,
-    SDIO_TYPE_CFG_CMD_RSP  = 0X11,
-    SDIO_TYPE_CFG_DATA_CFM = 0X12,
-    SDIO_TYPE_CFG_PRINT    = 0X13
+	SDIO_TYPE_DATA         = 0X00,
+	SDIO_TYPE_CFG          = 0X10,
+	SDIO_TYPE_CFG_CMD_RSP  = 0X11,
+	SDIO_TYPE_CFG_DATA_CFM = 0X12,
+	SDIO_TYPE_CFG_PRINT    = 0X13
 } sdio_type;
-
-/* SDIO Device ID */
-#define SDIO_VENDOR_ID_AIC8801                0x5449
-#define SDIO_VENDOR_ID_AIC8800DC              0xc8a1
-#define SDIO_VENDOR_ID_AIC8800D80             0xc8a1
-
-#define SDIO_DEVICE_ID_AIC8801				0x0145
-#define SDIO_DEVICE_ID_AIC8800DC			0xc08d
-#define SDIO_DEVICE_ID_AIC8800D80           0x0082
-
-enum AICWF_IC {
-    PRODUCT_ID_AIC8801	=	0,
-    PRODUCT_ID_AIC8800DC,
-    PRODUCT_ID_AIC8800DW,
-    PRODUCT_ID_AIC8800D80
-};
-
 
 struct rwnx_hw;
 
 struct aic_sdio_reg {
-    u8 bytemode_len_reg;
-    u8 intr_config_reg;
-    u8 sleep_reg;
-    u8 wakeup_reg;
-    u8 flow_ctrl_reg;
-    u8 flowctrl_mask_reg;
-    u8 register_block;
-    u8 bytemode_enable_reg;
-    u8 block_cnt_reg;
-    u8 misc_int_status_reg;
-    u8 rd_fifo_addr;
-    u8 wr_fifo_addr;
+	u8 bytemode_len_reg;
+	u8 intr_config_reg;
+	u8 sleep_reg;
+	u8 wakeup_reg;
+	u8 flow_ctrl_reg;
+	u8 register_block;
+	u8 bytemode_enable_reg;
+	u8 block_cnt_reg;
+	u8 misc_int_status_reg;
+	u8 rd_fifo_addr;
+	u8 wr_fifo_addr;
 };
 
 struct aic_sdio_dev {
-    struct rwnx_hw *rwnx_hw;
-    struct sdio_func *func;
-    struct device *dev;
-    struct aicwf_bus *bus_if;
-    struct rwnx_cmd_mgr cmd_mgr;
+	struct rwnx_hw *rwnx_hw;
+	struct sdio_func *func;
+	struct sdio_func *func2;
+	struct device *dev;
+	struct aicwf_bus *bus_if;
+	struct rwnx_cmd_mgr cmd_mgr;
 
-    struct aicwf_rx_priv *rx_priv;
-    struct aicwf_tx_priv *tx_priv;
-    u32 state;
-#ifdef CONFIG_TX_NETIF_FLOWCTRL
-    u8 flowctrl;
-    spinlock_t tx_flow_lock;
-#endif
+	struct aicwf_rx_priv *rx_priv;
+	struct aicwf_tx_priv *tx_priv;
+	u32 state;
 
 #if defined(CONFIG_SDIO_PWRCTRL)
-    //for sdio pwr ctrl
-    struct timer_list timer;
-    uint active_duration;
-    struct completion pwrctrl_trgg;
-    struct task_struct *pwrctl_tsk;
-    spinlock_t pwrctl_lock;
-    struct semaphore pwrctl_wakeup_sema;
+	//for sdio pwr ctrl
+	struct timer_list timer;
+	uint active_duration;
+	struct completion pwrctrl_trgg;
+	struct task_struct *pwrctl_tsk;
+	spinlock_t pwrctl_lock;
+	struct semaphore pwrctl_wakeup_sema;
 #endif
-    u16 chipid;
-    struct aic_sdio_reg sdio_reg;
-
-    spinlock_t wslock;//AIDEN test
-    bool oob_enable;
-    atomic_t is_bus_suspend;
+	struct aic_sdio_reg sdio_reg;
+	bool oob_enable;
+	atomic_t is_bus_suspend;
 };
-extern struct aicwf_rx_buff_list aic_rx_buff_list;
 int aicwf_sdio_writeb(struct aic_sdio_dev *sdiodev, uint regaddr, u8 val);
+int aicwf_sdio_readb(struct aic_sdio_dev *sdiodev, uint regaddr, u8 *val);
+int aicwf_sdio_func2_readb(struct aic_sdio_dev *sdiodev, uint regaddr, u8 *val);
+int aicwf_sdio_func2_writeb(struct aic_sdio_dev *sdiodev, uint regaddr, u8 val);
 void aicwf_sdio_hal_irqhandler(struct sdio_func *func);
 
 #if defined(CONFIG_SDIO_PWRCTRL)
@@ -147,16 +122,9 @@ void aicwf_sdio_reg_init(struct aic_sdio_dev *sdiodev);
 int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev);
 int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev);
 void aicwf_sdio_func_deinit(struct aic_sdio_dev *sdiodev);
-#ifdef CONFIG_TX_NETIF_FLOWCTRL
-void aicwf_sdio_tx_netif_flowctrl(struct rwnx_hw *rwnx_hw, bool state);
-#endif
 int aicwf_sdio_flow_ctrl(struct aic_sdio_dev *sdiodev);
 int aicwf_sdio_flow_ctrl_msg(struct aic_sdio_dev *sdiodev);
-#ifdef CONFIG_PREALLOC_RX_SKB
-int aicwf_sdio_recv_pkt(struct aic_sdio_dev *sdiodev, struct rx_buff *rxbbuf, u32 size);
-#else
 int aicwf_sdio_recv_pkt(struct aic_sdio_dev *sdiodev, struct sk_buff *skbbuf, u32 size);
-#endif
 int aicwf_sdio_send_pkt(struct aic_sdio_dev *sdiodev, u8 *buf, uint count);
 void *aicwf_sdio_bus_init(struct aic_sdio_dev *sdiodev);
 void aicwf_sdio_release(struct aic_sdio_dev *sdiodev);
@@ -165,22 +133,17 @@ void aicwf_sdio_register(void);
 int aicwf_sdio_txpkt(struct aic_sdio_dev *sdiodev, struct sk_buff *pkt);
 int sdio_bustx_thread(void *data);
 int sdio_busrx_thread(void *data);
-#ifdef CONFIG_OOB
-//new oob feature
-int sdio_busirq_thread(void *data);
-#endif //CONFIG_OOB
 int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt);
 int aicwf_sdio_send(struct aicwf_tx_priv *tx_priv, u8 txnow);
 void aicwf_sdio_aggr_send(struct aicwf_tx_priv *tx_priv);
 void aicwf_sdio_aggrbuf_reset(struct aicwf_tx_priv *tx_priv);
 extern void aicwf_hostif_ready(void);
 extern void aicwf_hostif_fail(void);
-#ifdef CONFIG_PLATFORM_AMLOGIC
+#ifdef CONFIG_PLATFORM_NANOPI
 extern void extern_wifi_set_enable(int is_on);
 extern void sdio_reinit(void);
-#endif /*CONFIG_PLATFORM_AMLOGIC*/
+#endif /*CONFIG_PLATFORM_NANOPI*/
 uint8_t crc8_ponl_107(uint8_t *p_buffer, uint16_t cal_size);
-
 #endif /* AICWF_SDIO_SUPPORT */
 
 #endif /*_AICWF_SDMMC_H_*/

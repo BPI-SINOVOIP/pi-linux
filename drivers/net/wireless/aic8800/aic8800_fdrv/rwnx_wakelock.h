@@ -15,6 +15,7 @@ void rwnx_wakeup_lock(struct wakeup_source *ws);
 void rwnx_wakeup_unlock(struct wakeup_source *ws);
 void rwnx_wakeup_lock_timeout(struct wakeup_source *ws, unsigned int msec);
 
+int aicwf_wakeup_lock_status(struct rwnx_hw *rwnx_hw);
 void aicwf_wakeup_lock_init(struct rwnx_hw *rwnx_hw);
 void aicwf_wakeup_lock_deinit(struct rwnx_hw *rwnx_hw);
 
