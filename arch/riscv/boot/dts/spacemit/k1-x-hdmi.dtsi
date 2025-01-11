@@ -37,6 +37,20 @@
 		};
 	};
 
+	hdmiaudio: spacemit_snd_sspa@C0883900 {
+		compatible = "spacemit,spacemit-snd-sspa";
+		reg = <0 0xc0883900 0 0x300>,
+			<0 0xc0882000 0 0x50>;
+		clocks = <&ccu CLK_RCPU_HDMIAUDIO>, <&ccu CLK_HDMI>;
+		resets = <&reset RESET_RCPU_HDMIAUDIO>;
+		assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
+		assigned-clock-rates = <48000>;
+		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+		function-supply = <&hdmi>;
+		#sound-dai-cells = <0>;
+		status = "disabled";
+	};
+
 	hdmi: hdmi@C0400500 {
 		compatible = "spacemit,hdmi";
 		reg = <0 0xC0400500 0 0x200>;

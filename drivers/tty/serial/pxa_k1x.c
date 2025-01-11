@@ -514,6 +514,7 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 	if ((status & UART_MSR_ANY_DELTA) == 0)
 		return;
 
+	spin_lock(&up->port.lock);
 	if (status & UART_MSR_TERI)
 		up->port.icount.rng++;
 	if (status & UART_MSR_DDSR)
@@ -522,6 +523,7 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 		uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
 	if (status & UART_MSR_DCTS)
 		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
+	spin_unlock(&up->port.lock);
 
 	wake_up_interruptible(&up->port.state->port.delta_msr_wait);
 }
@@ -665,7 +667,7 @@ static void serial_pxa_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 #ifdef CONFIG_BT
 	if (up->port.line == BT_UART_PORT)
-		pr_info("%s: rts: 0x%x\n", __func__, mcr & UART_MCR_RTS);
+		pr_debug("%s: rts: 0x%x\n", __func__, mcr & UART_MCR_RTS);
 #endif
 }
 
@@ -1555,7 +1557,6 @@ void serial_pxa_get_qos(int port)
 
 	up = serial_pxa_ports[port];
 	if (!mod_timer(&up->pxa_timer, jiffies + PXA_TIMER_TIMEOUT)) {
-		pr_info("bluesleep: %s: get qos\n", __func__);
 		pm_runtime_get_sync(up->port.dev);
 	}
 
@@ -1580,7 +1581,7 @@ void serial_pxa_assert_rts(int port)
 	spin_lock_irqsave(&up->port.lock, flags);
 	if (!serial_pxa_is_open(up)) {
 		spin_unlock_irqrestore(&up->port.lock, flags);
-		pr_info("%s: uart %d is shutdown\n", __func__, port);
+		pr_err("%s: uart %d is shutdown\n", __func__, port);
 		return;
 	}
 	serial_pxa_set_mctrl(&up->port, up->port.mctrl | TIOCM_RTS);
@@ -1608,7 +1609,7 @@ void serial_pxa_deassert_rts(int port)
 	spin_lock_irqsave(&up->port.lock, flags);
 	if (!serial_pxa_is_open(up)) {
 		spin_unlock_irqrestore(&up->port.lock, flags);
-		pr_info("%s: uart %d is shutdown\n", __func__, port);
+		pr_err("%s: uart %d is shutdown\n", __func__, port);
 		return;
 	}
 	serial_pxa_set_mctrl(&up->port, up->port.mctrl & ~TIOCM_RTS);
@@ -2019,9 +2020,6 @@ static void _pxa_timer_handler(struct uart_pxa_port *up)
 #if SUPPORT_POWER_QOS
 	pm_runtime_put_sync(up->port.dev);
 #endif
-	if (up->port.line == BT_UART_PORT) {
-		pr_info("bluesleep: %s: release qos\n", __func__);
-	}
 }
 
 static void pxa_timer_handler(struct timer_list *t)

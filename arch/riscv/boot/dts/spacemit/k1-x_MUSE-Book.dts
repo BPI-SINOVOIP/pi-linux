@@ -14,7 +14,7 @@
 
 / {
 	model = "M1-MUSE-BOOK";
-	modules_usrload = "8852be";
+	modules_usrload = "rtw89_core, rtw89_pci, rtw89_8852b, rtw89_8852be";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -115,7 +115,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "console=ttyS0,115200n8 loglevel=1 swiotlb=65536 rdinit=/init driver_async_probe=spacemit-hdmi-drv,i2c-spacemit-k1x,ri2c-spacemit-k1x,k1xccic,sdhci-spacemit,k1x-dwc-pcie,pxa2xx-uart";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -140,11 +140,11 @@
 
 	spacemit_lid:spacemit_lid {
 		compatible = "spacemit,k1x-lid";
-		lid-gpios = <&gpio 74 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_hall_wakeup>;
-		interrupt-parent = <&pinctrl>;
-		interrupts = <300>;
+		lid-gpios = <&gpio 74 0>;
+		interrupts-extended = <&gpio 74 1
+				&pinctrl 300>;
 	};
 
 	rf_pwrseq: rf-pwrseq {
@@ -771,14 +771,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie1_3>;
 	num-lanes = <1>;
-	suspend_power_on;
 	status = "okay";
 };
 
 &pcie2_rc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie2_4>;
-	suspend_power_on;
 	status = "okay";
 };
 
@@ -841,8 +839,15 @@
         status = "okay";
 };
 
+&hdmiaudio {
+	status = "okay";
+};
+
 &sound_hdmi {
 	status = "okay";
+	simple-audio-card,cpu {
+		sound-dai = <&hdmiaudio>;
+	};
 };
 
 &sound_codec {

@@ -117,7 +117,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -183,12 +183,6 @@
 				reg = <0x0>;
 				dwc3_con_ep: endpoint {
 					remote-endpoint = <&con_u3_ep>;
-				};
-			};
-			port@1 {
-				reg = <0x1>;
-				dwc3_ep: endpoint {
-					remote-endpoint = <&dwc3_role_switch>;
 				};
 			};
 		};
@@ -809,16 +803,6 @@
 
 		usb-role-switch;
 		role-switch-default-mode = "peripheral";
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				reg = <0x0>;
-				dwc3_role_switch: endpoint {
-					remote-endpoint = <&dwc3_ep>;
-				};
-			};
-		};
 	};
 };
 
@@ -869,8 +853,15 @@
 	status = "okay";
 };
 
+&hdmiaudio {
+	status = "okay";
+};
+
 &sound_hdmi {
 	status = "okay";
+	simple-audio-card,cpu {
+		sound-dai = <&hdmiaudio>;
+	};
 };
 
 &pwm12 {

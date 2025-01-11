@@ -119,7 +119,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -260,7 +260,7 @@
 
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
-	spacemit-dpu-bitclk = <614400000>;
+	spacemit-dpu-bitclk = <500000000>;
 	dsi_1v2-supply = <&ldo_5>;
 	dsi_1v8-supply = <&ldo_11>;
 	vin-supply-names = "dsi_1v2", "dsi_1v8";
@@ -301,6 +301,14 @@
 	pinctrl-0 = <&pinctrl_i2c1>;
 	spacemit,i2c-fast-mode;
 	status = "okay";
+
+	smtouch@2e {
+		compatible = "chipsemi,chsc_cap_touch";
+		reg = <0x2e>;
+		chipsemi,int-gpio = <&gpio 29 0>;
+		chipsemi,rst-gpio = <&gpio 32 0>;
+		pwr-gpios  = <&gpio 33 0>;
+	};
 };
 
 &i2c2 {
@@ -350,7 +358,11 @@
 		compatible = "hynetek,husb239";
 		reg = <0x42>;
 		vbus-gpios = <&gpio 124 0>;
-		int-gpio = <&gpio 78 0>;
+		interrupt-parent = <&pinctrl>;
+		interrupts = <316>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_husb239_u2>;
+		//wakeup-source;
 		status = "okay";
 
 		ports {
@@ -632,7 +644,7 @@
 	};
 
 	sgm4154x: sgm4154x@1a {
-		status = "disabled";
+		status = "okay";
 		compatible = "sgm,sgm41515";
 		reg = <0x1a>;
 		interrupt-parent = <&gpio>;
@@ -684,7 +696,6 @@
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_76  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_89  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -704,6 +715,23 @@
 			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_FALL | PULL_DOWN | PAD_3V_DS2))   /* wifi edge detect */
 		>;
 	};
+
+	pinctrl_mmc1_debug: mmc1_debug_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(MMC1_DAT3, MUX_MODE3, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* uart0_txd */
+			K1X_PADCONF(MMC1_DAT2, MUX_MODE3, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* uart0_rxd */
+			K1X_PADCONF(MMC1_DAT1, MUX_MODE0, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* mmc1_d1 */
+			K1X_PADCONF(MMC1_DAT0, MUX_MODE0, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* mmc1_d0 */
+			K1X_PADCONF(MMC1_CMD,  MUX_MODE0, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* mmc1_cmd */
+			K1X_PADCONF(MMC1_CLK,  MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_3V_DS4))	/* mmc1_clk */
+		>;
+	};
+
+	pinctrl_husb239_u2: husb239_u2_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_78, MUX_MODE0, (EDGE_FALL | PULL_UP | PAD_3V_DS2))
+		>;
+	};
 };
 
 &gpio{
@@ -717,7 +745,6 @@
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
 		&pinctrl 76  GPIO_76  1
-		&pinctrl 78  GPIO_78  1
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 89  GPIO_89  4
 		&pinctrl 96  DVL0     2
@@ -729,9 +756,10 @@
 
 /* SD */
 &sdhci0 {
-	pinctrl-names = "default","fast";
+	pinctrl-names = "default","fast","debug";
 	pinctrl-0 = <&pinctrl_mmc1>;
 	pinctrl-1 = <&pinctrl_mmc1_fast>;
+	pinctrl-2 = <&pinctrl_mmc1_debug>;
 	bus-width = <4>;
 	cd-gpios = <&gpio 80 0>;
 	vmmc-supply = <&dcdc_4>;

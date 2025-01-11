@@ -12,15 +12,15 @@
 #include <linux/interrupt.h>
 #include <linux/pm_wakeirq.h>
 #include <linux/gpio/consumer.h>
-#include <linux/pm_wakeirq.h>
 #include <linux/property.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/of.h>
 
 struct _hall {
-	int irq;
 	struct device *dev;
 	struct input_dev *input;
 	struct gpio_desc *gpio;
+	int wakeup_irq, normal_irq;
 };
 
 static irqreturn_t hall_wakeup_detect(int irq, void *arg)
@@ -30,10 +30,7 @@ static irqreturn_t hall_wakeup_detect(int irq, void *arg)
 
 	state = gpiod_get_value(hall->gpio);
 
-	if (!state)
-		pm_relax(hall->dev);
-	else
-		pm_stay_awake(hall->dev);
+	pm_wakeup_event(hall->dev, 0);
 
 	input_report_switch(hall->input, SW_LID, !state);
  	input_sync(hall->input);
@@ -53,23 +50,26 @@ static int spacemit_lid_probe(struct platform_device *pdev)
 
 	hall->gpio = devm_gpiod_get(&pdev->dev, "lid", GPIOD_IN);
 	if (IS_ERR_OR_NULL(hall->gpio)) {
-		pr_err("get gpio error\n");
 		return PTR_ERR(hall->gpio);
 	}
 
-	hall->irq = platform_get_irq(pdev, 0);
-	if (hall->irq < 0)
+	hall->normal_irq = platform_get_irq(pdev, 0);
+	if (hall->normal_irq < 0)
 		return -EINVAL;
 
-	error = devm_request_any_context_irq(&pdev->dev, hall->irq,
+	hall->wakeup_irq = platform_get_irq(pdev, 1);
+	if (hall->wakeup_irq < 0) {
+		return -EINVAL;
+	}
+
+	error = devm_request_irq(&pdev->dev, hall->normal_irq,
 			hall_wakeup_detect,
-			IRQF_ONESHOT | IRQF_TRIGGER_NONE,
+			IRQF_NO_SUSPEND | IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
 			"hall-detect", (void *)hall);
 	if (error) {
 		pr_err("request hall pinctrl dectect failed\n");
 		return -EINVAL;
 	}
-
 
 	input = devm_input_allocate_device(&pdev->dev);
 	if (!input)
@@ -81,8 +81,8 @@ static int spacemit_lid_probe(struct platform_device *pdev)
 
 	input_set_drvdata(input, hall);
 
-	hall->input = input;
 	hall->dev = &pdev->dev;
+	hall->input = input;
 
 	error = input_register_device(input);
 	if (error) {
@@ -90,8 +90,8 @@ static int spacemit_lid_probe(struct platform_device *pdev)
 		return error;
 	}
 
-	dev_pm_set_wake_irq(&pdev->dev, hall->irq);
-	device_init_wakeup(&pdev->dev, true);
+	dev_pm_set_dedicated_wake_irq_spacemit(&pdev->dev, hall->wakeup_irq, IRQ_TYPE_EDGE_RISING);
+ 	device_init_wakeup(&pdev->dev, true);
 
 	return 0;
 }

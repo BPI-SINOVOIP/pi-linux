@@ -1185,7 +1185,7 @@ static int csi_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 			cam_err("%s(%s) config mux(enable) failed ret=%d", __func__, sc_subdev->name, ret);
 			return ret;
 		}
-		ret = csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, mipi_lane_num);
+		ret = csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, 0, 0, mipi_lane_num);
 		if (ret) {
 			cam_err("%s(%s) config mbus(enable) lane=%d failed ret=%d", __func__, sc_subdev->name, 4, ret);
 			return ret;
@@ -1193,7 +1193,7 @@ static int csi_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 		csi_ctrl->ops->irq_mask(csi_ctrl, 1);
 	} else {
 		csi_ctrl->ops->irq_mask(csi_ctrl, 0);
-		csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, 0);
+		csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, 0, 0, 0);
 		csi_ctrl->ops->config_csi2idi_mux(csi_ctrl, csi2vc, csi2idi, 0);
 		csi_subdev_core_s_power(sd, 0);
 	}
@@ -5035,12 +5035,19 @@ static void fe_isp_dma_bh_handler(struct isp_dma_work_struct *isp_dma_work)
 	struct spm_camera_vnode *sc_vnode = dma_ctx->vnode;
 	//struct isp_context *isp_ctx = dma_ctx->isp_ctx;
 	struct spm_camera_pipeline *sc_pipeline = NULL;
-	struct media_pipeline *pipe = media_entity_pipeline(&sc_vnode->vnode.entity);
+	struct media_pipeline *pipe = NULL;
 	struct spm_camera_vbuffer *n = NULL, *pos = NULL;
 	unsigned int *hw_err_code = NULL;
 	unsigned int irq_status = isp_dma_work->irq_status;
 	LIST_HEAD(export_list);
 	unsigned long flags = 0;
+
+	if (!sc_vnode) {
+		cam_dbg("a[%d] debug 0", dma_ctx->id);
+		goto dma_tasklet_finish;
+	}
+
+	pipe = media_entity_pipeline(&sc_vnode->vnode.entity);
 
 	if (!sc_vnode || !pipe) {
 		cam_dbg("a[%d] debug 1", dma_ctx->id);

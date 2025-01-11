@@ -155,7 +155,7 @@ ifeq ($(CONFIG_RISCV_M_MODE)$(CONFIG_ARCH_CANAAN),yy)
 KBUILD_IMAGE := $(boot)/loader.bin
 else
 ifeq ($(CONFIG_EFI_ZBOOT),)
-KBUILD_IMAGE := $(boot)/Image.gz.itb
+KBUILD_IMAGE := $(boot)/Image.gz
 else
 KBUILD_IMAGE := $(boot)/vmlinuz.efi
 endif
@@ -178,9 +178,7 @@ $(BOOT_TARGETS): vmlinux
 Image.%: Image Image.gz
 	$(Q)$(MAKE) $(build)=$(boot) $(bootvars-y) $(boot)/$@
 
-#BPI
-#install: KBUILD_IMAGE := $(boot)/Image
-install: KBUILD_IMAGE := $(boot)/Image.itb
+install: KBUILD_IMAGE := $(boot)/Image
 zinstall: KBUILD_IMAGE := $(boot)/Image.gz
 install zinstall:
 	$(call cmd,install)

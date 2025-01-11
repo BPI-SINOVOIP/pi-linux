@@ -166,7 +166,6 @@ struct k1x_pcie {
 
 	struct	gpio_desc *perst_gpio; /* for PERST# in RC mode*/
 	int pwr_on_gpio;
-	bool suspend_power_on;
 };
 
 struct k1x_pcie_of_data {
@@ -1652,12 +1651,6 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 		dev_info(dev, "has no power on gpio.\n");
 	}
 
-	if (of_get_property(np, "suspend_power_on", NULL)) {
-		k1x->suspend_power_on = 1;
-	} else {
-		k1x->suspend_power_on = 0;
-	}
-
 	/* pcie0 and usb use combo phy and reset */
 	if (k1x->port_id == 0) {
 		k1x->reset = devm_reset_control_array_get_shared(dev);
@@ -1808,10 +1801,6 @@ static int k1x_pcie_suspend_noirq(struct device *dev)
 	struct dw_pcie  *pci = k1x->pci;
 	u32 reg;
 
-	if (k1x->suspend_power_on) {
-		return 0;
-	}
-
 	k1x->link_is_up = dw_pcie_link_up(pci);
 	dev_info(dev, "link is %s\n", k1x->link_is_up ? "up" : "down");
 
@@ -1844,10 +1833,6 @@ static int k1x_pcie_resume_noirq(struct device *dev)
 	struct dw_pcie_rp *pp = &pci->pp;
 	u32 reg;
 
-	if (k1x->suspend_power_on) {
-		return 0;
-	}
-
 	/* soft no reset */
 	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
 	reg &= ~(1 << 0);
@@ -1876,6 +1861,7 @@ static const struct dev_pm_ops k1x_pcie_pm_ops = {
 };
 
 static struct platform_driver k1x_pcie_driver = {
+	.probe = k1x_pcie_probe,
 	.driver = {
 		.name	= "k1x-dwc-pcie",
 		.of_match_table = of_k1x_pcie_match,
@@ -1883,4 +1869,4 @@ static struct platform_driver k1x_pcie_driver = {
 		.pm	= &k1x_pcie_pm_ops,
 	},
 };
-builtin_platform_driver_probe(k1x_pcie_driver, k1x_pcie_probe);
+module_platform_driver(k1x_pcie_driver);
