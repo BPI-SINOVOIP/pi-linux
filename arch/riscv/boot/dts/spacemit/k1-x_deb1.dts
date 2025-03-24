@@ -592,7 +592,6 @@
 			K1X_PADCONF(GPIO_12, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdc */
 			K1X_PADCONF(GPIO_13, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdio */
 			K1X_PADCONF(GPIO_14, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_int_n */
-			K1X_PADCONF(GPIO_45, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_clk_ref */
 		>;
 	};
 
@@ -613,7 +612,6 @@
 			K1X_PADCONF(GPIO_41, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdc */
 			K1X_PADCONF(GPIO_42, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdio */
 			K1X_PADCONF(GPIO_43, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_int_n */
-			K1X_PADCONF(GPIO_46, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_clk_ref */
 		>;
 	};
 
@@ -631,7 +629,7 @@
 		&pinctrl 63  GPIO_63  3
 		&pinctrl 67  GPIO_67  1
 		&pinctrl 70  PRI_TDI  4
-		&pinctrl 74  GPIO_74  1
+		&pinctrl 74  GPIO_74  4
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 90  GPIO_90  3
 		&pinctrl 96  DVL0     2
@@ -735,7 +733,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gmac0>;
 
-	emac,reset-gpio = <&gpio 110 0>;
+	emac,reset-gpio = <&gpio 45 0>;
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
@@ -776,7 +774,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gmac1>;
 
-	emac,reset-gpio = <&gpio 115 0>;
+	emac,reset-gpio = <&gpio 46 0>;
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
@@ -902,7 +900,7 @@
 
 &pcie2_rc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pcie2_4>;
+	pinctrl-0 = <&pinctrl_pcie2_2>;
 	num-lanes = <1>;
 	status = "okay";
 };
@@ -1123,7 +1121,7 @@
 };
 
 &sound_codec {
-	status = "okay";
+	status = "disabled";
 	simple-audio-card,name = "snd-es8326";
 	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
