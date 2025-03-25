@@ -1,0 +1,28 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&spi1>;
+		__overlay__ {
+			status = "okay";
+
+			spi1_cs_number = <1>;
+			spi1_cs_bitmap = <1>;
+
+			tft24: tft24@0 {
+				compatible = "ilitek,ili9341";
+				reg = <0>;
+				spi-max-frequency = <50000000>;
+				rotate = <90>;
+				bgr = <0>;
+				fps = <30>;
+				buswidth = <8>;
+				reset-gpios = <0x23 0x07 0x3 0x00>; //phy.13
+				dc-gpios = <0x23 0x06 0x1 0x00>;    //phy.22
+				led-gpios = <0x23 0x06 0xb 0x00>;  //phy.12
+				debug = <0>;
+			};
+		};
+	};
+};

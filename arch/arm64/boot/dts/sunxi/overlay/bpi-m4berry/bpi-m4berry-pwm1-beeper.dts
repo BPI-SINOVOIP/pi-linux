@@ -1,0 +1,32 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&pwm>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&pwm1>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+
+		__overlay__ {
+			beeper: beeper {
+				compatible = "pwm-beeper";
+				pwms = <&pwm 1 1000000 0>;
+				status = "okay";
+			};
+		};
+	};
+};

@@ -1,0 +1,22 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&spi1>;
+		__overlay__ {
+			status = "okay";
+
+			spi1_cs_number = <1>;
+			spi1_cs_bitmap = <1>;
+
+			spiflash: w25q128@0 {
+	                	#address-cells = <1>;
+        	        	#size-cells = <1>;
+                		compatible = "w25q128", "jedec,spi-nor", "winbond,w25q128";
+				spi-max-frequency = <100000000>;
+        		        reg = <0>;
+			};
+		};
+	};
+};

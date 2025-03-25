@@ -1,0 +1,66 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			wm8960_mclk: wm8960_mclk {
+				compatible = "fixed-clock";
+				status = "okay";
+				#clock-cells = <0x0>;
+				clock-frequency = <0xbb8000>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&twi0>;
+		__overlay__ {
+			status = "okay";
+
+			wm8960: wm8960@1a {
+		                #sound-dai-cells = <0>;
+		                compatible = "wlf,wm8960";
+		                reg = <0x1a>;
+				status = "okay";
+				clocks = <&wm8960_mclk>;
+				clock-names = "mclk";
+		        };
+		};
+	};
+
+	fragment@2 {
+		target = <&ahub0_plat>;
+		__overlay__ {
+                        status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&ahub0_mach>;
+		__overlay__ {
+			status = "okay";
+
+			soundcard-mach,widgets =
+	                        "Microphone", "Mic Jack",
+	                        "Line", "Line In",
+	                        "Line", "Line Out",
+	                        "Speaker", "Speaker",
+	                        "Headphone", "Headphone Jack";
+        		soundcard-mach,routing =
+	                        "Headphone Jack", "HP_L",
+	                        "Headphone Jack", "HP_R",
+	                        "Speaker", "SPK_LP",
+	                        "Speaker", "SPK_LN",
+	                        "LINPUT1", "Mic Jack",
+	                        "LINPUT3", "Mic Jack",
+	                        "RINPUT1", "Mic Jack",
+	                        "RINPUT2", "Mic Jack";
+			soundcard-mach,codec {
+				sound-dai = <&wm8960>;
+			};
+		};
+	};
+};

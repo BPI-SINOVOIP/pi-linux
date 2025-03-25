@@ -1,0 +1,77 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&pwm>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&pwm2>;
+
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&pwm2_pin_b>;
+
+		__overlay__ {
+			/* pull down for input mode when pwm disable */
+			bias-pull-down;
+		};
+	};
+
+	fragment@3 {
+		target-path = "/";
+
+		__overlay__ {
+			pwmfan: pwm-fan {
+				compatible = "pwm-fan";
+				pwms = <&pwm 2 10000 0>;
+				cooling-min-state = <0>;
+				cooling-max-state = <2>;
+				#cooling-cells = <2>;
+				cooling-levels = <0 150 230>;
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&cpu_thermal>;
+
+		__overlay__ {
+			trips {
+				fan0: fan@0 {
+					temperature = <65000>;
+					hysteresis = <5000>;
+					type = "active";
+				};
+
+				fan1: fan@1 {
+					temperature = <80000>;
+					hysteresis = <5000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				fan_cooling_map0 {
+					trip = <&fan0>;
+					cooling-device = <&pwmfan 0 1>;
+				};
+
+				fan_cooling_map1 {
+					trip = <&fan1>;
+					cooling-device = <&pwmfan 1 2>;
+				};
+			};
+		};
+	};
+};

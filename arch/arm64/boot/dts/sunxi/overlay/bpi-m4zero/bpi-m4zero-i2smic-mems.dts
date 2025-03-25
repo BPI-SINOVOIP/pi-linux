@@ -1,0 +1,20 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@2 {
+		target = <&ahub0_plat>;
+		__overlay__ {
+                        status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&ahub0_mach>;
+		__overlay__ {
+			status = "okay";
+
+			soundcard-mach,capture-only;
+		};
+	};
+};
