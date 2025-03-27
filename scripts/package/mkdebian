@@ -147,12 +147,15 @@ fi
 
 # Some variables and settings used throughout the script
 version=$KERNELRELEASE
+baseversion=$(echo $version | cut -d- -f1)
 if [ -n "$KDEB_PKGVERSION" ]; then
 	packageversion=$KDEB_PKGVERSION
 else
 	packageversion=$(${srctree}/scripts/setlocalversion --no-local ${srctree})-$($srctree/init/build-version)
 fi
 sourcename=${KDEB_SOURCENAME:-linux-upstream}
+
+kernelgitver=$(git rev-parse --short HEAD)
 
 if [ "$ARCH" = "um" ] ; then
 	packagename=user-mode-linux
@@ -217,12 +220,15 @@ Maintainer: $maintainer
 Rules-Requires-Root: no
 Build-Depends: bc, debhelper, rsync, kmod, cpio, bison, flex $extra_build_depends
 Homepage: https://www.kernel.org/
+XBS-Commit-Id: $kernelgitver
 
 Package: $packagename-$version
 Architecture: $debarch
 Description: Linux kernel, version $version
  This package contains the Linux kernel, modules and corresponding other
  files, version: $version.
+Depends: spacemit-flash-dtbs
+Provides: linux-image-$baseversion
 EOF
 
 if [ "${SRCARCH}" != um ]; then
@@ -236,6 +242,27 @@ Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers
  are used by the installed headers for GNU glibc and other system libraries.
 Multi-Arch: same
+
+Package: linux-tools-$version
+Architecture: $debarch
+Section: devel
+Depends: linux-tools-common
+Description: Linux kernel version specific tools for version $version
+ This package provides the architecture dependant parts for kernel
+ version locked tools (such as perf) for
+ version $version on
+ .
+Provides: linux-tools-$baseversion
+
+Package: linux-tools-common
+Architecture: all
+Multi-Arch: foreign
+Section: kernel
+Depends: lsb-release
+Description: Linux kernel version specific tools for version $version
+ This package provides the architecture independent parts for kernel
+ version locked tools (such as perf) for
+ version $version.
 EOF
 
 if is_enabled CONFIG_MODULES; then
@@ -247,6 +274,7 @@ Description: Linux kernel headers for $version on $debarch
  This package provides kernel header files for $version on $debarch
  .
  This is useful for people who need to build external modules
+Provides: linux-headers-$baseversion
 EOF
 fi
 fi
@@ -260,6 +288,7 @@ Architecture: $debarch
 Description: Linux kernel debugging symbols for $version
  This package will come in handy if you need to debug the kernel. It provides
  all the necessary debug symbols for the kernel and its modules.
+Provides: linux-image-$baseversion-dbg
 EOF
 fi
 
