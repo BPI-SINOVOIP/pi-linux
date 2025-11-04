@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * Device Tree Source for the waveshare jetson-io-base-a board
+ *
+ * Copyright (C) 2024 Renesas Electronics Corp.
+ */
+
+/dts-v1/;
+#include "bananapi-ai2n.dts"
+
+/ {
+        model = "Waveshare JETSON-IO-BASE-A with Bananapi AI2N Module";
+        compatible = "waveshare,jeston-base-a-ai2n", "renesas,r9a09g056n44", "renesas,r9a09g056";
+
+	/delete-node/ gpio-fan;
+	/delete-node/ hdmi-out;
+};
+
+&pinctrl {
+	/*
+        sd1_pwr_en {
+		gpio-hog;
+		gpios = <RZG2L_GPIO(8, 2) GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "sd1_pwr_en";
+	};*/
+
+	/delete-node/ sd1;
+};
+
+/* SD */
+&sdhi1 {
+	/delete-property/ sd-uhs-sdr50;
+	/delete-property/ sd-uhs-sdr104;
+	cap-sd-highspeed;
+	cd-gpios = <&pinctrl RZG2L_GPIO(8, 3) GPIO_ACTIVE_LOW>;
+	pinctrl-0;
+	pinctrl-names;
+};
+
+&eth0 {
+	status = "disabled";
+};
+
+&dsi0_out {
+	/delete-property/ remote-endpoint;
+	/delete-property/ data-lanes;
+};
+
+&i2c3 {
+	/delete-node/ eeprom@56;
+	/delete-node/ hdmi@3d;
+	/delete-node/ rtc@51;
+};

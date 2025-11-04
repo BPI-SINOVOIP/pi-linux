@@ -1,0 +1,20 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/aliases";
+		__overlay__ {
+			i2c2 = "/soc/i2c@14400c00";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/soc/i2c@14400c00";
+		__overlay__ {
+			status = "okay";
+		};	
+	};
+};

@@ -1,0 +1,29 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/soc/gpt@13010500";
+		__overlay__ {
+			status = "okay";
+
+			channel = "channel_B";
+		};	
+	};
+
+	fragment@1 {
+		target-path = "/pwm-fan";
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target-path = "/gpio-fan";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

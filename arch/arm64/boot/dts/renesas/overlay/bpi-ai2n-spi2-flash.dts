@@ -1,0 +1,31 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/aliases";
+		__overlay__ {
+			spi2 = "/soc/spi@12800800";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/soc/spi@12800800";
+		__overlay__ {
+			status = "okay";
+
+			spiflash: w25q128@0 {
+				compatible = "w25q128", "jedec,spi-nor", "winbond,w25q128";
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				spi-max-frequency = <25000000>;
+				spi-cpol;
+				spi-cpha;
+			};
+		};	
+	};
+};

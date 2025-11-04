@@ -1,0 +1,18 @@
+This document describes overlays provided in the kernel packages
+For generic Renesas overlays
+
+### Platform:
+
+rzv2n (Renesas)
+
+### Provided overlays:
+
+- i2c4
+
+### Overlay details:
+
+### i2c4
+
+Activates TWI/I2C bus 4
+
+I2C4 pins (SCL, SDA): GPIO PIN.3, GPIO PIN.5

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig RENESAS_EXTRA_DRIVER
+	bool "Renesas Extra drivers"
+	default n
+	help
+	  this option is provided for control Renesas extra drivers.
+
+if RENESAS_EXTRA_DRIVER
+
+source "drivers/renesas/mmngrbuf/Kconfig"
+source "drivers/renesas/mmngr/Kconfig"
+source "drivers/renesas/uvcs_drv/Kconfig"
+source "drivers/renesas/vspmif/Kconfig"
+source "drivers/renesas/vspm/Kconfig"
+
+endif

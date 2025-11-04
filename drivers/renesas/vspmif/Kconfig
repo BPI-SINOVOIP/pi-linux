@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config RENESAS_VSPM_IF
+	tristate "Renesas vspm_if driver"
+	depends on ARCH_RENESAS
+	help
+	  Say Y here if you want enable Renesas vspm_if driver

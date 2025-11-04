@@ -1,0 +1,71 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/rzg2l-pinctrl.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/aliases";
+		__overlay__ {
+			spi2 = "/soc/spi@12800800";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/soc/spi@12800800";
+		__overlay__ {
+			status = "okay";
+
+			tft35c: tft35c@0 {
+				compatible = "ilitek,ili9486";
+				status = "okay";
+				reg = <0>;
+				spi-max-frequency = <100000000>;
+				txbuflen = <32768>;
+				rotate = <90>;
+				bgr = <0>;
+				fps = <60>;
+				buswidth = <8>;
+				regwidth = <16>;
+				reset-gpios = <&pinctrl RZG2L_GPIO(5, 3) GPIO_ACTIVE_LOW>; //phy.22
+				dc-gpios = <&pinctrl RZG2L_GPIO(5, 6) GPIO_ACTIVE_HIGH>;    //phy.18
+				debug = <0>;
+
+				init = <0x10000f1 0x36 0x4 0x0 0x3c 0xf 0x8f
+                                       0x10000f2 0x18 0xa3 0x12 0x2 0xb2 0x12 0xff 0x10 0x0
+                                       0x10000f8 0x21 0x4
+                                       0x10000f9 0x0 0x8
+                                       0x1000036 0x8
+                                       0x10000b4 0x0
+                                       0x10000c1 0x41
+                                       0x10000c5 0x0 0x91 0x80 0x0
+                                       0x10000e0 0xf 0x1f 0x1c 0xc 0xf 0x8 0x48 0x98 0x37 0xa 0x13 0x4 0x11 0xd 0x0
+                                       0x10000e1 0xf 0x32 0x2e 0xb 0xd 0x5 0x47 0x75 0x37 0x6 0x10 0x3 0x24 0x20 0x0
+                                       0x100003a 0x55
+                                       0x1000011
+                                       0x1000036 0x28
+                                       0x20000ff
+                                       0x1000029>;
+			};
+
+			ads7846: ads7846@1 {
+				compatible = "ti,ads7846";
+				status = "disabled";
+				reg = <1>;
+				spi-max-frequency = <2000000>;
+				interrupt-parent = <&pinctrl>;
+				interrupts = <RZG2L_GPIO(9, 0) IRQ_TYPE_LEVEL_LOW>;  //phy.11
+				pendown-gpio = <&pinctrl RZG2L_GPIO(9, 0) GPIO_ACTIVE_HIGH>;  //phy.11
+				ti,x-plate-ohms = /bits/ 16 <60>;
+				ti,pressure-max = /bits/ 16 <255>;
+				ti,swap-xy = <1>;
+
+				//linux,wakeup;
+			};
+		};	
+	};
+};

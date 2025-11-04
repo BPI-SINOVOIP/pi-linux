@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0
+config VIDEO_RZV2N_IVC
+	tristate "RZ/V2N Input Video Control Driver"
+	depends on VIDEO_V4L2_SUBDEV_API && OF && MEDIA_CONTROLLER
+	depends on ARCH_RENESAS || COMPILE_TEST
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_FWNODE
+	select VIDEOBUF_GEN
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_MEMOPS
+	select VIDEOBUF2_VMALLOC
+	select VIDEOBUF2_DMA_CONTIG
+	select VIDEOBUF2_DMA_SG
+	select V4L2_MEM2MEM_DEV
+	select VIDEO_MEM2MEM_DEINTERLACE
+	select VIDEO_RZG2L_CRU
+	select VIDEO_RZG2L_CSI2
+	help
+	  Support for Renesas RZ/V2N Image Signal Processor (ISP) Driver
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called rzv2n-isp.

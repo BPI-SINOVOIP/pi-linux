@@ -1,0 +1,150 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/rzg2l-pinctrl.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_ext_camera: clk_ext_camera {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <74250000>;
+			};
+
+			imx415_ovdd_1v8: 1p8v {
+				compatible = "regulator-fixed";
+				regulator-name = "camera_ovdd";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+			};
+
+			imx415_avdd_2v9: 2p9v {
+				compatible = "regulator-fixed";
+				regulator-name = "camera_avdd";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <2900000>;
+				regulator-always-on;
+			};
+
+			imx415_dvdd_1v1: 1p1v {
+				compatible = "regulator-fixed";
+				regulator-name = "camera_dvdd";
+				regulator-min-microvolt = <1100000>;
+				regulator-max-microvolt = <1100000>;
+				regulator-always-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&pinctrl>;
+		__overlay__ {
+			cam0_pwr_en {
+				gpio-hog;
+				gpios = <RZG2L_GPIO(6, 1) GPIO_ACTIVE_HIGH>;
+				output-high;
+				line-name = "cam0_pwr_en";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c0>;
+		__overlay__ {
+			status = "okay";
+
+			imx415a: imx415@37 {
+				compatible = "sony,imx415";
+				reg = <0x37>;
+				clock-names = "inck";
+				clocks = <&clk_ext_camera>;
+				ovdd-supply = <&imx415_ovdd_1v8>;
+				avdd-supply = <&imx415_avdd_2v9>;
+				dvdd-supply = <&imx415_dvdd_1v1>;
+				reset-gpios = <&pinctrl RZG2L_GPIO(6, 0) GPIO_ACTIVE_LOW>;
+
+				port {
+					imx415a_to_csi20: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <445500000 445500000 445500000 445500000>;
+						remote-endpoint = <&csi20_in>;
+					};
+				};
+			};
+		};	
+	};
+
+	fragment@3 {
+		target = <&cru0>;
+		__overlay__ {
+			status = "okay";
+
+			memory-region = <&cru_func>;
+		};
+	};
+
+	fragment@4 {
+		target = <&csi20>;
+		__overlay__ {
+			status = "okay";
+			ports {
+				port@0 {
+					reg = <0>;
+					csi20_in: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&imx415a_to_csi20>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@5 {
+		target = <&input_video_control>;
+		__overlay__ {
+			status = "okay";
+
+			crus = <&cru0>;
+		};
+	};
+
+	fragment@6 {
+		target = <&isp>;
+		__overlay__ {
+			status = "okay";
+
+			sensor-i2c = <&imx415a>;
+			sensor-default-preset-mode = <0>;
+		};
+	};
+
+	fragment@7 {
+		target = <&sensor>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@8 {
+		target = <&lens>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@9 {
+		target = <&iq>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};

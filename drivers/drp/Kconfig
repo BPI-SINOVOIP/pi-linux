@@ -1,0 +1,29 @@
+#
+# DRP subsystem configuration
+#
+
+menu "DRP/DRP support"
+
+config DRP
+    bool "DRP support"
+    default y
+    help
+      DRP is a peripheral hardware that accelerates image processing.
+      If you want DRP support, you should say Y here.
+
+config DRP_SUPPORT_MULTI_OS
+    bool "Support Multiple OS System"
+    depends on !ARCH_R9A09G056
+    default n
+    help
+        If you want to use multiple OS system (assumed with RTOS), you should say Y here.
+
+config DRP_INIT_SHARED_MEMORY
+    bool "Initialize Shared Memory"
+    depends on !ARCH_R9A09G056
+    default n
+    help
+        If you want to initialize shard memory, you should say Y here.
+        When "Support Multiple OS System" is 'Y', this option is enable.  
+
+endmenu

@@ -1,0 +1,127 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/rzg2l-pinctrl.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			clk_ext_camera: clk_ext_camera {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <24000000>;
+			};
+
+			ov5640_vdddo_1v8: 1p8v {
+				compatible = "regulator-fixed";
+				regulator-name = "camera_vdddo";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+			};
+
+			ov5640_vdda_2v8: 2p8v {
+				compatible = "regulator-fixed";
+				regulator-name = "camera_vdda";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+				regulator-always-on;
+			};
+
+			ov5640_vddd_1v5: 1p5v {
+				compatible = "regulator-fixed";
+				regulator-name = "camera_vddd";
+				regulator-min-microvolt = <1500000>;
+				regulator-max-microvolt = <1500000>;
+				regulator-always-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&pinctrl>;
+		__overlay__ {
+			cam0_pwr_en {
+				gpio-hog;
+				gpios = <RZG2L_GPIO(6, 1) GPIO_ACTIVE_HIGH>;
+				output-high;
+				line-name = "cam0_pwr_en";
+			};
+/*
+			cam1_i2c_sel {
+				gpio-hog;
+				gpios = <RZG2L_GPIO(7, 4) GPIO_ACTIVE_HIGH>;
+				output-high;
+				line-name = "cam1_i2c_sel";
+			};
+
+			cam1_pwr_en {
+				gpio-hog;
+				gpios = <RZG2L_GPIO(6, 3) GPIO_ACTIVE_HIGH>;
+				output-high;
+				line-name = "cam1_pwr_en";
+			};*/
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c0>;
+		__overlay__ {
+			status = "okay";
+
+			ov5640_csi20: ov5640_csi20@3c {
+		                compatible = "ovti,ov5640";
+		                reg = <0x3c>;
+		                clock-names = "xclk";
+		                clocks = <&clk_ext_camera>;
+		                clock-frequency = <24000000>;
+		                vdddo-supply = <&ov5640_vdddo_1v8>;
+		                vdda-supply = <&ov5640_vdda_2v8>;
+		                vddd-supply = <&ov5640_vddd_1v5>;
+		                /* Set dummy enable gpio */
+		                enable-gpios = <&pinctrl RZG2L_GPIO(6, 1) GPIO_ACTIVE_HIGH>;
+		                reset-gpios = <&pinctrl RZG2L_GPIO(6, 0) GPIO_ACTIVE_HIGH>;
+
+		                port {
+		                        ov5640_to_csi20: endpoint {
+		                                clock-lanes = <0>;
+		                                data-lanes = <1 2>;
+		                                remote-endpoint = <&csi20_in>;
+		                        };
+		                };
+		        };
+		};	
+	};
+
+	fragment@3 {
+		target = <&cru0>;
+		__overlay__ {
+			status = "okay";
+
+			interrupts = <GIC_SPI 838 IRQ_TYPE_LEVEL_HIGH>;
+			/delete-property/ interrupt-names;
+		};
+	};
+
+	fragment@4 {
+		target = <&csi20>;
+		__overlay__ {
+			status = "okay";
+			ports {
+				port@0 {
+					reg = <0>;
+					csi20_in: endpoint {
+						clock-lanes = <0>;
+						data-lanes = <1 2>;
+						remote-endpoint = <&ov5640_to_csi20>;
+					};
+				};
+			};
+		};
+	};
+};

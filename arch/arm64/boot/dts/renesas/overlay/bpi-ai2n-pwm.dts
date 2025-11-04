@@ -1,0 +1,15 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/soc/gpt@13010500";
+		__overlay__ {
+			status = "okay";
+
+			channel = "channel_A";
+		};	
+	};
+};

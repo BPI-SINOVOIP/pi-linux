@@ -1,0 +1,57 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/pinctrl/rzg2l-pinctrl.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/aliases";
+		__overlay__ {
+			i2c9 = &i2c_mux0;
+			i2c10 = &i2c_mux1;
+			i2c11 = &i2c_mux2;
+			i2c12 = &i2c_mux3;
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c0>;
+		__overlay__ {
+			status = "okay";
+
+			pca9545: i2c-mux@70 {
+				compatible = "nxp,pca9545";
+				reg = <0x70>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reset-gpios = <&pinctrl RZG2L_GPIO(7, 4) GPIO_ACTIVE_HIGH>;
+
+				i2c_mux0: i2c@0 {
+				    reg = <0>;
+				    #address-cells = <1>;
+				    #size-cells = <0>;
+				};
+
+				i2c_mux1: i2c@1 {
+				    reg = <1>;
+				    #address-cells = <1>;
+				    #size-cells = <0>;
+				};
+
+				i2c_mux2: i2c@2 {
+				    reg = <2>;
+				    #address-cells = <1>;
+				    #size-cells = <0>;
+				};
+
+				i2c_mux3: i2c@3 {
+				    reg = <3>;
+				    #address-cells = <1>;
+				    #size-cells = <0>;
+				};
+			};
+		};	
+	};
+};

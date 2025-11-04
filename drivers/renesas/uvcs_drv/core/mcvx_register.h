@@ -1,0 +1,735 @@
+/*************************************************************************/ /*
+ VCP core module
+
+ Copyright (C) 2015 - 2018 Renesas Electronics Corporation
+
+ License        Dual MIT/GPLv2
+
+ The contents of this file are subject to the MIT license as set out below.
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+ Alternatively, the contents of this file may be used under the terms of
+ the GNU General Public License Version 2 ("GPL") in which case the provisions
+ of GPL are applicable instead of those above.
+
+ If you wish to allow use of your version of this file only under the terms of
+ GPL, and not to allow others to use your version of this file under the terms
+ of the MIT license, indicate your decision by deleting the provisions above
+ and replace them with the notice and other provisions required by GPL as set
+ out in the file called "GPL-COPYING" included in this distribution. If you do
+ not delete the provisions above, a recipient may use your version of this file
+ under the terms of either the MIT license or GPL.
+
+ This License is also included in this distribution in the file called
+ "MIT-COPYING".
+
+ EXCEPT AS OTHERWISE STATED IN A NEGOTIATED AGREEMENT: (A) THE SOFTWARE IS
+ PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+ BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
+ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+ GPLv2:
+ If you wish to use this file under the terms of GPL, following terms are
+ effective.
+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 of the License.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/ /*************************************************************************/
+
+#ifndef	MCVX_REGISTER_H
+#define	MCVX_REGISTER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+#include "mcvx_types.h"
+
+/* VCID */
+#define MCVX_VCID						( 0x000055F4u )	/* "VPU" */
+
+/* VCP3 vlc_cmd */							
+#define	MCVX_CMD_VCP3_VLC_START			( 0x00000001u )
+#define	MCVX_CMD_VCP3_VLC_RESET_SOFT	( 0x00003600u )	/* reserved */
+#define	MCVX_CMD_VCP3_VLC_RESET_MODULE	( 0x00003b00u )
+
+/* VCP3 ce_cmd */							
+#define	MCVX_CMD_VCP3_CE_START			( 0x00000001u )
+#define MCVX_CMD_VCP3_FCV_START			( 0x00000010u )
+#define	MCVX_CMD_VCP3_CE_RESET_SOFT		( 0x00003600u )	/* reserved */
+#define	MCVX_CMD_VCP3_CE_RESET_MODULE	( 0x00003b00u )
+
+/* Belize vlc_cmd */							
+#define	MCVX_CMD_BELZ_VLC_START			( 0x00000001u )
+#define	MCVX_CMD_BELZ_VLC_RESET_SOFT	( 0x00000100u )
+#define	MCVX_CMD_BELZ_VLC_RESET_MODULE	( 0x00000200u )
+
+/* Belize vlc_status */
+#define MCVX_CMD_BELZ_STATUS_VLC_VC		( 0x00000100u )
+#define MCVX_CMD_BELZ_STATUS_VLC_VS		( 0x00000001u )
+
+/* Belize ce_cmd */							
+#define	MCVX_CMD_BELZ_CE_START			( 0x00000001u )
+#define	MCVX_CMD_BELZ_CE_RESET_SOFT		( 0x00003600u )
+#define	MCVX_CMD_BELZ_CE_RESET_MODULE	( 0x00003B00u )
+
+/* Belize ce_status */
+#define MCVX_CMD_BELZ_STATUS_CE_CC		( 0x00000100u )
+#define MCVX_CMD_BELZ_STATUS_CE_CS		( 0x00000001u )
+
+/* fcpc */							
+#define	MCVX_FCPC_RESET_SOFT			( 0x00000001u )
+#define	MCVX_FCPC_RESET_MODULE			( 0x00000010u )
+
+/* FCP_STA */
+#define	MCVX_FCPC_STA_ACT				( 0x00000001u )
+
+#define	MCVX_FCPC_IRP_LIT				( 0x0000000cu )
+#define	MCVX_FCPC_IRP_BIG				( 0x00000000u )
+
+/* register size */
+#define MCVX_REG_TABLE_SIZE				( 16u )
+
+#define MCVX_REGS_SINGLE				( 1u )
+#define MCVX_REGS_RES_CE				( 14u )
+#define MCVX_REGS_RES_VLC				( 8u )
+
+/* VCP3 VLC-module irq flag */
+#define	MCVX_IRQ_VCP3_VLC_END			( 0x00000001u )
+#define	MCVX_IRQ_VCP3_VLC_EDT			( 0x00000002u )
+#define	MCVX_IRQ_VCP3_VLC_TO			( 0x00000004u )
+#define	MCVX_IRQ_VCP3_VLC_ALL			( MCVX_IRQ_VCP3_VLC_END | MCVX_IRQ_VCP3_VLC_EDT | MCVX_IRQ_VCP3_VLC_TO )
+
+/* VCP3 CE-module irq flag (including FCV) */							
+#define	MCVX_IRQ_VCP3_CE_END			( 0x00000001u )
+#define	MCVX_IRQ_VCP3_CE_EDT			( 0x00000002u )
+#define	MCVX_IRQ_VCP3_CE_TO				( 0x00000004u )
+#define	MCVX_IRQ_VCP3_FCV_END			( 0x00000100u )
+#define	MCVX_IRQ_VCP3_CE_ALL			( MCVX_IRQ_VCP3_CE_END | MCVX_IRQ_VCP3_CE_EDT | MCVX_IRQ_VCP3_CE_TO | MCVX_IRQ_VCP3_FCV_END )
+
+/* Belize VLC-module irq flag */
+#define	MCVX_IRQ_BELZ_VLC_END			( 0x00000001u )
+#define	MCVX_IRQ_BELZ_VLC_EDT			( 0x00000002u )
+#define	MCVX_IRQ_BELZ_VLC_TO			( 0x00000004u )
+#define	MCVX_IRQ_BELZ_VLC_ALL			( MCVX_IRQ_BELZ_VLC_END | MCVX_IRQ_BELZ_VLC_EDT | MCVX_IRQ_BELZ_VLC_TO )
+
+/* Belize CE-module irq flag */							
+#define	MCVX_IRQ_BELZ_CE_END			( 0x00000001u )
+#define	MCVX_IRQ_BELZ_CE_EDT			( 0x00000002u )
+#define	MCVX_IRQ_BELZ_CE_TO				( 0x00000004u )
+#define	MCVX_IRQ_BELZ_CE_ALL			( MCVX_IRQ_BELZ_CE_END | MCVX_IRQ_BELZ_CE_EDT | MCVX_IRQ_BELZ_CE_TO )
+
+#define MCVX_NO_EVENT					( 0x00000000u )
+
+/* endian (128bit width) */								
+#define	MCVX_ENDIAN_0000			( 0x00u )	/* BIG */
+#define	MCVX_ENDIAN_0001			( 0x01u )
+#define	MCVX_ENDIAN_0010			( 0x02u )
+#define	MCVX_ENDIAN_0011			( 0x03u )
+#define	MCVX_ENDIAN_0100			( 0x04u )
+#define	MCVX_ENDIAN_0101			( 0x05u )
+#define	MCVX_ENDIAN_0110			( 0x06u )
+#define	MCVX_ENDIAN_0111			( 0x07u )
+#define	MCVX_ENDIAN_1000			( 0x08u )
+#define	MCVX_ENDIAN_1001			( 0x09u )
+#define	MCVX_ENDIAN_1010			( 0x0au )
+#define	MCVX_ENDIAN_1011			( 0x0bu )
+#define	MCVX_ENDIAN_1100			( 0x0cu )
+#define	MCVX_ENDIAN_1101			( 0x0du )
+#define	MCVX_ENDIAN_1110			( 0x0eu )
+#define	MCVX_ENDIAN_1111			( 0x0fu )	/* LIT */
+
+/* mask_bits */
+#define MCVX_M_00BIT 				( 0x00000000u )
+#define MCVX_M_01BIT 				( 0x00000001u )
+#define MCVX_M_02BIT 				( 0x00000003u )
+#define MCVX_M_03BIT 				( 0x00000007u )
+#define MCVX_M_04BIT 				( 0x0000000fu )
+#define MCVX_M_05BIT 				( 0x0000001fu )
+#define MCVX_M_06BIT 				( 0x0000003fu )
+#define MCVX_M_07BIT 				( 0x0000007fu )
+#define MCVX_M_08BIT 				( 0x000000ffu )
+#define MCVX_M_09BIT				( 0x000001ffu )
+#define MCVX_M_10BIT				( 0x000003ffu )
+#define MCVX_M_11BIT				( 0x000007ffu )
+#define MCVX_M_12BIT			 	( 0x00000fffu )
+#define MCVX_M_13BIT				( 0x00001fffu )
+#define MCVX_M_14BIT				( 0x00003fffu )
+#define MCVX_M_15BIT				( 0x00007fffu )
+#define MCVX_M_16BIT				( 0x0000ffffu )
+#define MCVX_M_17BIT				( 0x0001ffffu )
+#define MCVX_M_18BIT				( 0x0003ffffu )
+#define MCVX_M_19BIT				( 0x0007ffffu )
+#define MCVX_M_20BIT				( 0x000fffffu )
+#define MCVX_M_21BIT				( 0x001fffffu )
+#define MCVX_M_22BIT				( 0x003fffffu )
+#define MCVX_M_23BIT				( 0x007fffffu )
+#define MCVX_M_24BIT				( 0x00ffffffu )
+#define MCVX_M_25BIT				( 0x01ffffffu )
+#define MCVX_M_26BIT				( 0x03ffffffu )
+#define MCVX_M_27BIT				( 0x07ffffffu )
+#define MCVX_M_28BIT				( 0x0fffffffu )
+#define MCVX_M_29BIT				( 0x1fffffffu )
+#define MCVX_M_30BIT				( 0x3fffffffu )
+#define MCVX_M_31BIT				( 0x7fffffffu )
+#define MCVX_M_32BIT 				( 0xffffffffu )
+
+/* VCPLF/VCPL4 VLC register */
+typedef struct{							/*	OFFSET	*/
+	MCVX_REG	VP_VLC_VCRH;			/*	0000	*/
+	MCVX_REG	VP_VLC_VCRL;			/*	0004	*/
+	MCVX_REG	VP_VLC_CMD;				/*	0008	*/
+	MCVX_REG	VP_VLC_CTRL;			/*	000C	*/
+	MCVX_REG	VP_VLC_IRQ_ENB;			/*	0010	*/
+	MCVX_REG	VP_VLC_IRQ_STA;			/*	0014	*/
+	MCVX_REG	VP_VLC_CFG;				/*	0018	*/
+	MCVX_REG	VP_VLC_CLK_STOP;		/*	001C	*/
+	MCVX_REG	VP_VLC_STATUS;			/*	0020	*/
+	MCVX_REG	RESERVE_0024;			/*	0024	*/
+	MCVX_REG	VP_VLC_IND_WDHH;		/*	0028	*/
+	MCVX_REG	VP_VLC_IND_WDHL;		/*	002C	*/
+	MCVX_REG	VP_VLC_IND_WDLH;		/*	0030	*/
+	MCVX_REG	VP_VLC_IND_WDLL;		/*	0034	*/
+	MCVX_REG	VP_VLC_IND_WA;			/*	0038	*/
+	MCVX_REG	VP_VLC_IND_RA;			/*	003C	*/
+	MCVX_REG	VP_VLC_IND_RDHH;		/*	0040	*/
+	MCVX_REG	VP_VLC_IND_RDHL;		/*	0044	*/
+	MCVX_REG	VP_VLC_IND_RDLH;		/*	0048	*/
+	MCVX_REG	VP_VLC_IND_RDLL;		/*	004C	*/
+	MCVX_REG	VP_VLC_DCTRL;			/*	0050	*/
+	MCVX_REG	VP_VLC_DMON;			/*	0054	*/
+	MCVX_REG	RESERVE_0058;			/*	0058	*/
+	MCVX_REG	RESERVE_005C;			/*	005C	*/
+	MCVX_REG	VP_VLC_LIST_INIT;		/*	0060	*/
+	MCVX_REG	VP_VLC_LIST_EN;			/*	0064	*/
+	MCVX_REG	VP_VLC_LIST_LDEN;		/*	0068	*/
+	MCVX_REG	RESERVE_006C;			/*	006C	*/
+	MCVX_REG	RESERVE_0070;			/*	0070	*/
+	MCVX_REG	RESERVE_0074;			/*	0074	*/
+	MCVX_REG	RESERVE_0078;			/*	0078	*/
+	MCVX_REG	RESERVE_007C;			/*	007C	*/
+	MCVX_REG	RESERVE_0080;			/*	0080	*/
+	MCVX_REG	VP_VLC_PBAH;			/*	0084	*/
+	MCVX_REG	VP_VLC_PBAL;			/*	0088	*/
+	MCVX_REG	VP_VLC_EDT;				/*	008C	*/
+	MCVX_REG	RESERVE_0090;			/*	0090	*/
+	MCVX_REG	RESERVE_0094;			/*	0094	*/
+	MCVX_REG	RESERVE_0098;			/*	0098	*/
+	MCVX_REG	RESERVE_009C;			/*	009C	*/
+	MCVX_REG	VP_VLC_MB0H_RD;			/*	00A0	*/
+	MCVX_REG	VP_VLC_MB0L_RD;			/*	00A4	*/
+	MCVX_REG	RESERVE_00A8;			/*	00A8	*/
+	MCVX_REG	RESERVE_00AC;			/*	00AC	*/
+	MCVX_REG	VP_VLC_CNT;				/*	00B0	*/
+	MCVX_REG	VP_VLC_STEPPING;		/*	00B4	*/
+	MCVX_REG	RESERVE_00B8;			/*	00B8	*/
+	MCVX_REG	RESERVE_00BC;			/*	00BC	*/
+	MCVX_REG	RESERVE_00C0;			/*	00C0	*/
+	MCVX_REG	VP_VLC_TB;				/*	00C4	*/
+	MCVX_REG	VP_VLC_ERR0H;			/*	00C8	*/
+	MCVX_REG	VP_VLC_ERR0L;			/*	00CC	*/
+	MCVX_REG	VP_VLC_TB_IS0;			/*	00D0	*/
+	MCVX_REG	RESERVE_00D4;			/*	00D4	*/
+	MCVX_REG	VP_VLC_CODEC_INFO;		/*	00D8	*/
+	MCVX_REG	VP_VLC_ERR1H;			/*	00DC	*/
+	MCVX_REG	VP_VLC_ERR1L;			/*	00E0	*/
+	MCVX_REG	RESERVE_00E4;			/*	00E4	*/
+	MCVX_REG	RESERVE_00E8;			/*	00E8	*/
+	MCVX_REG	RESERVE_00EC;			/*	00EC	*/
+	MCVX_REG	RESERVE_00F0;			/*	00F0	*/
+	MCVX_REG	RESERVE_00F4;			/*	00F4	*/
+	MCVX_REG	RESERVE_00F8;			/*	00F8	*/
+	MCVX_REG	RESERVE_00FC;			/*	00FC	*/
+} MCVX_REG_VCP3_VLC_T;
+
+/* VCPLF/VCPL4 CE register */
+typedef struct{							/*	OFFSET	*/
+	MCVX_REG	VP_CE_VCRH;				/*	0200	*/
+	MCVX_REG	VP_CE_VCRL;				/*	0204	*/
+	MCVX_REG	VP_CE_CMD;				/*	0208	*/
+	MCVX_REG	VP_CE_CTRL;				/*	020C	*/
+	MCVX_REG	VP_CE_IRQ_ENB;			/*	0210	*/
+	MCVX_REG	VP_CE_IRQ_STA;			/*	0214	*/
+	MCVX_REG	RESERVE_0218;			/*	0218	*/
+	MCVX_REG	VP_CE_CLK_STOP;			/*	021C	*/
+	MCVX_REG	VP_CE_STATUS;			/*	0220	*/
+	MCVX_REG	VP_CE_DSTATUS;			/*	0224	*/
+	MCVX_REG	VP_CE_IND_WDHH;			/*	0228	*/
+	MCVX_REG	VP_CE_IND_WDHL;			/*	022C	*/
+	MCVX_REG	VP_CE_IND_WDLH;			/*	0230	*/
+	MCVX_REG	VP_CE_IND_WDLL;			/*	0234	*/
+	MCVX_REG	VP_CE_IND_WA;			/*	0238	*/
+	MCVX_REG	VP_CE_IND_RA;			/*	023C	*/
+	MCVX_REG	VP_CE_IND_RDHH;			/*	0240	*/
+	MCVX_REG	VP_CE_IND_RDHL;			/*	0244	*/
+	MCVX_REG	VP_CE_IND_RDLH;			/*	0248	*/
+	MCVX_REG	VP_CE_IND_RDLL;			/*	024C	*/
+	MCVX_REG	VP_CE_DCTRL;			/*	0250	*/
+	MCVX_REG	VP_CE_DMON;				/*	0254	*/
+	MCVX_REG	RESERVE_0258;			/*	0258	*/
+	MCVX_REG	VP_CE_USER_ID;			/*	025C	*/
+	MCVX_REG	RESERVE_0260;			/*	0260	*/
+	MCVX_REG	RESERVE_0264;			/*	0264	*/
+	MCVX_REG	RESERVE_0268;			/*	0268	*/
+	MCVX_REG	RESERVE_026C;			/*	026C	*/
+	MCVX_REG	RESERVE_0270;			/*	0270	*/
+	MCVX_REG	RESERVE_0274;			/*	0274	*/
+	MCVX_REG	VP_CE_REF_LOG;			/*	0278	*/
+	MCVX_REG	VP_CE_PBAH;				/*	027C	*/
+	MCVX_REG	VP_CE_PBAL;				/*	0280	*/
+	MCVX_REG	RESERVE_0284;			/*	0284	*/
+	MCVX_REG	RESERVE_0288;			/*	0288	*/
+	MCVX_REG	VP_CE_EDT;				/*	028C	*/
+	MCVX_REG	VP_CE_PAR0H_RD;			/*	0290	*/
+	MCVX_REG	VP_CE_PAR0L_RD;			/*	0294	*/
+	MCVX_REG	VP_CE_PAR1H_RD;			/*	0298	*/
+	MCVX_REG	VP_CE_PAR1L_RD;			/*	029C	*/
+	MCVX_REG	VP_CE_MB0H_RD;			/*	02A0	*/
+	MCVX_REG	VP_CE_MB0L_RD;			/*	02A4	*/
+	MCVX_REG	RESERVE_02A8;			/*	02A8	*/
+	MCVX_REG	RESERVE_02AC;			/*	02AC	*/
+	MCVX_REG	VP_CE_CNT;				/*	02B0	*/
+	MCVX_REG	VP_CE_STEPPING;			/*	02B4	*/
+	MCVX_REG	VP_CE_PAR2H_RD;			/*	02B8	*/
+	MCVX_REG	VP_CE_PAR2L_RD;			/*	02BC	*/
+	MCVX_REG	VP_CE_ERRH;				/*	02C0	*/
+	MCVX_REG	VP_CE_ERRL;				/*	02C4	*/
+	MCVX_REG	VP_CE_TB_IS0;			/*	02C8	*/
+	MCVX_REG	RESERVE_02CC;			/*	02CC	*/
+	MCVX_REG	VP_CE_INTRA_NUM;		/*	02D0	*/
+	MCVX_REG	RESERVE_02D4;			/*	02D4	*/
+	MCVX_REG	VP_CE_I16X16_NUM;		/*	02D8	*/
+	MCVX_REG	VP_CE_INXN_NUM;			/*	02DC	*/
+	MCVX_REG	RESERVE_02E0;			/*	02E0	*/
+	MCVX_REG	VP_CE_16X16_NUM;		/*	02E4	*/
+	MCVX_REG	VP_CE_16X8_NUM;			/*	02E8	*/
+	MCVX_REG	VP_CE_8X16_NUM;			/*	02EC	*/
+	MCVX_REG	RESERVE_02F0;			/*	02F0	*/
+	MCVX_REG	VP_CE_SKIP_NUM;			/*	02F4	*/
+	MCVX_REG	VP_CE_FWBK_NUM;			/*	02F8	*/
+	MCVX_REG	VP_CE_BWBK_NUM;			/*	02FC	*/
+	MCVX_REG	RESERVE_0300;			/*	0300	*/
+	MCVX_REG	VP_CE_FRMMB_NUM;		/*	0304	*/
+	MCVX_REG	RESERVE_0308;			/*	0308	*/
+	MCVX_REG	RESERVE_030C;			/*	030C	*/
+	MCVX_REG	VP_CE_QP_SUM;			/*	0310	*/
+	MCVX_REG	VP_CE_QPO_SUM;			/*	0314	*/
+	MCVX_REG	VP_CE_ACP8_SUM;			/*	0318	*/
+	MCVX_REG	VP_CE_DHVP4_SUM;		/*	031C	*/
+	MCVX_REG	RESERVE_0320;			/*	0320	*/
+	MCVX_REG	RESERVE_0324;			/*	0324	*/
+	MCVX_REG	VP_CE_SAD0_SUM;			/*	0328	*/
+	MCVX_REG	VP_CE_SAD1_SUM;			/*	032C	*/
+	MCVX_REG	VP_CE_SAD2_SUM;			/*	0330	*/
+	MCVX_REG	VP_CE_QS_SUM;			/*	0334	*/
+	MCVX_REG	VP_CE_BOCJ;				/*	0338	*/
+	MCVX_REG	RESERVE_033C;			/*	033C	*/
+	MCVX_REG	RESERVE_0340;			/*	0340	*/
+	MCVX_REG	RESERVE_0344;			/*	0344	*/
+	MCVX_REG	RESERVE_0348;			/*	0348	*/
+	MCVX_REG	RESERVE_034C;			/*	034C	*/
+	MCVX_REG	RESERVE_0350;			/*	0350	*/
+	MCVX_REG	RESERVE_0354;			/*	0354	*/
+	MCVX_REG	RESERVE_0358;			/*	0358	*/
+	MCVX_REG	RESERVE_035C;			/*	035C	*/
+	MCVX_REG	VP_CE_LIST_INIT;		/*	0360	*/
+	MCVX_REG	VP_CE_LIST_EN;			/*	0364	*/
+	MCVX_REG	VP_CE_LIST_LDEN;		/*	0368	*/
+	MCVX_REG	RESERVE_036C;			/*	036C	*/
+	MCVX_REG	RESERVE_0370;			/*	0370	*/
+	MCVX_REG	RESERVE_0374;			/*	0374	*/
+	MCVX_REG	RESERVE_0378;			/*	0378	*/
+	MCVX_REG	RESERVE_037C;			/*	037C	*/
+	MCVX_REG	VP_CE_FCV_PICSIZE;		/*	0380	*/
+	MCVX_REG	VP_CE_FCV_INCTRL;		/*	0384	*/
+	MCVX_REG	VP_CE_FCV_OUTCTRL;		/*	0388	*/
+	MCVX_REG	VP_CE_FCV_DCHR_YR;		/*	038C	*/
+	MCVX_REG	VP_CE_FCV_DCHR_CR;		/*	0390	*/
+	MCVX_REG	VP_CE_FCV_DCHR_YW;		/*	0394	*/
+	MCVX_REG	VP_CE_FCV_DCHR_CW;		/*	0398	*/
+	MCVX_REG	VP_CE_FCV_BA_YR;		/*	039C	*/
+	MCVX_REG	VP_CE_FCV_BA_CR;		/*	03A0	*/
+	MCVX_REG	VP_CE_FCV_BA_YW;		/*	03A4	*/
+	MCVX_REG	VP_CE_FCV_BA_C0W;		/*	03A8	*/
+	MCVX_REG	VP_CE_FCV_BA_C1W;		/*	03AC	*/
+	MCVX_REG	VP_CE_FCV_STATUS;		/*	03B0	*/
+	MCVX_REG	VP_CE_FCV_BA_YRH;		/*	03B4	*/
+	MCVX_REG	VP_CE_FCV_BA_CRH;		/*	03B8	*/
+	MCVX_REG	VP_CE_FCV_BA_YWH;		/*	03BC	*/
+	MCVX_REG	VP_CE_FCV_BA_C0WH;		/*	03C0	*/
+	MCVX_REG	RESERVE_03C4;			/*	03C4	*/
+	MCVX_REG	RESERVE_03C8;			/*	03C8	*/
+	MCVX_REG	RESERVE_03CC;			/*	03CC	*/
+	MCVX_REG	RESERVE_03D0;			/*	03D0	*/
+	MCVX_REG	RESERVE_03D4;			/*	03D4	*/
+	MCVX_REG	RESERVE_03D8;			/*	03D8	*/
+	MCVX_REG	RESERVE_03DC;			/*	03DC	*/
+	MCVX_REG	RESERVE_03E0;			/*	03E0	*/
+	MCVX_REG	RESERVE_03E4;			/*	03E4	*/
+	MCVX_REG	RESERVE_03E8;			/*	03E8	*/
+	MCVX_REG	RESERVE_03EC;			/*	03EC	*/
+	MCVX_REG	RESERVE_03F0;			/*	03F0	*/
+	MCVX_REG	RESERVE_03F4;			/*	03F4	*/
+	MCVX_REG	RESERVE_03F8;			/*	03F8	*/
+	MCVX_REG	RESERVE_03FC;			/*	03FC	*/
+} MCVX_REG_VCP3_CE_T;
+
+/* Belize VLC register */
+typedef struct{							/*	OFFSET	*/
+	MCVX_REG	VP_VLC_VCRH;			/*	0000	*/
+	MCVX_REG	VP_VLC_VCRL;			/*	0004	*/
+	MCVX_REG	VP_VLC_CMD;				/*	0008	*/
+	MCVX_REG	RESERVE_000C;			/*	000C	*/
+	MCVX_REG	VP_VLC_IRQ_ENB;			/*	0010	*/
+	MCVX_REG	VP_VLC_IRQ_STA;			/*	0014	*/
+	MCVX_REG	RESERVE_0018;			/*	0018	*/
+	MCVX_REG	VP_VLC_CLK_STOP;		/*	001C	*/
+	MCVX_REG	VP_VLC_STATUS;			/*	0020	*/
+	MCVX_REG	RESERVE_0024;			/*	0024	*/
+	MCVX_REG	RESERVE_0028;			/*	0028	*/
+	MCVX_REG	RESERVE_002C;			/*	002C	*/
+	MCVX_REG	RESERVE_0030;			/*	0030	*/
+	MCVX_REG	RESERVE_0034;			/*	0034	*/
+	MCVX_REG	RESERVE_0038;			/*	0038	*/
+	MCVX_REG	RESERVE_003C;			/*	003C	*/
+	MCVX_REG	RESERVE_0040;			/*	0040	*/
+	MCVX_REG	VP_VLC_DCTRL;			/*	0044	*/
+	MCVX_REG	RESERVE_0048;			/*	0048	*/
+	MCVX_REG	VP_VLC_STEPPING;		/*	004C	*/
+	MCVX_REG	RESERVE_0050;			/*	0050	*/
+	MCVX_REG	RESERVE_0054;			/*	0054	*/
+	MCVX_REG	RESERVE_0058;			/*	0058	*/
+	MCVX_REG	RESERVE_005C;			/*	005C	*/
+	MCVX_REG	VP_VLC_ERR0H;			/*	0060	*/
+	MCVX_REG	VP_VLC_ERR0L;			/*	0064	*/
+	MCVX_REG	VP_VLC_ERR1H;			/*	0068	*/
+	MCVX_REG	VP_VLC_ERR1L;			/*	006C	*/
+	MCVX_REG	RESERVE_0070;			/*	0070	*/
+	MCVX_REG	RESERVE_0074;			/*	0074	*/
+	MCVX_REG	RESERVE_0078;			/*	0078	*/
+	MCVX_REG	RESERVE_007C;			/*	007C	*/
+	MCVX_REG	RESERVE_0080;			/*	0080	*/
+	MCVX_REG	VP_VLC_PBAH;			/*	0084	*/
+	MCVX_REG	VP_VLC_PBAL;			/*	0088	*/
+	MCVX_REG	VP_VLC_EDT;				/*	008C	*/
+	MCVX_REG	VP_VLC_CYCLE_CNT;		/*	0090	*/
+	MCVX_REG	RESERVE_0094;			/*	0094	*/
+	MCVX_REG	RESERVE_0098;			/*	0098	*/
+	MCVX_REG	RESERVE_009C;			/*	009C	*/
+	MCVX_REG	VP_VLC_PSTAT;			/*	00A0	*/
+	MCVX_REG	RESERVE_00A4;			/*	00A4	*/
+	MCVX_REG	RESERVE_00A8;			/*	00A8	*/
+	MCVX_REG	RESERVE_00AC;			/*	00AC	*/
+	MCVX_REG	RESERVE_00B0;			/*	00B0	*/
+	MCVX_REG	RESERVE_00B4;			/*	00B4	*/
+	MCVX_REG	RESERVE_00B8;			/*	00B8	*/
+	MCVX_REG	RESERVE_00BC;			/*	00BC	*/
+	MCVX_REG	RESERVE_00C0;			/*	00C0	*/
+	MCVX_REG	VP_VLC_TB;				/*	00C4	*/
+	MCVX_REG	RESERVE_00C8;			/*	00C8	*/
+	MCVX_REG	RESERVE_00CC;			/*	00CC	*/
+	MCVX_REG	VP_VLC_TB_IS0;			/*	00D0	*/
+	MCVX_REG	VP_VLC_TB_IS1;			/*	00D4	*/
+	MCVX_REG	RESERVE_00D8;			/*	00D8	*/
+	MCVX_REG	RESERVE_00DC;			/*	00DC	*/
+	MCVX_REG	RESERVE_00E0;			/*	00E0	*/
+	MCVX_REG	RESERVE_00E4;			/*	00E4	*/
+	MCVX_REG	RESERVE_00E8;			/*	00E8	*/
+	MCVX_REG	RESERVE_00EC;			/*	00EC	*/
+	MCVX_REG	RESERVE_00F0;			/*	00F0	*/
+	MCVX_REG	RESERVE_00F4;			/*	00F4	*/
+	MCVX_REG	RESERVE_00F8;			/*	00F8	*/
+	MCVX_REG	RESERVE_00FC;			/*	00FC	*/
+} MCVX_REG_BELZ_VLC_T;
+
+/* Belize CE register */
+typedef struct{							/*	OFFSET	*/
+	MCVX_REG	VP_CE_VCRH;				/*	0200	*/
+	MCVX_REG	VP_CE_VCRL;				/*	0204	*/
+	MCVX_REG	VP_CE_CMD;				/*	0208	*/
+	MCVX_REG	VP_CE_CTRL;				/*	020C	*/
+	MCVX_REG	VP_CE_IRQ_ENB;			/*	0210	*/
+	MCVX_REG	VP_CE_IRQ_STA;			/*	0214	*/
+	MCVX_REG	RESERVE_0218;			/*	0218	*/
+	MCVX_REG	VP_CE_CLK_STOP;			/*	021C	*/
+	MCVX_REG	VP_CE_STATUS;			/*	0220	*/
+	MCVX_REG	RESERVE_0224;			/*	0224	*/
+	MCVX_REG	RESERVE_0228;			/*	0228	*/
+	MCVX_REG	RESERVE_022C;			/*	022C	*/
+	MCVX_REG	RESERVE_0230;			/*	0230	*/
+	MCVX_REG	RESERVE_0234;			/*	0234	*/
+	MCVX_REG	RESERVE_0238;			/*	0238	*/
+	MCVX_REG	RESERVE_023C;			/*	023C	*/
+	MCVX_REG	RESERVE_0240;			/*	0240	*/
+	MCVX_REG	RESERVE_0244;			/*	0244	*/
+	MCVX_REG	VP_CE_CFG;				/*	0248	*/
+	MCVX_REG	VP_CE_STEPPING;			/*	024C	*/
+	MCVX_REG	RESERVE_0250;			/*	0250	*/
+	MCVX_REG	RESERVE_0254;			/*	0254	*/
+	MCVX_REG	RESERVE_0258;			/*	0258	*/
+	MCVX_REG	VP_CE_USER_ID;			/*	025C	*/
+	MCVX_REG	RESERVE_0260;			/*	0260	*/
+	MCVX_REG	RESERVE_0264;			/*	0264	*/
+	MCVX_REG	RESERVE_0268;			/*	0268	*/
+	MCVX_REG	RESERVE_026C;			/*	026C	*/
+	MCVX_REG	RESERVE_0270;			/*	0270	*/
+	MCVX_REG	RESERVE_0274;			/*	0274	*/
+	MCVX_REG	VP_CE_REF_LOG;			/*	0278	*/
+	MCVX_REG	VP_CE_PBA0H;			/*	027C	*/
+	MCVX_REG	VP_CE_PBA0L;			/*	0280	*/
+	MCVX_REG	RESERVE_0284;			/*	0284	*/
+	MCVX_REG	RESERVE_0288;			/*	0288	*/
+	MCVX_REG	RESERVE_028C;			/*	028C	*/
+	MCVX_REG	RESERVE_0290;			/*	0290	*/
+	MCVX_REG	RESERVE_0294;			/*	0294	*/
+	MCVX_REG	RESERVE_0298;			/*	0298	*/
+	MCVX_REG	VP_CE_EDT;				/*	029C	*/
+	MCVX_REG	VP_CE_CYCLE_CNT;		/*	02A0	*/
+	MCVX_REG	VP_CE_ERROR;			/*	02A4	*/
+	MCVX_REG	VP_CE_EPOS;				/*	02A8	*/
+	MCVX_REG	RESERVE_02AC;			/*	02AC	*/
+	MCVX_REG	RESERVE_02B0;			/*	02B0	*/
+	MCVX_REG	RESERVE_02B4;			/*	02B4	*/
+	MCVX_REG	RESERVE_02B8;			/*	02B8	*/
+	MCVX_REG	RESERVE_02BC;			/*	02BC	*/
+	MCVX_REG	RESERVE_02C0;			/*	02C0	*/
+	MCVX_REG	RESERVE_02C4;			/*	02C4	*/
+	MCVX_REG	RESERVE_02C8;			/*	02C8	*/
+	MCVX_REG	RESERVE_02CC;			/*	02CC	*/
+	MCVX_REG	VP_CE_TB_IS0;			/*	02D0	*/
+	MCVX_REG	VP_CE_TB_IS1;			/*	02D4	*/
+	MCVX_REG	RESERVE_02D8;			/*	02D8	*/
+	MCVX_REG	RESERVE_02DC;			/*	02DC	*/
+	MCVX_REG	RESERVE_02E0;			/*	02E0	*/
+	MCVX_REG	RESERVE_02E4;			/*	02E4	*/
+	MCVX_REG	RESERVE_02E8;			/*	02E8	*/
+	MCVX_REG	RESERVE_02EC;			/*	02EC	*/
+	MCVX_REG	RESERVE_02F0;			/*	02F0	*/
+	MCVX_REG	RESERVE_02F4;			/*	02F4	*/
+	MCVX_REG	RESERVE_02F8;			/*	02F8	*/
+	MCVX_REG	RESERVE_02FC;			/*	02FC	*/
+	MCVX_REG	RESERVE_0300;			/*	0300	*/
+	MCVX_REG	RESERVE_0304;			/*	0304	*/
+	MCVX_REG	RESERVE_0308;			/*	0308	*/
+	MCVX_REG	RESERVE_030C;			/*	030C	*/
+	MCVX_REG	VP_CE_QP_SUM;			/*	0310	*/
+	MCVX_REG	VP_CE_QP_MINMAX;		/*	0314	*/
+	MCVX_REG	VP_CE_ACT_SUM;			/*	0318	*/
+	MCVX_REG	VP_CE_ACT_MINMAX;		/*	031C	*/
+	MCVX_REG	VP_CE_COST0_SUM;		/*	0320	*/
+	MCVX_REG	VP_CE_COST1_SUM;		/*	0324	*/
+	MCVX_REG	VP_CE_COST2_SUM;		/*	0328	*/
+	MCVX_REG	RESERVE_032C;			/*	032C	*/
+	MCVX_REG	VP_CE_BOCJ;				/*	0330	*/
+	MCVX_REG	RESERVE_0334;			/*	0334	*/
+	MCVX_REG	RESERVE_0338;			/*	0338	*/
+	MCVX_REG	RESERVE_033C;			/*	033C	*/
+	MCVX_REG	RESERVE_0340;			/*	0340	*/
+	MCVX_REG	RESERVE_0344;			/*	0344	*/
+	MCVX_REG	RESERVE_0348;			/*	0348	*/
+	MCVX_REG	RESERVE_034C;			/*	034C	*/
+	MCVX_REG	RESERVE_0350;			/*	0350	*/
+	MCVX_REG	RESERVE_0354;			/*	0354	*/
+	MCVX_REG	RESERVE_0358;			/*	0358	*/
+	MCVX_REG	RESERVE_035C;			/*	035C	*/
+	MCVX_REG	RESERVE_0360;			/*	0360	*/
+	MCVX_REG	RESERVE_0364;			/*	0364	*/
+	MCVX_REG	RESERVE_0368;			/*	0368	*/
+	MCVX_REG	RESERVE_036C;			/*	036C	*/
+	MCVX_REG	RESERVE_0370;			/*	0370	*/
+	MCVX_REG	RESERVE_0374;			/*	0374	*/
+	MCVX_REG	RESERVE_0378;			/*	0378	*/
+	MCVX_REG	RESERVE_037C;			/*	037C	*/
+	MCVX_REG	RESERVE_0380;			/*	0380	*/
+	MCVX_REG	RESERVE_0384;			/*	0384	*/
+	MCVX_REG	RESERVE_0388;			/*	0388	*/
+	MCVX_REG	RESERVE_038C;			/*	038C	*/
+	MCVX_REG	RESERVE_0390;			/*	0390	*/
+	MCVX_REG	RESERVE_0394;			/*	0394	*/
+	MCVX_REG	RESERVE_0398;			/*	0398	*/
+	MCVX_REG	RESERVE_039C;			/*	039C	*/
+	MCVX_REG	RESERVE_03A0;			/*	03A0	*/
+	MCVX_REG	RESERVE_03A4;			/*	03A4	*/
+	MCVX_REG	RESERVE_03A8;			/*	03A8	*/
+	MCVX_REG	RESERVE_03AC;			/*	03AC	*/
+	MCVX_REG	RESERVE_03B0;			/*	03B0	*/
+	MCVX_REG	RESERVE_03B4;			/*	03B4	*/
+	MCVX_REG	RESERVE_03B8;			/*	03B8	*/
+	MCVX_REG	RESERVE_03BC;			/*	03BC	*/
+	MCVX_REG	RESERVE_03C0;			/*	03C0	*/
+	MCVX_REG	RESERVE_03C4;			/*	03C4	*/
+	MCVX_REG	RESERVE_03C8;			/*	03C8	*/
+	MCVX_REG	RESERVE_03CC;			/*	03CC	*/
+	MCVX_REG	RESERVE_03D0;			/*	03D0	*/
+	MCVX_REG	RESERVE_03D4;			/*	03D4	*/
+	MCVX_REG	RESERVE_03D8;			/*	03D8	*/
+	MCVX_REG	RESERVE_03DC;			/*	03DC	*/
+	MCVX_REG	RESERVE_03E0;			/*	03E0	*/
+	MCVX_REG	RESERVE_03E4;			/*	03E4	*/
+	MCVX_REG	RESERVE_03E8;			/*	03E8	*/
+	MCVX_REG	RESERVE_03EC;			/*	03EC	*/
+	MCVX_REG	RESERVE_03F0;			/*	03F0	*/
+	MCVX_REG	RESERVE_03F4;			/*	03F4	*/
+	MCVX_REG	RESERVE_03F8;			/*	03F8	*/
+	MCVX_REG	RESERVE_03FC;			/*	03FC	*/
+} MCVX_REG_BELZ_CE_T;
+
+/* FCPC register */
+typedef struct{							/*	OFFSET	*/
+	MCVX_REG	FCP_VCR;				/*	0000	*/
+	MCVX_REG	FCP_CFG0;				/*	0004	*/
+	MCVX_REG	FCP_CFG1;				/*	0008	*/
+	MCVX_REG	FCP_VID;				/*	000C	*/
+	MCVX_REG	FCP_RST;				/*	0010	*/
+	MCVX_REG	RESERVE_0014;			/*	0014	*/
+	MCVX_REG	FCP_STA;				/*	0018	*/
+	MCVX_REG	FCP_ASTA;				/*	001C	*/
+	MCVX_REG	FCP_CACHE_CTRL;			/*	0020	*/
+	MCVX_REG	FCP_CACHE_STA0;			/*	0024	*/
+	MCVX_REG	FCP_CACHE_STA1;			/*	0028	*/
+	MCVX_REG	RESERVE_002C;			/*	002C	*/
+	MCVX_REG	RESERVE_0030;			/*	0030	*/
+	MCVX_REG	RESERVE_0034;			/*	0034	*/
+	MCVX_REG	RESERVE_0038;			/*	0038	*/
+	MCVX_REG	RESERVE_003C;			/*	003C	*/
+	MCVX_REG	FCP_FCLCMP_CTRL;		/*	0040	*/
+	MCVX_REG	FCP_FCLCMP_STA;			/*	0044	*/
+	MCVX_REG	RESERVE_0048;			/*	0048	*/
+	MCVX_REG	RESERVE_004C;			/*	004C	*/
+	MCVX_REG	FCP_FCLDCM_CTRL;		/*	0050	*/
+	MCVX_REG	FCP_FCLDCM_STA0;		/*	0054	*/
+	MCVX_REG	FCP_FCLDCM_STA1;		/*	0058	*/
+	MCVX_REG	RESERVE_005C;			/*	005C	*/
+	MCVX_REG	RESERVE_0060;			/*	0060	*/
+	MCVX_REG	RESERVE_0064;			/*	0064	*/
+	MCVX_REG	RESERVE_0068;			/*	0068	*/
+	MCVX_REG	RESERVE_006C;			/*	006C	*/
+	MCVX_REG	RESERVE_0070;			/*	0070	*/
+	MCVX_REG	RESERVE_0074;			/*	0074	*/
+	MCVX_REG	RESERVE_0078;			/*	0078	*/
+	MCVX_REG	RESERVE_007C;			/*	007C	*/
+	MCVX_REG	FCP_INIT_ENDIAN;		/*	0080	*/
+	MCVX_REG	RESERVE_0084;			/*	0084	*/
+	MCVX_REG	RESERVE_0088;			/*	0088	*/
+	MCVX_REG	RESERVE_008C;			/*	008C	*/
+	MCVX_REG	RESERVE_0090;			/*	0090	*/
+	MCVX_REG	RESERVE_0094;			/*	0094	*/
+	MCVX_REG	RESERVE_0098;			/*	0098	*/
+	MCVX_REG	RESERVE_009C;			/*	009C	*/
+	MCVX_REG	RESERVE_00A0;			/*	00A0	*/
+	MCVX_REG	RESERVE_00A4;			/*	00A4	*/
+	MCVX_REG	RESERVE_00A8;			/*	00A8	*/
+	MCVX_REG	RESERVE_00AC;			/*	00AC	*/
+	MCVX_REG	RESERVE_00B0;			/*	00B0	*/
+	MCVX_REG	RESERVE_00B4;			/*	00B4	*/
+	MCVX_REG	RESERVE_00B8;			/*	00B8	*/
+	MCVX_REG	RESERVE_00BC;			/*	00BC	*/
+	MCVX_REG	RESERVE_00C0;			/*	00C0	*/
+	MCVX_REG	RESERVE_00C4;			/*	00C4	*/
+	MCVX_REG	RESERVE_00C8;			/*	00C8	*/
+	MCVX_REG	RESERVE_00CC;			/*	00CC	*/
+	MCVX_REG	RESERVE_00D0;			/*	00D0	*/
+	MCVX_REG	RESERVE_00D4;			/*	00D4	*/
+	MCVX_REG	RESERVE_00D8;			/*	00D8	*/
+	MCVX_REG	RESERVE_00DC;			/*	00DC	*/
+	MCVX_REG	RESERVE_00E0;			/*	00E0	*/
+	MCVX_REG	RESERVE_00E4;			/*	00E4	*/
+	MCVX_REG	RESERVE_00E8;			/*	00E8	*/
+	MCVX_REG	RESERVE_00EC;			/*	00EC	*/
+	MCVX_REG	RESERVE_00F0;			/*	00F0	*/
+	MCVX_REG	RESERVE_00F4;			/*	00F4	*/
+	MCVX_REG	RESERVE_00F8;			/*	00F8	*/
+	MCVX_REG	RESERVE_00FC;			/*	00FC	*/
+	MCVX_REG	RESERVE_0100;			/*	0100	*/
+	MCVX_REG	RESERVE_0104;			/*	0104	*/
+	MCVX_REG	RESERVE_0108;			/*	0108	*/
+	MCVX_REG	RESERVE_010C;			/*	010C	*/
+	MCVX_REG	RESERVE_0110;			/*	0110	*/
+	MCVX_REG	RESERVE_0114;			/*	0114	*/
+	MCVX_REG	RESERVE_0118;			/*	0118	*/
+	MCVX_REG	RESERVE_011C;			/*	011C	*/
+	MCVX_REG	RESERVE_0120;			/*	0120	*/
+	MCVX_REG	RESERVE_0124;			/*	0124	*/
+	MCVX_REG	RESERVE_0128;			/*	0128	*/
+	MCVX_REG	RESERVE_012C;			/*	012C	*/
+	MCVX_REG	RESERVE_0130;			/*	0130	*/
+	MCVX_REG	RESERVE_0134;			/*	0134	*/
+	MCVX_REG	RESERVE_0138;			/*	0138	*/
+	MCVX_REG	RESERVE_013C;			/*	013C	*/
+	MCVX_REG	RESERVE_0140;			/*	0140	*/
+	MCVX_REG	RESERVE_0144;			/*	0144	*/
+	MCVX_REG	RESERVE_0148;			/*	0148	*/
+	MCVX_REG	RESERVE_014C;			/*	014C	*/
+	MCVX_REG	RESERVE_0150;			/*	0150	*/
+	MCVX_REG	RESERVE_0154;			/*	0154	*/
+	MCVX_REG	RESERVE_0158;			/*	0158	*/
+	MCVX_REG	RESERVE_015C;			/*	015C	*/
+	MCVX_REG	RESERVE_0160;			/*	0160	*/
+	MCVX_REG	RESERVE_0164;			/*	0164	*/
+	MCVX_REG	RESERVE_0168;			/*	0168	*/
+	MCVX_REG	RESERVE_016C;			/*	016C	*/
+	MCVX_REG	RESERVE_0170;			/*	0170	*/
+	MCVX_REG	RESERVE_0174;			/*	0174	*/
+	MCVX_REG	RESERVE_0178;			/*	0178	*/
+	MCVX_REG	RESERVE_017C;			/*	017C	*/
+	MCVX_REG	RESERVE_0180;			/*	0180	*/
+	MCVX_REG	RESERVE_0184;			/*	0184	*/
+	MCVX_REG	RESERVE_0188;			/*	0188	*/
+	MCVX_REG	RESERVE_018C;			/*	018C	*/
+	MCVX_REG	RESERVE_0190;			/*	0190	*/
+	MCVX_REG	RESERVE_0194;			/*	0194	*/
+	MCVX_REG	RESERVE_0198;			/*	0198	*/
+	MCVX_REG	RESERVE_019C;			/*	019C	*/
+	MCVX_REG	RESERVE_01A0;			/*	01A0	*/
+	MCVX_REG	RESERVE_01A4;			/*	01A4	*/
+	MCVX_REG	RESERVE_01A8;			/*	01A8	*/
+	MCVX_REG	RESERVE_01AC;			/*	01AC	*/
+	MCVX_REG	RESERVE_01B0;			/*	01B0	*/
+	MCVX_REG	RESERVE_01B4;			/*	01B4	*/
+	MCVX_REG	RESERVE_01B8;			/*	01B8	*/
+	MCVX_REG	RESERVE_01BC;			/*	01BC	*/
+	MCVX_REG	RESERVE_01C0;			/*	01C0	*/
+	MCVX_REG	RESERVE_01C4;			/*	01C4	*/
+	MCVX_REG	RESERVE_01C8;			/*	01C8	*/
+	MCVX_REG	RESERVE_01CC;			/*	01CC	*/
+	MCVX_REG	RESERVE_01D0;			/*	01D0	*/
+	MCVX_REG	RESERVE_01D4;			/*	01D4	*/
+	MCVX_REG	RESERVE_01D8;			/*	01D8	*/
+	MCVX_REG	RESERVE_01DC;			/*	01DC	*/
+	MCVX_REG	RESERVE_01E0;			/*	01E0	*/
+	MCVX_REG	RESERVE_01E4;			/*	01E4	*/
+	MCVX_REG	RESERVE_01E8;			/*	01E8	*/
+	MCVX_REG	RESERVE_01EC;			/*	01EC	*/
+	MCVX_REG	RESERVE_01F0;			/*	01F0	*/
+	MCVX_REG	RESERVE_01F4;			/*	01F4	*/
+	MCVX_REG	RESERVE_01F8;			/*	01F8	*/
+	MCVX_REG	RESERVE_01FC;			/*	01FC	*/
+} MCVX_REG_FCPC_T;
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif  /* MCVX_REGISTER_H */

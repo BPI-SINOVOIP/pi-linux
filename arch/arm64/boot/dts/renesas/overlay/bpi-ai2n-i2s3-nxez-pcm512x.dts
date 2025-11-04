@@ -1,0 +1,48 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "renesas,r9a09g056";
+
+	fragment@0 {
+		target-path = "/aliases";
+		__overlay__ {
+			i2c1 = "/soc/i2c@14400800";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/soc/i2c@14400800";
+		__overlay__ {
+			status = "okay";
+
+			pcm5122: pcm5122@4d {
+				compatible = "ti,pcm5122";
+				reg = <0x4d>;
+				#sound-dai-cells = <0>;
+				status = "okay";
+			};
+		};	
+	};
+
+	fragment@2 {
+		target = <&snd_rzv2n>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&codec_dai>;
+		__overlay__ {
+			sound-dai = <&pcm5122>;
+		};
+	};
+
+	fragment@4 {
+		target = <&rcar_sound>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};
